@@ -42,7 +42,6 @@ ai/env/
 ai/notebooks/.ipynb_checkpoints/
 ai/data/
 
-# ��뷮 �� ����
 ai/**/*.h5
 ai/**/*.pkl
 ai/**/*.ckpt
