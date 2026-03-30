@@ -1,0 +1,48 @@
+# =================================================================
+# [Common / OS / IDE]
+# =================================================================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =================================================================
+# [Android Part]
+# =================================================================
+android/local.properties
+android/.gradle/
+android/build/
+android/captures/
+android/**/generated/
+android/signing/
+
+# =================================================================
+# [Backend Part]
+# =================================================================
+backend/**/target/
+backend/**/build/
+backend/**/*.class
+backend/**/*.log
+backend/**/.factorypath
+
+# =================================================================
+# [AI Part]
+# =================================================================
+ai/**/__pycache__/
+ai/**/*.pyc
+ai/**/*.pyo
+ai/**/*.pyd
+ai/.pytest_cache/
+ai/venv/
+ai/env/
+ai/notebooks/.ipynb_checkpoints/
+ai/data/
+
+# ��뷮 �� ����
+ai/**/*.h5
+ai/**/*.pkl
+ai/**/*.ckpt
