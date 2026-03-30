@@ -3,45 +3,34 @@ package com.han.battery
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.*
+import com.han.battery.ui.dashboard.DashboardScreen
+import com.han.battery.ui.landing.LandingScreen
 import com.han.battery.ui.theme.BatteryTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
         setContent {
             BatteryTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
+
+                if (deviceInfo == null) {
+                    LandingScreen(
+                        onStart = { info ->
+                            deviceInfo = info
+                        }
+                    )
+                } else {
+                    DashboardScreen(
+                        device = deviceInfo!!,
+                        onBack = {
+                            deviceInfo = null
+                        }
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    BatteryTheme {
-        Greeting("Android")
     }
 }
