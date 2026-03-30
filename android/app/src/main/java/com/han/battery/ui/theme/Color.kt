@@ -1,4 +1,5 @@
 package com.han.battery.ui.theme
+// 앱 전체에서 사용하는 색상 팔레트 정의 (Blue, Slate 등)
 
 import androidx.compose.ui.graphics.Color
 

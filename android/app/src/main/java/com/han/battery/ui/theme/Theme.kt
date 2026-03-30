@@ -1,4 +1,5 @@
 package com.han.battery.ui.theme
+// Material Design 3 테마 설정 - 색상 스킴, Light/Dark 모드, 시스템 바 스타일 관리
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme

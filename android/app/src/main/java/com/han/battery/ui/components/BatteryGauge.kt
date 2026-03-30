@@ -1,15 +1,20 @@
 package com.han.battery.ui.components
+// 배터리 충전 상태를 시각적으로 표시하는 원형 게이지 컴포넌트
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun BatteryGauge(value: Int) {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(150.dp)) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.size(150.dp)
+    ) {
         // 배경 회색 원
         CircularProgressIndicator(
             progress = 1f,
@@ -27,7 +32,9 @@ fun BatteryGauge(value: Int) {
         // 중앙 퍼센트 텍스트
         Text(
             text = "$value%",
-            style = MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }

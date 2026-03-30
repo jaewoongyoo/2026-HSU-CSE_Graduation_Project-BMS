@@ -1,4 +1,5 @@
 package com.han.battery.ui.theme
+// Material Design 3 타이포그래피 스타일 정의 (제목, 본문, 버튼 텍스트 등)
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
