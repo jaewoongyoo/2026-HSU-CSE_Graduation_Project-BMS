@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +52,33 @@ fun DashboardScreen(
     onDeleteDevice: (() -> Unit)? = null
 ) {
     val menuExpanded = remember { mutableStateOf(false) }
+    val showDeleteDialog = remember { mutableStateOf(false) }
+    
+    // 기기 삭제 확인 다이얼로그
+    if (showDeleteDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog.value = false },
+            title = { Text("배터리 삭제") },
+            text = { Text("'${device.nickname.ifBlank { "배터리" }}'을(를) 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog.value = false
+                        onDeleteDevice?.invoke()
+                    }
+                ) {
+                    Text("삭제")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog.value = false }
+                ) {
+                    Text("취소")
+                }
+            }
+        )
+    }
     
     // 더미 데이터 (향후 ViewModel과 연동될 예정)
     val soc = 78
@@ -111,7 +140,7 @@ fun DashboardScreen(
                                 text = { Text("기기 삭제") },
                                 onClick = {
                                     menuExpanded.value = false
-                                    onDeleteDevice()
+                                    showDeleteDialog.value = true
                                 }
                             )
                         }

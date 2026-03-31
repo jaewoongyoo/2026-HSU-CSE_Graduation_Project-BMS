@@ -219,10 +219,10 @@ fun DeviceCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = Blue600.copy(alpha = 0.08f)
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
+            defaultElevation = 0.dp
         )
     ) {
         Row(
@@ -257,18 +257,24 @@ fun DeviceCard(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 삭제 버튼
-                IconButton(
-                    onClick = onDeleteClick,
-                    modifier = Modifier.size(40.dp)
+                // 삭제 버튼 - 개선된 디자인
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            Blue600.copy(alpha = 0.12f),
+                            androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        )
+                        .clickable(onClick = onDeleteClick),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "삭제",
-                        tint = Color(0xFFEF5350),
-                        modifier = Modifier.size(22.dp)
+                        tint = Blue600,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
