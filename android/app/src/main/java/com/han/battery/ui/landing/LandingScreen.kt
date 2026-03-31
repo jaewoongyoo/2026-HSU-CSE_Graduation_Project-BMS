@@ -109,16 +109,16 @@ fun LandingScreen(
 private fun BackgroundGlow() {
     Box(
         modifier = Modifier
-            .fillMaxSize(0.5f),
-        contentAlignment = Alignment.TopCenter
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center  // 화면 중앙에 정렬
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .size(600.dp)  // 더 큰 반경의 글로우
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            Blue600.copy(alpha = 0.10f),
+                            Blue600.copy(alpha = 0.08f),
                             Color.Transparent
                         )
                     )
