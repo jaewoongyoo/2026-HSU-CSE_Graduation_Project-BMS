@@ -67,8 +67,8 @@ enum class LogoSize(
     val borderRadius: androidx.compose.ui.unit.Dp,
     val textSize: androidx.compose.ui.unit.TextUnit
 ) {
-    Small(32.dp, 16.dp, 8.dp, 10.sp),
-    Medium(48.dp, 24.dp, 12.dp, 14.sp),
-    Large(80.dp, 40.dp, 16.dp, 20.sp)
+    Small(28.dp, 14.dp, 6.dp, 10.sp),
+    Medium(44.dp, 22.dp, 10.dp, 14.sp),
+    Large(70.dp, 32.dp, 14.dp, 20.sp)
 }
 

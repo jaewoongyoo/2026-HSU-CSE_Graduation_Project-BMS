@@ -117,8 +117,10 @@ class MainActivity : ComponentActivity() {
                                 // 배터리 정보 저장
                                 android.util.Log.d("MainActivity", "💾 배터리 저장 중: ${deviceInfo.nickname}")
                                 preferenceManager.saveBatteryDevice(deviceInfo)
-                                android.util.Log.d("MainActivity", "✅ 배터리 저장 완료 - Dashboard로 이동")
-                                currentScreen = Screen.Dashboard(deviceInfo)
+                                android.util.Log.d("MainActivity", "✅ 배터리 저장 완료 - Home으로 이동")
+                                currentScreen = Screen.Home
+                                // 화면 즉시 새로고침을 위해 deviceRefreshKey 증가
+                                deviceRefreshKey++
                                 // IME 숨기기
                                 window?.let { 
                                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
