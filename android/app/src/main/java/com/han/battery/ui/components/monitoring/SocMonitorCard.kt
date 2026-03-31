@@ -67,17 +67,18 @@ fun SocMonitorCard(
 
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(32.dp)
                         .background(
                             Blue600.copy(alpha = 0.12f),
-                            RoundedCornerShape(12.dp)
+                            RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.BatteryChargingFull,
                         contentDescription = null,
-                        tint = Blue600
+                        tint = Blue600,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

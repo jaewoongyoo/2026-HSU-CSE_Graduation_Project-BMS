@@ -3,8 +3,8 @@ package com.han.battery.data.storage
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.common.AppLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -47,11 +47,9 @@ class PreferenceManager(context: Context) {
                 putBoolean(KEY_DEVICES_EXISTS, true)
                 commit()
             }
-            Log.d(TAG, "✅ 배터리 저장 성공: ${device.nickname}, 총 ${devices.size}개")
-            Log.d(TAG, "📝 저장된 JSON: $jsonString")
+            AppLogger.info("배터리 저장 성공: ${device.nickname}, 총 ${devices.size}개", TAG)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 배터리 저장 실패", e)
-            e.printStackTrace()
+            AppLogger.error("배터리 저장 실패", e, TAG)
         }
     }
 
@@ -61,10 +59,8 @@ class PreferenceManager(context: Context) {
     fun getAllDevices(): List<BatteryDevice> {
         return try {
             val jsonString = prefs.getString(KEY_DEVICES, null)
-            Log.d(TAG, "📖 로드 시도 - JSON: $jsonString")
             
             if (jsonString.isNullOrEmpty()) {
-                Log.d(TAG, "⚠️ 저장된 데이터 없음")
                 return emptyList()
             }
 
@@ -80,14 +76,12 @@ class PreferenceManager(context: Context) {
                     manufactureDate = json.getString("manufactureDate")
                 )
                 devices.add(device)
-                Log.d(TAG, "  ✅ 로드: ${device.nickname} (${device.capacity}mAh)")
             }
             
-            Log.d(TAG, "✅ 배터리 로드 성공: ${devices.size}개")
+            AppLogger.info("배터리 로드 성공: ${devices.size}개", TAG)
             devices
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 배터리 로드 실패", e)
-            e.printStackTrace()
+            AppLogger.error("배터리 로드 실패", e, TAG)
             emptyList()
         }
     }
@@ -105,7 +99,6 @@ class PreferenceManager(context: Context) {
     fun isDeviceRegistered(): Boolean {
         val devices = getAllDevices()
         val isRegistered = prefs.getBoolean(KEY_DEVICES_EXISTS, false) && devices.isNotEmpty()
-        Log.d(TAG, "🔍 deviceRegistered check: $isRegistered, devices count: ${devices.size}")
         return isRegistered
     }
 
@@ -115,13 +108,9 @@ class PreferenceManager(context: Context) {
     fun deleteDevice(nickname: String) {
         try {
             val devices = getAllDevices().toMutableList()
-            Log.d(TAG, "🗑️ 삭제 전 기기 목록: ${devices.map { it.nickname }}")
-            
             devices.removeAll { it.nickname == nickname }
-            Log.d(TAG, "🗑️ 삭제 후 기기 목록: ${devices.map { it.nickname }}")
 
             if (devices.isEmpty()) {
-                Log.d(TAG, "🗑️ 모든 기기가 삭제됨 - clearAllDevices() 호출")
                 clearAllDevices()
             } else {
                 val jsonArray = JSONArray()
@@ -140,16 +129,11 @@ class PreferenceManager(context: Context) {
                     putString(KEY_DEVICES, jsonString)
                     commit()
                 }
-                Log.d(TAG, "💾 삭제된 기기를 제외한 데이터 저장 완료")
-                Log.d(TAG, "📝 저장된 JSON: $jsonString")
             }
             
-            // 삭제 후 즉시 확인
-            val remainingDevices = getAllDevices()
-            Log.d(TAG, "✅ 배터리 삭제 완료: $nickname, 남은 기기: ${remainingDevices.size}개")
+            AppLogger.info("배터리 삭제 완료: $nickname", TAG)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 배터리 삭제 실패", e)
-            e.printStackTrace()
+            AppLogger.error("배터리 삭제 실패", e, TAG)
         }
     }
 
@@ -162,6 +146,6 @@ class PreferenceManager(context: Context) {
             putBoolean(KEY_DEVICES_EXISTS, false)
             commit()
         }
-        Log.d(TAG, "✅ 모든 배터리 삭제됨")
+        AppLogger.info("모든 배터리 삭제됨", TAG)
     }
 }
