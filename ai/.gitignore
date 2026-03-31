@@ -1,0 +1,61 @@
+# IDE / editor
+.idea/
+.vscode/
+
+# OS / Windows metadata
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Python cache and tooling
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Notebook noise
+.ipynb_checkpoints/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Dataset storage
+data/external/**
+data/raw/**
+data/interim/**
+data/processed/**
+
+# Generated artifacts
+artifacts/checkpoints/**
+artifacts/exports/**
+artifacts/reports/**
+
+# Model / experiment outputs
+*.pkl
+*.joblib
+*.h5
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# Preserve intended placeholders when these paths are not masked by higher-level ignore rules
+!data/external/.gitkeep
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!artifacts/checkpoints/.gitkeep
+!artifacts/exports/.gitkeep
+!artifacts/reports/.gitkeep
