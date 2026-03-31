@@ -17,14 +17,13 @@ data class BatteryDevice(
     val nickname: String,       // 별칭
     val capacity: Int,          // 정격 용량 (mAh)
     val manufactureDate: String // 제조년월 (YYYY-MM)
-) {
-    /**
-     * 기기의 나이를 계산합니다. (개월 단위)
-     * TODO: 향후 구현 예정
-     */
-    val ageInMonths: Int?
-        get() {
-            // TODO: 제조일자로부터 현재까지의 개월 수 계산
-            return null
-        }
-}
+)
+
+/**
+ * 향후 구현 예정 기능:
+ * - ageInMonths: 제조일자로부터 현재까지의 개월 수 계산
+ * - chargeCount: 충방전 횟수
+ * - healthPercentage: 배터리 건강도 (%)
+ * - estimatedLifespan: 예상 수명 (개월)
+ */
+

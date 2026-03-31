@@ -4,7 +4,11 @@ package com.han.battery
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -12,33 +16,110 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.ui.dashboard.DashboardScreen
+import com.han.battery.ui.home.HomeScreen
 import com.han.battery.ui.landing.LandingScreen
 import com.han.battery.ui.splash.SplashScreen
 import com.han.battery.ui.theme.BatteryTheme
 
 class MainActivity : ComponentActivity() {
+    
+    private lateinit var preferenceManager: PreferenceManager
+    private var backPressedTime: Long = 0
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        preferenceManager = PreferenceManager(this)
 
         setContent {
             BatteryTheme {
+                // 항상 스플래시부터 시작 (저장된 기기 여부는 스플래시 후 확인)
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
+                var showExitDialog by remember { mutableStateOf(false) }
+                // 기기 목록을 Compose 상태로 관리하여 삭제 후 즉시 업데이트되도록 함
+                var deviceRefreshKey by remember { mutableStateOf(0) }
+                
+                // 백 버튼 처리
+                BackHandler(enabled = currentScreen !is Screen.Splash) {
+                    when (currentScreen) {
+                        is Screen.Home -> showExitDialog = true
+                        is Screen.Landing -> currentScreen = Screen.Home
+                        is Screen.Dashboard -> currentScreen = Screen.Home
+                        else -> {}
+                    }
+                }
+                
+                // 종료 확인 다이얼로그
+                if (showExitDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showExitDialog = false },
+                        title = { Text("앱 종료") },
+                        text = { Text("BatteryInsight를 종료하시겠습니까?") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    finish()
+                                }
+                            ) {
+                                Text("종료")
+                            }
+                        },
+                        dismissButton = {
+                            Button(
+                                onClick = { showExitDialog = false }
+                            ) {
+                                Text("취소")
+                            }
+                        }
+                    )
+                }
                 
                 when (currentScreen) {
                     is Screen.Splash -> {
                         SplashScreen(
                             onSplashFinished = {
+                                val nextScreen = if (preferenceManager.isDeviceRegistered()) {
+                                    android.util.Log.d("MainActivity", "✅ 스플래시 완료 - Home으로 이동")
+                                    Screen.Home
+                                } else {
+                                    android.util.Log.d("MainActivity", "❌ 스플래시 완료 - Landing으로 이동")
+                                    Screen.Landing
+                                }
+                                currentScreen = nextScreen
+                            }
+                        )
+                    }
+                    is Screen.Home -> {
+                        HomeScreen(
+                            key = deviceRefreshKey,
+                            devices = preferenceManager.getAllDevices(),
+                            onDeviceSelected = { device ->
+                                android.util.Log.d("MainActivity", "📱 기기 선택: ${device.nickname}")
+                                currentScreen = Screen.Dashboard(device)
+                            },
+                            onAddNewDevice = {
+                                android.util.Log.d("MainActivity", "➕ 새 기기 추가 - Landing으로 이동")
                                 currentScreen = Screen.Landing
+                            },
+                            onDeleteDevice = { device ->
+                                android.util.Log.d("MainActivity", "🗑️ 기기 삭제: ${device.nickname}")
+                                preferenceManager.deleteDevice(device.nickname)
+                                // 화면 즉시 새로고침을 위해 deviceRefreshKey 증가
+                                deviceRefreshKey++
                             }
                         )
                     }
                     is Screen.Landing -> {
                         LandingScreen(
                             onStart = { deviceInfo ->
-                                // DeviceInfo는 BatteryDevice의 별칭
+                                // 배터리 정보 저장
+                                android.util.Log.d("MainActivity", "💾 배터리 저장 중: ${deviceInfo.nickname}")
+                                preferenceManager.saveBatteryDevice(deviceInfo)
+                                android.util.Log.d("MainActivity", "✅ 배터리 저장 완료 - Dashboard로 이동")
                                 currentScreen = Screen.Dashboard(deviceInfo)
-                                // IME 숨기기 (화면 전환 후)
+                                // IME 숨기기
                                 window?.let { 
                                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                                     imm.hideSoftInputFromWindow(it.decorView.windowToken, 0)
@@ -52,7 +133,19 @@ class MainActivity : ComponentActivity() {
                         DashboardScreen(
                             device = batteryDevice,
                             onBack = {
-                                currentScreen = Screen.Landing
+                                android.util.Log.d("MainActivity", "🔙 Dashboard에서 Home으로 이동")
+                                currentScreen = Screen.Home
+                            },
+                            onChangeDevice = {
+                                android.util.Log.d("MainActivity", "🔄 기기 변경 - Home으로 이동")
+                                currentScreen = Screen.Home
+                            },
+                            onDeleteDevice = {
+                                android.util.Log.d("MainActivity", "🗑️ 기기 삭제: ${batteryDevice.nickname}")
+                                preferenceManager.deleteDevice(batteryDevice.nickname)
+                                currentScreen = Screen.Home
+                                // 화면 즉시 새로고침을 위해 deviceRefreshKey 증가
+                                deviceRefreshKey++
                             }
                         )
                     }
@@ -66,6 +159,7 @@ class MainActivity : ComponentActivity() {
      */
     sealed class Screen {
         object Splash : Screen()
+        object Home : Screen()
         object Landing : Screen()
         data class Dashboard(val batteryDevice: BatteryDevice) : Screen()
     }

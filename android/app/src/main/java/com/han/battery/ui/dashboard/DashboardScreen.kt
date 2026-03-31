@@ -13,7 +13,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,11 +26,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.han.battery.DeviceInfo
+import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.LiveStatusBadge
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
 import com.han.battery.ui.dashboard.sections.MonitoringSection
@@ -37,8 +45,12 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 @Composable
 fun DashboardScreen(
     device: DeviceInfo,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onChangeDevice: (() -> Unit)? = null,
+    onDeleteDevice: (() -> Unit)? = null
 ) {
+    val menuExpanded = remember { mutableStateOf(false) }
+    
     // 더미 데이터 (향후 ViewModel과 연동될 예정)
     val soc = 78
     val soh = 92
@@ -72,9 +84,41 @@ fun DashboardScreen(
                 },
                 actions = {
                     LiveStatusBadge()
+                    
+                    IconButton(onClick = { menuExpanded.value = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "옵션 메뉴"
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = menuExpanded.value,
+                        onDismissRequest = { menuExpanded.value = false }
+                    ) {
+                        if (onChangeDevice != null) {
+                            DropdownMenuItem(
+                                text = { Text("기기 변경") },
+                                onClick = {
+                                    menuExpanded.value = false
+                                    onChangeDevice()
+                                }
+                            )
+                        }
+                        
+                        if (onDeleteDevice != null) {
+                            DropdownMenuItem(
+                                text = { Text("기기 삭제") },
+                                onClick = {
+                                    menuExpanded.value = false
+                                    onDeleteDevice()
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color(0xFFF6F8FC)
                 )
             )
         }
@@ -82,7 +126,15 @@ fun DashboardScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Slate50,
+                            Color(0xFFF6F8FC),
+                            Slate50
+                        )
+                    )
+                )
                 .padding(innerPadding)
                 .statusBarsPadding()
                 .navigationBarsPadding()

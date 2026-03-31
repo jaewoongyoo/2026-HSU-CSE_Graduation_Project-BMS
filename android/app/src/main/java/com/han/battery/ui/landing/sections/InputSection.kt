@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -83,9 +84,17 @@ fun InputSection(
     onFormChange: (FormState) -> Unit,
     onStart: (DeviceInfo) -> Unit
 ) {
-    val isFormValid = formState.nickname.isNotBlank() && formState.capacity.isNotBlank()
     val focusManager = LocalFocusManager.current
+    val firstFieldFocus = remember { FocusRequester() }
+    
+    // 폼 유효성 검사
+    val validationError = validateFormState(formState)
+    val isFormValid = validationError == null && formState.nickname.isNotBlank() && formState.capacity.isNotBlank()
 
+    // 첫 번째 필드에 자동 포커스
+    LaunchedEffect(Unit) {
+        firstFieldFocus.requestFocus()
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -137,7 +146,8 @@ fun InputSection(
                 onValueChange = { onFormChange(formState.copy(brand = it)) },
                 placeholder = "예: Anker, 삼성, 샤오미",
                 keyboardType = KeyboardType.Text,
-                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                modifier = Modifier.focusRequester(firstFieldFocus)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -182,9 +192,9 @@ fun InputSection(
             Button(
                 onClick = {
                     // 폼 검증
-                    val validationError = validateFormState(formState)
-                    if (validationError != null) {
-                        // TODO: 에러 메시지 표시 (SnackBar 등)
+                    val error = validateFormState(formState)
+                    if (error != null) {
+                        android.util.Log.e("InputSection", "검증 실패: $error")
                         return@Button
                     }
                     
@@ -196,6 +206,8 @@ fun InputSection(
                         manufactureDate = formState.manufactureDate
                     )
 
+                    android.util.Log.d("InputSection", "배터리 저장 시도: ${batteryDevice.nickname}")
+                    
                     // DeviceInfo는 BatteryDevice의 별칭이므로 직접 전달
                     onStart(batteryDevice)
                 },
@@ -424,7 +436,8 @@ private fun LandingField(
     imeAction: ImeAction = ImeAction.Next,
     trailingText: String? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
-    onNext: (() -> Unit)? = null
+    onNext: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     Column {
         Text(
@@ -439,7 +452,7 @@ private fun LandingField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .height(56.dp),
             singleLine = false,

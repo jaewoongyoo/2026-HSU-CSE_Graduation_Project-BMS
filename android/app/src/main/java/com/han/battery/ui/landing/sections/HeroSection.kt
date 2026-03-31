@@ -1,4 +1,5 @@
 package com.han.battery.ui.landing.sections
+// 랜딩 스크린의 영웅 섹션 - 배터리 일러스트레이션과 부드러운 애니메이션 표시
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -31,10 +32,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.han.battery.ui.theme.Blue600
 
+/**
+ * 배터리 일러스트레이션을 표시하는 영웅 섹션
+ * - 부드러운 부유 애니메이션 (상하 이동)
+ * - 발광 효과 (Glow) 애니메이션
+ * - 배터리 충전 아이콘과 강조 점 표시
+ */
 @Composable
 fun HeroSection() {
     val transition = rememberInfiniteTransition(label = "battery_hero")
     
+    // 상하 부유 애니메이션 (-4dp ~ +4dp)
     val floatOffset = transition.animateFloat(
         initialValue = -4f,
         targetValue = 4f,
@@ -45,6 +53,7 @@ fun HeroSection() {
         label = "float_offset"
     ).value
     
+    // 발광 효과 애니메이션 (60% ~ 100% 투명도)
     val glowAlpha = transition.animateFloat(
         initialValue = 0.60f,
         targetValue = 1f,
@@ -64,6 +73,7 @@ fun HeroSection() {
                 .offset(y = floatOffset.dp),
             contentAlignment = Alignment.Center
         ) {
+            // 배터리 주위 발광 효과
             Box(
                 modifier = Modifier
                     .size(112.dp)
@@ -84,6 +94,13 @@ fun HeroSection() {
     }
 }
 
+/**
+ * 배터리 일러스트레이션 UI
+ * - 배터리 외형 (흰색 박스)
+ * - 배터리 충전 상태 (파란색 그래디언트)
+ * - 충전 중 표시 (노란색 번개 아이콘)
+ * - 강조 점 (알파 투명도 연출)
+ */
 @Composable
 private fun BatteryIllustration() {
     Box(
@@ -92,6 +109,7 @@ private fun BatteryIllustration() {
             .height(120.dp),
         contentAlignment = Alignment.TopCenter
     ) {
+        // 배터리 단자 부분
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.67f)
@@ -100,6 +118,7 @@ private fun BatteryIllustration() {
                 .background(Color(0xFFD9E3FF))
         )
 
+        // 배터리 본체
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -112,6 +131,7 @@ private fun BatteryIllustration() {
                     RoundedCornerShape(18.dp)
                 )
         ) {
+            // 배터리 충전 상태 표시 (파란색 그래디언트)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -127,6 +147,7 @@ private fun BatteryIllustration() {
                     )
             )
 
+            // 충전 중 표시 아이콘 (번개)
             Icon(
                 imageVector = Icons.Default.Bolt,
                 contentDescription = "배터리 충전 아이콘",
@@ -136,6 +157,7 @@ private fun BatteryIllustration() {
                     .size(30.dp)
             )
 
+            // 강조 점 1 (왼쪽)
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -144,6 +166,7 @@ private fun BatteryIllustration() {
                     .background(Color(0xFFFFD54F).copy(alpha = 0.85f), CircleShape)
             )
 
+            // 강조 점 2 (오른쪽)
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -154,4 +177,6 @@ private fun BatteryIllustration() {
         }
     }
 }
+
+
 

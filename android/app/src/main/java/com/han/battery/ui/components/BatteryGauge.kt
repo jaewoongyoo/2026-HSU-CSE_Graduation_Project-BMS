@@ -17,14 +17,14 @@ fun BatteryGauge(value: Int) {
     ) {
         // 배경 회색 원
         CircularProgressIndicator(
-            progress = 1f,
+            progress = { 1f },
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surfaceVariant,
             strokeWidth = 12.dp
         )
         // 실제 충전량 표시 푸른 원
         CircularProgressIndicator(
-            progress = value / 100f,
+            progress = { value / 100f },
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.primary,
             strokeWidth = 12.dp
