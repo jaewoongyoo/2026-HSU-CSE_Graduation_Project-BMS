@@ -45,7 +45,7 @@ class PreferenceManager(context: Context) {
             prefs.edit().apply {
                 putString(KEY_DEVICES, jsonString)
                 putBoolean(KEY_DEVICES_EXISTS, true)
-                commit()
+                apply()  // commit() 대신 apply() 사용 (비동기, 더 빠름)
             }
             AppLogger.info("배터리 저장 성공: ${device.nickname}, 총 ${devices.size}개", TAG)
         } catch (e: Exception) {
@@ -127,7 +127,7 @@ class PreferenceManager(context: Context) {
                 val jsonString = jsonArray.toString()
                 prefs.edit().apply {
                     putString(KEY_DEVICES, jsonString)
-                    commit()
+                    apply()  // commit() 대신 apply() 사용
                 }
             }
             
@@ -144,7 +144,7 @@ class PreferenceManager(context: Context) {
         prefs.edit().apply {
             remove(KEY_DEVICES)
             putBoolean(KEY_DEVICES_EXISTS, false)
-            commit()
+            apply()  // commit() 대신 apply() 사용
         }
         AppLogger.info("모든 배터리 삭제됨", TAG)
     }

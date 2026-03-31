@@ -61,31 +61,14 @@ fun HomeScreen(
     var deviceToDelete by remember { mutableStateOf<BatteryDevice?>(null) }
     
     // 삭제 확인 다이얼로그
-    if (deviceToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { deviceToDelete = null },
-            title = { Text("배터리 삭제") },
-            text = { Text("'${deviceToDelete!!.nickname}'을(를) 삭제하시겠습니까?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val device = deviceToDelete
-                        if (device != null) {
-                            onDeleteDevice(device)
-                        }
-                        deviceToDelete = null
-                    }
-                ) {
-                    Text("삭제")
-                }
+    deviceToDelete?.let { device ->
+        DeleteDeviceDialog(
+            device = device,
+            onConfirm = {
+                onDeleteDevice(device)
+                deviceToDelete = null
             },
-            dismissButton = {
-                TextButton(
-                    onClick = { deviceToDelete = null }
-                ) {
-                    Text("취소")
-                }
-            }
+            onDismiss = { deviceToDelete = null }
         )
     }
     
@@ -287,3 +270,30 @@ fun DeviceCard(
         }
     }
 }
+
+/**
+ * 기기 삭제 확인 다이얼로그
+ */
+@Composable
+fun DeleteDeviceDialog(
+    device: BatteryDevice,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("배터리 삭제") },
+        text = { Text("'${device.nickname}'을(를) 삭제하시겠습니까?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("삭제", color = Color.Red)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+

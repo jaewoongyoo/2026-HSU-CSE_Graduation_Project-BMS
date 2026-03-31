@@ -48,8 +48,8 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 fun DashboardScreen(
     device: DeviceInfo,
     onBack: () -> Unit,
-    onChangeDevice: (() -> Unit)? = null,
-    onDeleteDevice: (() -> Unit)? = null
+    onChangeDevice: () -> Unit,
+    onDeleteDevice: () -> Unit
 ) {
     val menuExpanded = remember { mutableStateOf(false) }
     val showDeleteDialog = remember { mutableStateOf(false) }
@@ -64,10 +64,10 @@ fun DashboardScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog.value = false
-                        onDeleteDevice?.invoke()
+                        onDeleteDevice()
                     }
                 ) {
-                    Text("삭제")
+                    Text("삭제", color = Color.Red)
                 }
             },
             dismissButton = {
@@ -125,25 +125,21 @@ fun DashboardScreen(
                         expanded = menuExpanded.value,
                         onDismissRequest = { menuExpanded.value = false }
                     ) {
-                        if (onChangeDevice != null) {
-                            DropdownMenuItem(
-                                text = { Text("기기 변경") },
-                                onClick = {
-                                    menuExpanded.value = false
-                                    onChangeDevice()
-                                }
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text("기기 변경") },
+                            onClick = {
+                                menuExpanded.value = false
+                                onChangeDevice()
+                            }
+                        )
                         
-                        if (onDeleteDevice != null) {
-                            DropdownMenuItem(
-                                text = { Text("기기 삭제") },
-                                onClick = {
-                                    menuExpanded.value = false
-                                    showDeleteDialog.value = true
-                                }
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text("기기 삭제") },
+                            onClick = {
+                                menuExpanded.value = false
+                                showDeleteDialog.value = true
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

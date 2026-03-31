@@ -13,11 +13,32 @@ package com.han.battery.data.model
  * @property manufactureDate 제조년월 (형식: YYYY-MM, 예: "2023-06")
  */
 data class BatteryDevice(
-    val brand: String,          // 제조사
-    val nickname: String,       // 별칭
-    val capacity: Int,          // 정격 용량 (mAh)
-    val manufactureDate: String // 제조년월 (YYYY-MM)
-)
+    val brand: String = "미지정",
+    val nickname: String,
+    val capacity: Int = 0,
+    val manufactureDate: String = "미지정"
+) {
+    init {
+        // 유효성 검증
+        require(nickname.isNotBlank()) { "배터리 모델명은 필수입니다" }
+        require(capacity > 0) { "용량은 0보다 커야 합니다" }
+    }
+
+    /**
+     * 유효한 배터리 정보인지 확인합니다.
+     */
+    fun isValid(): Boolean = nickname.isNotBlank() && capacity > 0
+
+    /**
+     * 표시용 제조사명을 반환합니다.
+     */
+    fun getDisplayBrand(): String = brand.takeIf { it.isNotBlank() } ?: "미지정"
+
+    /**
+     * 표시용 제조일을 반환합니다.
+     */
+    fun getDisplayManufactureDate(): String = manufactureDate.takeIf { it.isNotBlank() } ?: "미지정"
+}
 
 /**
  * 향후 구현 예정 기능:

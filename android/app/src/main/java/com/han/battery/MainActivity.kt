@@ -120,10 +120,8 @@ class MainActivity : ComponentActivity() {
                             SplashScreen(
                                 onSplashFinished = {
                                     val nextScreen = if (preferenceManager.isDeviceRegistered()) {
-                                        AppLogger.info("스플래시 완료 - Home으로 이동")
                                         Screen.Home
                                     } else {
-                                        AppLogger.info("스플래시 완료 - Landing으로 이동")
                                         Screen.Landing
                                     }
                                     currentScreen = nextScreen
@@ -135,15 +133,12 @@ class MainActivity : ComponentActivity() {
                                 key = deviceRefreshKey,
                                 devices = preferenceManager.getAllDevices(),
                                 onDeviceSelected = { device ->
-                                    AppLogger.info("기기 선택: ${device.nickname}")
                                     currentScreen = Screen.Dashboard(device)
                                 },
                                 onAddNewDevice = {
-                                    AppLogger.info("새 기기 추가 - Landing으로 이동")
                                     currentScreen = Screen.Landing
                                 },
                                 onDeleteDevice = { device ->
-                                    AppLogger.info("기기 삭제: ${device.nickname}")
                                     preferenceManager.deleteDevice(device.nickname)
                                     deviceRefreshKey++
                                 }
@@ -152,9 +147,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Landing -> {
                             LandingScreen(
                                 onStart = { deviceInfo ->
-                                    AppLogger.info("배터리 저장 시작: ${deviceInfo.nickname}")
                                     preferenceManager.saveBatteryDevice(deviceInfo)
-                                    AppLogger.info("배터리 저장 완료 - Home으로 이동")
                                     currentScreen = Screen.Home
                                     deviceRefreshKey++
                                     // IME 숨기기
@@ -171,15 +164,12 @@ class MainActivity : ComponentActivity() {
                             DashboardScreen(
                                 device = batteryDevice,
                                 onBack = {
-                                    AppLogger.info("Dashboard에서 Home으로 이동")
                                     currentScreen = Screen.Home
                                 },
                                 onChangeDevice = {
-                                    AppLogger.info("기기 변경 - Home으로 이동")
                                     currentScreen = Screen.Home
                                 },
                                 onDeleteDevice = {
-                                    AppLogger.info("기기 삭제: ${batteryDevice.nickname}")
                                     preferenceManager.deleteDevice(batteryDevice.nickname)
                                     currentScreen = Screen.Home
                                     deviceRefreshKey++
