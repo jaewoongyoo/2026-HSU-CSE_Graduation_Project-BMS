@@ -8,3 +8,4 @@ scipy>=1.13.0
 joblib>=1.4.0
 kagglehub>=0.3.0
 openpyxl>=3.1.0
+pyarrow==18.1.0
