@@ -44,4 +44,6 @@ ai/
 
 - `soh_service/`는 현재 API 경로를 유지하면서도, 앞으로의 학습 코드까지 포함하는 중심 패키지로 사용합니다.
 - `start_server.bat`, `test_api.py`는 기존 서비스용 보조 파일로 당분간 유지합니다.
-- `README.txt`는 기존 빠른 실행 메모로 남겨둡니다.
+- `soh_service/datasets/nasa.py`는 NASA cleaned dataset용 첫 로더 구현입니다.
+- `soh_service/datasets/calce.py`는 CALCE zip subset용 로더 구현입니다.
+- `soh_service/datasets/oxford.py`는 Oxford `.mat` subset용 로더 구현입니다.
