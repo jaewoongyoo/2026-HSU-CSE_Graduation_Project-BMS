@@ -28,6 +28,7 @@ backend/**/build/
 backend/**/*.class
 backend/**/*.log
 backend/**/.factorypath
+backend/env
 
 # =================================================================
 # [AI Part]
