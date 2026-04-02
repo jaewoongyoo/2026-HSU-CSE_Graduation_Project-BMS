@@ -3,9 +3,10 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bolt 아이콘 - 깔끔하고 균형잡힌 번개 모양 -->
+
+    <!-- AppLogo와 동일한 Material Design Bolt 아이콘 -->
+    <!-- 정확한 형태: 지그재그 번개, 날카로운 모서리, 깔끔한 라인 -->
     <path
         android:fillColor="#2563EB"
-        android:fillType="nonZero"
-        android:pathData="M54,15 L40,46 L50,46 L44,90 L70,48 L58,48 Z" />
+        android:pathData="M54,20 L45,42 L54,42 L37,82 L72,48 L63,48 L54,20 Z" />
 </vector>

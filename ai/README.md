@@ -1,0 +1,49 @@
+# AI 작업 공간
+
+이 디렉터리는 AI 팀이 다음 작업을 진행하는 공간입니다.
+
+- 공개 배터리 데이터셋 적재
+- 스마트폰 관측 공간 기준 전처리
+- LSTM 학습 및 평가
+- 모델 아티팩트 및 실험 관리
+- 추론 서빙
+
+코드 구조는 `soh_service` 중심으로 가져가고, 데이터나 아티팩트 같은 비코드 자산만 바깥에 둡니다.
+
+문서 보는 순서:
+
+1. 이 문서에서 전체 구조를 확인합니다.
+2. 세부 운영 규칙은 `rules/README.md`를 확인합니다.
+
+## 디렉터리 구조
+
+```text
+ai/
+├── artifacts/              # 체크포인트, 모델 export, 리포트
+├── configs/                # 데이터셋/모델/실험 설정
+├── data/
+│   ├── external/           # 내려받은 원본 공개 데이터셋
+│   ├── raw/                # 공통 로컬 구조로 복사/압축 해제한 원본
+│   ├── interim/            # 중간 변환 산출물
+│   └── processed/          # 학습 가능한 최종 시퀀스/테이블
+├── notebooks/              # 탐색용 노트북
+├── scripts/                # 실행 스크립트와 유틸리티
+├── soh_service/
+│   ├── api/                # FastAPI 라우터
+│   ├── core/               # 현재 공용 추론 로직
+│   ├── datasets/           # 데이터셋 로더/파서
+│   ├── preprocessing/      # 스마트폰 관측 공간 변환
+│   ├── training/           # 학습 및 평가 코드
+│   ├── inference/          # 추론 보조 유틸리티
+│   ├── utils/              # 공용 유틸리티
+│   └── model/              # 현재 배포 모델 파일
+└── tests/                  # AI 테스트 코드
+```
+
+## 현재 유지하는 것
+
+- `soh_service/`는 현재 API 경로를 유지하면서도, 앞으로의 학습 코드까지 포함하는 중심 패키지로 사용합니다.
+- `start_server.bat`, `test_api.py`는 기존 서비스용 보조 파일로 당분간 유지합니다.
+- `soh_service/datasets/nasa.py`는 NASA cleaned dataset용 첫 로더 구현입니다.
+- `soh_service/datasets/calce.py`는 CALCE zip subset용 로더 구현입니다.
+- `soh_service/datasets/oxford.py`는 Oxford `.mat` subset용 로더 구현입니다.

@@ -13,7 +13,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -21,13 +25,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.han.battery.DeviceInfo
+import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.LiveStatusBadge
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
 import com.han.battery.ui.dashboard.sections.MonitoringSection
@@ -37,8 +47,39 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 @Composable
 fun DashboardScreen(
     device: DeviceInfo,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onChangeDevice: () -> Unit,
+    onDeleteDevice: () -> Unit
 ) {
+    val menuExpanded = remember { mutableStateOf(false) }
+    val showDeleteDialog = remember { mutableStateOf(false) }
+    
+    // 기기 삭제 확인 다이얼로그
+    if (showDeleteDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog.value = false },
+            title = { Text("배터리 삭제") },
+            text = { Text("'${device.nickname.ifBlank { "배터리" }}'을(를) 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog.value = false
+                        onDeleteDevice()
+                    }
+                ) {
+                    Text("삭제", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog.value = false }
+                ) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+    
     // 더미 데이터 (향후 ViewModel과 연동될 예정)
     val soc = 78
     val soh = 92
@@ -72,9 +113,37 @@ fun DashboardScreen(
                 },
                 actions = {
                     LiveStatusBadge()
+                    
+                    IconButton(onClick = { menuExpanded.value = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "옵션 메뉴"
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = menuExpanded.value,
+                        onDismissRequest = { menuExpanded.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("기기 변경") },
+                            onClick = {
+                                menuExpanded.value = false
+                                onChangeDevice()
+                            }
+                        )
+                        
+                        DropdownMenuItem(
+                            text = { Text("기기 삭제") },
+                            onClick = {
+                                menuExpanded.value = false
+                                showDeleteDialog.value = true
+                            }
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color(0xFFF6F8FC)
                 )
             )
         }
@@ -82,7 +151,15 @@ fun DashboardScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Slate50,
+                            Color(0xFFF6F8FC),
+                            Slate50
+                        )
+                    )
+                )
                 .padding(innerPadding)
                 .statusBarsPadding()
                 .navigationBarsPadding()

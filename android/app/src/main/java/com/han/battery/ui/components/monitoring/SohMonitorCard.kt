@@ -65,17 +65,18 @@ fun SohMonitorCard(
 
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(32.dp)
                         .background(
                             Emerald500.copy(alpha = 0.12f),
-                            RoundedCornerShape(12.dp)
+                            RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Shield,
                         contentDescription = null,
-                        tint = Emerald500
+                        tint = Emerald500,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
