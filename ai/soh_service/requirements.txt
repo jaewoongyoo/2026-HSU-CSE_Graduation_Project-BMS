@@ -9,3 +9,4 @@ joblib>=1.4.0
 kagglehub>=0.3.0
 openpyxl>=3.1.0
 pyarrow==18.1.0
+torch>=2.3.0
