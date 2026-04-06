@@ -1,68 +1,95 @@
 package com.han.battery.ui.dashboard
-// 대시보드 화면의 배터리 데이터 상태 관리 (현재 상태, 예측 데이터 등)
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryStatus
 import com.han.battery.data.model.BatteryDevice
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.random.Random
+import kotlinx.coroutines.launch
 
 /**
- * 배터리 정보와 상태를 관리하는 ViewModel
+ * 배터리 실시간 데이터 수집(Logic)과 기기 정보 관리(UI State)를 모두 담당하는 통합 ViewModel
  */
-class DashboardViewModel : ViewModel() {
-    
-    // 현재 선택된 배터리 기기 정보
+class DashboardViewModel(application: Application) : AndroidViewModel(application) {
+
+    // ── 1. 기기 정보 관리 (Member A의 코드 반영) ──
     private val _currentDevice = MutableStateFlow<BatteryDevice?>(null)
     val currentDevice: StateFlow<BatteryDevice?> = _currentDevice.asStateFlow()
-    
-    // 실시간 배터리 상태 정보
-    private val _batteryStatus = MutableStateFlow(
-        BatteryStatus(
-            soc = 78,      // 충전량 78%
-            soh = 92,      // 건강도 92%
-            current = 2400, // 전류 2400mA
-            voltage = 5.1,  // 전압 5.1V
-            power = 12.2    // 전력 12.2W
-        )
-    )
+
+    // ── 2. 실시간 배터리 상태 (Member B의 로직 반영) ──
+    private val _batteryStatus = MutableStateFlow(BatteryStatus())
     val batteryStatus: StateFlow<BatteryStatus> = _batteryStatus.asStateFlow()
-    
-    private val random = Random
-    
+
+    init {
+        // 앱 시작 시 실제 배터리 모니터링 루프 가동
+        monitorBattery()
+    }
+
     /**
      * 배터리 기기 정보를 설정합니다.
-     * @param device 설정할 BatteryDevice
      */
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
-        // TODO: 기기별 배터리 상태 로드 로직 추가
-        initializeBatteryStatus(device)
     }
-    
+
     /**
-     * 배터리 상태 정보를 초기화합니다.
-     * 실제 구현에서는 센서에서 데이터를 수집할 예정입니다.
+     * 2초마다 안드로이드 시스템으로부터 실제 배터리 정보를 갱신합니다.
      */
-    private fun initializeBatteryStatus(device: BatteryDevice) {
-        // TODO: 실제 배터리 상태 데이터 수집 로직
-        // 현재는 더미 데이터 사용
-        _batteryStatus.value = BatteryStatus(
-            soc = random.nextInt(60, 96),
-            soh = random.nextInt(80, 101),
-            current = random.nextInt(1000, 3001),
-            voltage = 4.8 + (random.nextDouble() * 0.4),
-            power = 10.0 + (random.nextDouble() * 10.0)
-        )
+    private fun monitorBattery() {
+        viewModelScope.launch {
+            while (true) {
+                _batteryStatus.value = getRealBatteryInfo()
+                delay(2000) // 갱신 주기
+            }
+        }
     }
-    
+
     /**
-     * 배터리 상태를 실시간으로 업데이트합니다.
-     * 별도 스레드/코루틴에서 주기적으로 호출될 예정입니다.
+     * BatteryManager를 통해 하드웨어 센서 데이터를 직접 수집합니다.
      */
-    fun updateBatteryStatus(status: BatteryStatus) {
-        _batteryStatus.value = status
+    private fun getRealBatteryInfo(): BatteryStatus {
+        val context = getApplication<Application>().applicationContext
+        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+
+        // 주의: 최신 안드로이드 버전에서는 가급적 리시버 등록 시 flag를 고려해야 하지만,
+        // 배터리 상태 확인용 내부 호출은 null을 넣어 현재 상태 스냅샷만 가져옵니다.
+        val batteryStatusIntent = context.registerReceiver(null, intentFilter)
+
+        return batteryStatusIntent?.let { intent ->
+            // 1. 잔량 계산 (%)
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            val soc = if (level != -1 && scale != -1) (level / scale.toFloat() * 100).toInt() else 0
+
+            // 2. 전압 (mV -> V) 및 온도 (0.1°C -> °C)
+            val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
+            val temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
+
+            // 3. 실시간 전류 수집 (mA)
+            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            val currentNow = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) / 1000f
+
+            // 4. 충전 여부 확인
+            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL
+
+            BatteryStatus(
+                soc = soc,
+                voltage = voltage,
+                current = currentNow,
+                temperature = temperature,
+                isCharging = isCharging
+                // soh나 power는 필요 시 여기서 계산하거나 UI 단에서 계산하여 노출
+            )
+        } ?: BatteryStatus()
     }
 }
