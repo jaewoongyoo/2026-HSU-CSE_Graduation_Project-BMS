@@ -1,35 +1,15 @@
 package com.han.battery.ui.dashboard
-// 배터리 상태 분석 결과를 표시하는 메인 대시보드 스크린 (SOC, SOH, 예측 차트 등)
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -46,15 +26,20 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    device: DeviceInfo,
+    viewModel: DashboardViewModel, // 실시간 데이터 주입
+    device: DeviceInfo,            // 기기 정보 주입
     onBack: () -> Unit,
     onChangeDevice: () -> Unit,
     onDeleteDevice: () -> Unit
 ) {
+    // ── 상태 관리 (UI) ──
     val menuExpanded = remember { mutableStateOf(false) }
     val showDeleteDialog = remember { mutableStateOf(false) }
-    
-    // 기기 삭제 확인 다이얼로그
+
+    // ── 실시간 데이터 구독 (Logic) ──
+    val status by viewModel.batteryStatus.collectAsState()
+
+    // 기기 삭제 확인 다이얼로그 (기존 유지)
     if (showDeleteDialog.value) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog.value = false },
@@ -66,26 +51,13 @@ fun DashboardScreen(
                         showDeleteDialog.value = false
                         onDeleteDevice()
                     }
-                ) {
-                    Text("삭제", color = Color.Red)
-                }
+                ) { Text("삭제", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showDeleteDialog.value = false }
-                ) {
-                    Text("취소")
-                }
+                TextButton(onClick = { showDeleteDialog.value = false }) { Text("취소") }
             }
         )
     }
-    
-    // 더미 데이터 (향후 ViewModel과 연동될 예정)
-    val soc = 78
-    val soh = 92
-    val power = 18.5
-    val voltage = 5.1
-    val current = 2400
 
     Scaffold(
         topBar = {
@@ -105,22 +77,16 @@ fun DashboardScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "뒤로가기"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
                     }
                 },
                 actions = {
-                    LiveStatusBadge()
-                    
+                    LiveStatusBadge() // 실시간 연결 표시 (Member A의 UI)
+
                     IconButton(onClick = { menuExpanded.value = true }) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "옵션 메뉴"
-                        )
+                        Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
                     }
-                    
+
                     DropdownMenu(
                         expanded = menuExpanded.value,
                         onDismissRequest = { menuExpanded.value = false }
@@ -132,7 +98,6 @@ fun DashboardScreen(
                                 onChangeDevice()
                             }
                         )
-                        
                         DropdownMenuItem(
                             text = { Text("기기 삭제") },
                             onClick = {
@@ -153,11 +118,7 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(
-                            Slate50,
-                            Color(0xFFF6F8FC),
-                            Slate50
-                        )
+                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
                     )
                 )
                 .padding(innerPadding)
@@ -166,25 +127,43 @@ fun DashboardScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            // ...existing code...
+            // ── 1. 실시간 모니터링 섹션 (실제 데이터 주입) ──
             MonitoringSection(
-                soc = soc,
-                soh = soh,
-                power = power,
-                voltage = voltage,
-                current = current
+                soc = status.soc,
+                soh = 92,
+                // 소수점 1자리까지 (예: 0.3W)
+                power = String.format("%.1f", (status.voltage * status.current / 1000f)).toDouble(),
+                // 소수점 2자리까지 (예: 4.20V)
+                voltage = String.format("%.2f", status.voltage).toDouble(),
+                current = status.current.toInt()
             )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // ...existing code...
+            // ── 2. AI 분석 섹션 (AI 분석 로직 반영 가능) ──
             AiAnalysisSection()
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // ...existing code...
+            // ── 3. 예측 차트 섹션 ──
             PredictionSection()
+
+            // ── 4. 온도 정보 (Member B의 데이터 활용) ──
+            Spacer(modifier = Modifier.height(20.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(
+                    text = "현재 배터리 온도: ${status.temperature}°C",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
