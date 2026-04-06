@@ -39,7 +39,23 @@ fun DashboardScreen(
     // ── 실시간 데이터 구독 (Logic) ──
     val status by viewModel.batteryStatus.collectAsState()
 
-    // 기기 삭제 확인 다이얼로그 (기존 유지)
+    // ⭐ 충전 완료 예상 시간 텍스트 로직 추가
+    val predictionText = when {
+        !status.isCharging -> "방전 중 (충전 필요)"
+        status.remainingTime > 0 -> {
+            val hours = status.remainingTime / 60
+            val mins = status.remainingTime % 60
+
+            if (hours > 0) {
+                "${hours}시간 ${mins}분"
+            } else {
+                "${mins}분"
+            }
+        }
+        else -> "계산 중..."
+    }
+
+    // 기기 삭제 확인 다이얼로그
     if (showDeleteDialog.value) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog.value = false },
@@ -81,7 +97,7 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    LiveStatusBadge() // 실시간 연결 표시 (Member A의 UI)
+                    LiveStatusBadge() // 실시간 연결 표시
 
                     IconButton(onClick = { menuExpanded.value = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
@@ -127,30 +143,32 @@ fun DashboardScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            // ── 1. 실시간 모니터링 섹션 (실제 데이터 주입) ──
+            // ── 1. 실시간 모니터링 섹션 ──
             MonitoringSection(
                 soc = status.soc,
                 soh = 92,
-                // 소수점 1자리까지 (예: 0.3W)
                 power = String.format("%.1f", (status.voltage * status.current / 1000f)).toDouble(),
-                // 소수점 2자리까지 (예: 4.20V)
                 voltage = String.format("%.2f", status.voltage).toDouble(),
-                current = status.current.toInt()
+                current = status.current.toInt(),
+                predictionText = predictionText // ⭐ AiAnalysisSection에 있던 걸 여기로 옮깁니다!
             )
 
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── 2. AI 분석 섹션 (AI 분석 로직 반영 가능) ──
-            AiAnalysisSection()
+            // ── 2. AI 분석 섹션 (예측된 텍스트 전달) ──
+            // ⭐ AiAnalysisSection에 값을 넘겨주도록 변경했습니다.
+            AiAnalysisSection(
+                predictedTimeText = predictionText
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             // ── 3. 예측 차트 섹션 ──
             PredictionSection()
 
-            // ── 4. 온도 정보 (Member B의 데이터 활용) ──
+            // ── 4. 온도 정보 ──
             Spacer(modifier = Modifier.height(20.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),

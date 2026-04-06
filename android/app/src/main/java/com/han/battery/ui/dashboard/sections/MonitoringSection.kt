@@ -15,7 +15,6 @@ import com.han.battery.ui.components.common.SectionHeader
 import com.han.battery.ui.components.monitoring.SmallMetricCard
 import com.han.battery.ui.components.monitoring.SocMonitorCard
 import com.han.battery.ui.components.monitoring.SohMonitorCard
-import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Emerald500
 
@@ -25,7 +24,8 @@ fun MonitoringSection(
     soh: Int,
     power: Double,
     voltage: Double,
-    current: Int
+    current: Int,
+    predictionText: String = ""
 ) {
     Column {
         SectionHeader(title = "실시간 모니터링")
@@ -38,7 +38,9 @@ fun MonitoringSection(
         ) {
             SocMonitorCard(
                 modifier = Modifier.weight(1f),
-                soc = soc
+                soc = soc,
+                predictionText = predictionText
+
             )
 
             SohMonitorCard(
