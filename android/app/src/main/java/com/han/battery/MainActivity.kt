@@ -21,6 +21,8 @@ import com.han.battery.ui.theme.BatteryTheme
 // DeviceInfo가 typealias라면 이 파일에서 정의된 위치를 정확히 참조해야 합니다.
 import com.han.battery.DeviceInfo
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.ui.auth.LoginScreen
+import com.han.battery.ui.auth.SignupScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -44,15 +46,42 @@ class MainActivity : ComponentActivity() {
                     composable("splash") {
                         SplashScreen(
                             onSplashFinished = {
-                                val destination = if (preferenceManager.isDeviceRegistered()) "home" else "landing"
-                                navController.navigate(destination) {
+                                navController.navigate("login") {
                                     popUpTo("splash") { inclusive = true }
                                 }
                             }
                         )
                     }
 
-                    // 2. 홈 화면
+                    // 2. 로그인 화면
+                    composable("login") {
+                        LoginScreen(
+                            onNavigateToSignup = {
+                                navController.navigate("signup")
+                            },
+                            onLoginSuccess = {
+                                navController.navigate("home") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    // 3. 회원가입 화면
+                    composable("signup") {
+                        SignupScreen(
+                            onNavigateToLogin = {
+                                navController.popBackStack()
+                            },
+                            onSignupSuccess = {
+                                navController.navigate("home") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    // 4. 홈 화면
                     composable("home") {
                         // key를 통해 삭제/수정 시 UI 강제 리프레시
                         key(deviceRefreshKey) {
@@ -72,7 +101,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 3. 랜딩 화면
+                    // 5. 랜딩 화면
                     composable("landing") {
                         LandingScreen(
                             onStartClick = { deviceInfo ->
@@ -93,7 +122,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 4. 대시보드 화면
+                    // 6. 대시보드 화면
                     composable(
                         route = "dashboard/{deviceNickname}",
                         arguments = listOf(navArgument("deviceNickname") { type = NavType.StringType })
