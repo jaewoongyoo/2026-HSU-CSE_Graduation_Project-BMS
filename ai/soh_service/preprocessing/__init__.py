@@ -42,6 +42,14 @@ from soh_service.preprocessing.splits import (
     build_group_split_assignments,
     build_split_manifest,
 )
+from soh_service.preprocessing.windowing import (
+    WindowMetadata,
+    WindowPolicyConfig,
+    WindowedSequenceBundle,
+    WindowedSequenceSample,
+    build_windowed_sequence_bundle,
+    resample_canonical_sample,
+)
 
 __all__ = [
     "CanonicalCycleMetadata",
@@ -73,5 +81,11 @@ __all__ = [
     "build_split_manifest",
     "choose_baseline_capacity",
     "compute_capacity_soh",
+    "WindowMetadata",
+    "WindowPolicyConfig",
+    "WindowedSequenceBundle",
+    "WindowedSequenceSample",
+    "build_windowed_sequence_bundle",
+    "resample_canonical_sample",
     "write_preprocessing_artifacts",
 ]

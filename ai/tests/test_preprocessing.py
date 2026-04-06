@@ -53,6 +53,11 @@ from soh_service.preprocessing.splits import (  # noqa: E402
     build_group_split_assignments,
     build_split_manifest,
 )
+from soh_service.preprocessing.windowing import (  # noqa: E402
+    WindowPolicyConfig,
+    build_windowed_sequence_bundle,
+    resample_canonical_sample,
+)
 
 
 def make_canonical_sample(
@@ -96,6 +101,85 @@ def make_canonical_sample(
             temperature_c=temperature_c,
             temperature_mask=1 if temperature_c is not None else 0,
             sample_index=1,
+            step_index=1,
+            raw_phase_hint="charge",
+        ),
+    )
+    return CanonicalSequenceSample(metadata=metadata, sequence=sequence)
+
+
+def make_long_canonical_sample(
+    source_id: str,
+    cell_id: str,
+    duration_s: float = 1200.0,
+    dataset_id: str = "nasa",
+    cycle_index: int = 1,
+) -> CanonicalSequenceSample:
+    metadata = CanonicalCycleMetadata(
+        dataset_id=dataset_id,  # type: ignore[arg-type]
+        source_id=source_id,
+        cell_id=cell_id,
+        cycle_index=cycle_index,
+        sequence_phase="charge",
+        label_source_phase="discharge",
+        source_format="csv",
+        start_time=datetime(2024, 1, 1, 0, 0, 0),
+        temperature_condition_c=25.0,
+        baseline_capacity_ah=1.0,
+        current_capacity_ah=0.9,
+        soh_ratio=0.9,
+        has_temperature=True,
+        quality_flags=("ok",),
+    )
+    quarter = duration_s / 4.0
+    sequence = (
+        CanonicalSequencePoint(
+            time_s=0.0,
+            voltage_v=3.60,
+            current_a=1.20,
+            temperature_c=25.0,
+            temperature_mask=1,
+            sample_index=0,
+            step_index=1,
+            raw_phase_hint="charge",
+        ),
+        CanonicalSequencePoint(
+            time_s=quarter,
+            voltage_v=3.75,
+            current_a=1.00,
+            temperature_c=25.5,
+            temperature_mask=1,
+            sample_index=1,
+            step_index=1,
+            raw_phase_hint="charge",
+        ),
+        CanonicalSequencePoint(
+            time_s=quarter * 2.0,
+            voltage_v=3.90,
+            current_a=0.80,
+            temperature_c=26.0,
+            temperature_mask=1,
+            sample_index=2,
+            step_index=1,
+            raw_phase_hint="charge",
+        ),
+        CanonicalSequencePoint(
+            time_s=quarter * 3.0,
+            voltage_v=4.05,
+            current_a=0.60,
+            temperature_c=26.5,
+            temperature_mask=1,
+            sample_index=3,
+            step_index=1,
+            raw_phase_hint="charge",
+        ),
+        CanonicalSequencePoint(
+            time_s=duration_s,
+            voltage_v=4.20,
+            current_a=0.40,
+            temperature_c=27.0,
+            temperature_mask=1,
+            sample_index=4,
             step_index=1,
             raw_phase_hint="charge",
         ),
@@ -174,6 +258,69 @@ class PreprocessingHelpersTest(unittest.TestCase):
         self.assertEqual(metadata["observation_version"], "v4")
         self.assertTrue(metadata["requires_full_sequence_context"])
         self.assertEqual(metadata["efficiency_value"], 0.9)
+
+    def test_resample_canonical_sample_builds_fixed_interval_grid(self) -> None:
+        sample = make_long_canonical_sample("long:s1", "B-long", duration_s=1200.0)
+
+        resampled = resample_canonical_sample(sample, interval_s=20.0)
+
+        self.assertEqual(len(resampled.sequence), 60)
+        self.assertEqual(resampled.sequence[0].time_s, 0.0)
+        self.assertEqual(resampled.sequence[-1].time_s, 1180.0)
+        self.assertAlmostEqual(resampled.sequence[15].time_s, 300.0)
+        self.assertAlmostEqual(resampled.sequence[15].voltage_v, 3.75)
+
+    def test_windowed_sequence_bundle_follows_v1_policy_shape(self) -> None:
+        sample = make_long_canonical_sample("bundle:s1", "B-bundle", duration_s=1200.0)
+
+        bundle = build_windowed_sequence_bundle(
+            sample,
+            version_id="v1",
+            policy=WindowPolicyConfig(
+                window_duration_s=600.0,
+                resample_interval_s=20.0,
+                late_phase_threshold=0.8,
+                allow_partial_tail_window=False,
+            ),
+        )
+
+        self.assertIsNotNone(bundle)
+        assert bundle is not None
+        self.assertEqual(bundle.observation_version, "v1")
+        self.assertEqual(len(bundle.windows), 2)
+        self.assertEqual(len(bundle.windows[0].sequence_rows), 30)
+        self.assertEqual(len(bundle.windows[1].sequence_rows), 30)
+        self.assertEqual(
+            set(bundle.windows[0].sequence_rows[0].keys()),
+            set(get_lstm_sequence_fields("v1")),
+        )
+        self.assertEqual(bundle.windows[0].metadata.window_start_s, 0.0)
+        self.assertEqual(bundle.windows[0].metadata.window_end_s, 600.0)
+        self.assertEqual(bundle.windows[0].metadata.late_charge_flag, 0)
+        self.assertEqual(bundle.windows[0].metadata.proxy_quality_score, 1.0)
+        self.assertEqual(bundle.windows[1].metadata.window_start_s, 600.0)
+        self.assertEqual(bundle.windows[1].metadata.window_end_s, 1200.0)
+        self.assertEqual(bundle.windows[1].metadata.late_charge_flag, 1)
+        self.assertEqual(bundle.windows[1].metadata.crosses_late_phase, 1)
+        self.assertEqual(bundle.windows[1].metadata.proxy_quality_score, 0.6)
+
+    def test_windowed_sequence_bundle_drops_partial_tail_window_in_v1(self) -> None:
+        sample = make_long_canonical_sample("bundle:s2", "B-tail", duration_s=1300.0)
+
+        bundle = build_windowed_sequence_bundle(
+            sample,
+            version_id="v1",
+            policy=WindowPolicyConfig(
+                window_duration_s=600.0,
+                resample_interval_s=20.0,
+                allow_partial_tail_window=False,
+            ),
+        )
+
+        self.assertIsNotNone(bundle)
+        assert bundle is not None
+        self.assertEqual(len(bundle.windows), 2)
+        self.assertEqual(bundle.windows[-1].metadata.window_end_s, 1200.0)
 
 
 class NasaPreprocessingAdapterTest(unittest.TestCase):
