@@ -12,7 +12,11 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from soh_service.datasets.calce import CalceFileMetadata, CalceRecord  # noqa: E402
+from soh_service.datasets.calce import (  # noqa: E402
+    CalceArchiveMemberFingerprint,
+    CalceFileMetadata,
+    CalceRecord,
+)
 from soh_service.datasets.nasa import NasaCleanedDatasetLoader  # noqa: E402
 from soh_service.preprocessing.adapters.calce import (  # noqa: E402
     _extract_calce_xlsx_candidates,
@@ -24,6 +28,14 @@ from soh_service.preprocessing.adapters.nasa import (  # noqa: E402
 from soh_service.preprocessing.labels import (  # noqa: E402
     choose_baseline_capacity,
     compute_capacity_soh,
+)
+from soh_service.preprocessing.observation import (  # noqa: E402
+    ObservationTransformConfig,
+    build_lstm_variant_rows,
+    build_observation_feature_rows,
+    build_observation_transform_metadata,
+    get_lstm_sequence_fields,
+    get_observation_variant_spec,
 )
 from soh_service.preprocessing.pipeline import (  # noqa: E402
     build_metadata_table,
@@ -98,6 +110,70 @@ class PreprocessingHelpersTest(unittest.TestCase):
         self.assertEqual(baseline, 0.975)
         self.assertEqual(compute_capacity_soh(0.9, 1.0), 0.9)
         self.assertIsNone(compute_capacity_soh(None, 1.0))
+
+    def test_observation_transform_builds_expected_derived_series(self) -> None:
+        sample = make_canonical_sample("obs:s1", "B1")
+
+        rows = build_observation_feature_rows(
+            sample,
+            config=ObservationTransformConfig(
+                efficiency_value=0.85,
+                regulated_output_voltage_v=5.0,
+            ),
+        )
+
+        self.assertEqual(len(rows), 2)
+        self.assertAlmostEqual(rows[0]["power_w"], 3.7)
+        self.assertAlmostEqual(rows[1]["power_w"], 3.42)
+        self.assertAlmostEqual(rows[0]["cumulative_energy_wh"], 0.0)
+        self.assertAlmostEqual(rows[1]["cumulative_energy_wh"], 0.001977777777777778)
+        self.assertAlmostEqual(rows[0]["effective_output_power_w"], 3.145)
+        self.assertAlmostEqual(rows[1]["effective_output_power_w"], 2.907)
+        self.assertAlmostEqual(rows[1]["estimated_output_current_5v_a"], 0.5814)
+        self.assertEqual(rows[0]["energy_progress_ratio"], 0.0)
+        self.assertEqual(rows[1]["energy_progress_ratio"], 1.0)
+
+    def test_observation_variant_registry_matches_four_step_ladder(self) -> None:
+        self.assertEqual(
+            get_lstm_sequence_fields("v1"),
+            (
+                "time_s",
+                "voltage_v",
+                "current_a",
+                "temperature_c",
+                "temperature_mask",
+                "power_w",
+            ),
+        )
+        self.assertIn("cumulative_energy_wh", get_lstm_sequence_fields("v2"))
+        self.assertIn("effective_output_power_w", get_lstm_sequence_fields("v3"))
+        self.assertIn("estimated_output_current_5v_a", get_lstm_sequence_fields("v3"))
+        self.assertIn("energy_progress_ratio", get_lstm_sequence_fields("v4"))
+        self.assertFalse(get_observation_variant_spec("v3").requires_full_sequence_context)
+        self.assertTrue(get_observation_variant_spec("v4").requires_full_sequence_context)
+
+    def test_lstm_variant_rows_and_metadata_follow_selected_version(self) -> None:
+        sample = make_canonical_sample("obs:s2", "B2")
+
+        v2_rows = build_lstm_variant_rows(sample, "v2")
+        v4_rows = build_lstm_variant_rows(sample, "v4")
+        metadata = build_observation_transform_metadata(
+            "v4",
+            config=ObservationTransformConfig(
+                efficiency_value=0.9,
+                regulated_output_voltage_v=5.0,
+            ),
+        )
+
+        self.assertEqual(
+            set(v2_rows[0].keys()),
+            set(get_lstm_sequence_fields("v2")),
+        )
+        self.assertNotIn("effective_output_power_w", v2_rows[0])
+        self.assertIn("energy_progress_ratio", v4_rows[0])
+        self.assertEqual(metadata["observation_version"], "v4")
+        self.assertTrue(metadata["requires_full_sequence_context"])
+        self.assertEqual(metadata["efficiency_value"], 0.9)
 
 
 class NasaPreprocessingAdapterTest(unittest.TestCase):
@@ -341,6 +417,119 @@ class CalcePreprocessingAdapterTest(unittest.TestCase):
         self.assertAlmostEqual(samples[1].metadata.soh_ratio or 0.0, 0.8181818181)
         self.assertEqual(samples[0].sequence[0].temperature_mask, 0)
         self.assertEqual(samples[0].sequence[0].step_index, 1)
+
+    def test_build_calce_xlsx_canonical_samples_reuses_parquet_cache(self) -> None:
+        class CachedStubLoader:
+            def __init__(
+                self,
+                record: CalceRecord,
+                fingerprint: CalceArchiveMemberFingerprint,
+            ) -> None:
+                self.record = record
+                self.fingerprint = fingerprint
+                self.load_record_calls = 0
+
+            def list_files(
+                self,
+                archive_names: set[str] | None = None,
+                file_formats: set[str] | None = None,
+                file_kinds: set[str] | None = None,
+            ) -> list[CalceFileMetadata]:
+                return [self.record.metadata]
+
+            def load_record(self, archive_name: str, inner_path: str) -> CalceRecord:
+                self.load_record_calls += 1
+                return self.record
+
+            def get_file_fingerprint(
+                self,
+                archive_name: str,
+                inner_path: str,
+            ) -> CalceArchiveMemberFingerprint:
+                return self.fingerprint
+
+        fingerprint = CalceArchiveMemberFingerprint(
+            crc=101,
+            file_size=202,
+            compress_size=303,
+        )
+        loader = CachedStubLoader(self._build_record(), fingerprint)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            first_samples = build_calce_xlsx_canonical_samples(
+                loader,  # type: ignore[arg-type]
+                warmup_cycle_count=1,
+                cache_dir=cache_dir,
+            )
+            second_samples = build_calce_xlsx_canonical_samples(
+                loader,  # type: ignore[arg-type]
+                warmup_cycle_count=1,
+                cache_dir=cache_dir,
+            )
+
+            self.assertEqual(loader.load_record_calls, 1)
+            self.assertEqual(first_samples, second_samples)
+            self.assertTrue((cache_dir / "manifest.json").exists())
+            self.assertEqual(len(list((cache_dir / "cache").glob("*.parquet"))), 1)
+
+    def test_build_calce_xlsx_canonical_samples_invalidates_cache_on_fingerprint_change(
+        self,
+    ) -> None:
+        class CachedStubLoader:
+            def __init__(
+                self,
+                record: CalceRecord,
+                fingerprint: CalceArchiveMemberFingerprint,
+            ) -> None:
+                self.record = record
+                self.fingerprint = fingerprint
+                self.load_record_calls = 0
+
+            def list_files(
+                self,
+                archive_names: set[str] | None = None,
+                file_formats: set[str] | None = None,
+                file_kinds: set[str] | None = None,
+            ) -> list[CalceFileMetadata]:
+                return [self.record.metadata]
+
+            def load_record(self, archive_name: str, inner_path: str) -> CalceRecord:
+                self.load_record_calls += 1
+                return self.record
+
+            def get_file_fingerprint(
+                self,
+                archive_name: str,
+                inner_path: str,
+            ) -> CalceArchiveMemberFingerprint:
+                return self.fingerprint
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            first_loader = CachedStubLoader(
+                self._build_record(),
+                CalceArchiveMemberFingerprint(crc=1, file_size=2, compress_size=3),
+            )
+            second_loader = CachedStubLoader(
+                self._build_record(),
+                CalceArchiveMemberFingerprint(crc=4, file_size=5, compress_size=6),
+            )
+
+            build_calce_xlsx_canonical_samples(
+                first_loader,  # type: ignore[arg-type]
+                warmup_cycle_count=1,
+                cache_dir=cache_dir,
+            )
+            build_calce_xlsx_canonical_samples(
+                second_loader,  # type: ignore[arg-type]
+                warmup_cycle_count=1,
+                cache_dir=cache_dir,
+            )
+
+            self.assertEqual(first_loader.load_record_calls, 1)
+            self.assertEqual(second_loader.load_record_calls, 1)
+            self.assertEqual(len(list((cache_dir / "cache").glob("*.parquet"))), 2)
 
 
 class PreprocessingPipelineTest(unittest.TestCase):

@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
 from soh_service.datasets.calce import (
     CalceDatasetLoader,
+    CalceArchiveMemberFingerprint,
     CalceFileMetadata,
     CalceRecord,
+)
+from soh_service.preprocessing.calce_cache import (
+    DEFAULT_CALCE_XLSX_CANDIDATE_CACHE_DIR,
+    CalceCycleCandidate,
+    load_calce_xlsx_candidate_cache,
+    write_calce_xlsx_candidate_cache,
 )
 from soh_service.preprocessing.labels import (
     choose_baseline_capacity,
@@ -31,34 +38,26 @@ CALCE_PRIMARY_FORMATS = ("xlsx",)
 CALCE_AUXILIARY_FORMATS = ("txt", "csv")
 
 
-@dataclass(frozen=True)
-class _CalceCycleCandidate:
-    record_metadata: CalceFileMetadata
-    cycle_index: int
-    start_time: datetime | None
-    time_values_s: tuple[float, ...]
-    voltage_values_v: tuple[float, ...]
-    current_values_a: tuple[float, ...]
-    temperature_values_c: tuple[float | None, ...]
-    step_indices: tuple[int | None, ...]
-    current_capacity_ah: float | None
-    quality_flags: tuple[str, ...]
-
-
 def build_calce_xlsx_canonical_samples(
     loader: CalceDatasetLoader,
     archive_names: set[str] | None = None,
     warmup_cycle_count: int = 5,
+    cache_dir: str | Path | None = DEFAULT_CALCE_XLSX_CANDIDATE_CACHE_DIR,
+    refresh_cache: bool = False,
 ) -> list[CanonicalSequenceSample]:
     """Project CALCE xlsx cycling logs into canonical LSTM samples."""
 
-    rows_by_cell: dict[str, list[_CalceCycleCandidate]] = defaultdict(list)
+    rows_by_cell: dict[str, list[CalceCycleCandidate]] = defaultdict(list)
     for metadata in loader.list_files(
         archive_names=archive_names,
         file_formats=set(CALCE_PRIMARY_FORMATS),
     ):
-        record = loader.load_record(metadata.archive_name, metadata.inner_path)
-        for candidate in _extract_calce_xlsx_candidates(record):
+        for candidate in _load_or_build_calce_candidates(
+            loader,
+            metadata,
+            cache_dir=cache_dir,
+            refresh_cache=refresh_cache,
+        ):
             rows_by_cell[candidate.record_metadata.cell_id].append(candidate)
 
     samples: list[CanonicalSequenceSample] = []
@@ -89,7 +88,7 @@ def build_calce_xlsx_canonical_samples(
     return sorted(samples, key=_sort_canonical_sample)
 
 
-def _extract_calce_xlsx_candidates(record: CalceRecord) -> list[_CalceCycleCandidate]:
+def _extract_calce_xlsx_candidates(record: CalceRecord) -> list[CalceCycleCandidate]:
     frame = pd.DataFrame.from_records(record.samples)
     if frame.empty:
         return []
@@ -103,7 +102,7 @@ def _extract_calce_xlsx_candidates(record: CalceRecord) -> list[_CalceCycleCandi
     if frame.empty:
         return []
 
-    candidates: list[_CalceCycleCandidate] = []
+    candidates: list[CalceCycleCandidate] = []
     for cycle_value in sorted(frame["cycle_index"].unique()):
         cycle_rows = frame[frame["cycle_index"] == cycle_value].copy()
         charge_rows = _select_charge_rows(cycle_rows)
@@ -136,7 +135,7 @@ def _extract_calce_xlsx_candidates(record: CalceRecord) -> list[_CalceCycleCandi
             quality_flags.append("missing_label")
 
         candidates.append(
-            _CalceCycleCandidate(
+            CalceCycleCandidate(
                 record_metadata=record.metadata,
                 cycle_index=int(cycle_value),
                 start_time=_extract_start_time(charge_rows),
@@ -153,7 +152,7 @@ def _extract_calce_xlsx_candidates(record: CalceRecord) -> list[_CalceCycleCandi
 
 
 def _project_calce_candidate(
-    candidate: _CalceCycleCandidate,
+    candidate: CalceCycleCandidate,
     baseline_capacity_ah: float | None,
 ) -> CanonicalSequenceSample:
     temperature_mask = build_observed_mask(candidate.temperature_values_c)
@@ -250,7 +249,7 @@ def _extract_start_time(frame: pd.DataFrame) -> datetime | None:
 
 
 def _sort_calce_candidate(
-    candidate: _CalceCycleCandidate,
+    candidate: CalceCycleCandidate,
 ) -> tuple[str, datetime, int, str, str]:
     return (
         candidate.record_metadata.cell_id,
@@ -259,6 +258,44 @@ def _sort_calce_candidate(
         candidate.record_metadata.archive_name,
         candidate.record_metadata.inner_path,
     )
+
+
+def _load_or_build_calce_candidates(
+    loader: CalceDatasetLoader,
+    metadata: CalceFileMetadata,
+    cache_dir: str | Path | None,
+    refresh_cache: bool,
+) -> list[CalceCycleCandidate]:
+    fingerprint = _get_loader_fingerprint(loader, metadata)
+    if cache_dir is not None and fingerprint is not None and not refresh_cache:
+        cached_candidates = load_calce_xlsx_candidate_cache(
+            metadata=metadata,
+            fingerprint=fingerprint,
+            cache_dir=cache_dir,
+        )
+        if cached_candidates is not None:
+            return cached_candidates
+
+    record = loader.load_record(metadata.archive_name, metadata.inner_path)
+    candidates = _extract_calce_xlsx_candidates(record)
+    if cache_dir is not None and fingerprint is not None:
+        write_calce_xlsx_candidate_cache(
+            metadata=metadata,
+            fingerprint=fingerprint,
+            candidates=candidates,
+            cache_dir=cache_dir,
+        )
+    return candidates
+
+
+def _get_loader_fingerprint(
+    loader: CalceDatasetLoader,
+    metadata: CalceFileMetadata,
+) -> CalceArchiveMemberFingerprint | None:
+    fingerprint_getter = getattr(loader, "get_file_fingerprint", None)
+    if not callable(fingerprint_getter):
+        return None
+    return fingerprint_getter(metadata.archive_name, metadata.inner_path)
 
 
 def _sort_canonical_sample(

@@ -50,6 +50,13 @@ class CalceRecord:
 
 
 @dataclass(frozen=True)
+class CalceArchiveMemberFingerprint:
+    crc: int
+    file_size: int
+    compress_size: int
+
+
+@dataclass(frozen=True)
 class CalceDatasetSummary:
     archive_count: int
     indexed_file_count: int
@@ -124,6 +131,30 @@ class CalceDatasetLoader:
             raise CalceDatasetError(f"Unsupported CALCE file format: {metadata.file_format}")
 
         return CalceRecord(metadata=metadata, columns=columns, samples=samples)
+
+    def get_file_fingerprint(
+        self,
+        archive_name: str,
+        inner_path: str,
+    ) -> CalceArchiveMemberFingerprint:
+        self.get_file_metadata(archive_name, inner_path)
+        archive_path = self.dataset_root / archive_name
+        if not archive_path.exists():
+            raise CalceDatasetError(f"CALCE archive not found: {archive_path}")
+
+        with zipfile.ZipFile(archive_path) as archive:
+            try:
+                file_info = archive.getinfo(inner_path)
+            except KeyError as exc:
+                raise CalceDatasetError(
+                    f"CALCE archive '{archive_name}' does not contain file '{inner_path}'"
+                ) from exc
+
+        return CalceArchiveMemberFingerprint(
+            crc=file_info.CRC,
+            file_size=file_info.file_size,
+            compress_size=file_info.compress_size,
+        )
 
     def iter_records(
         self,

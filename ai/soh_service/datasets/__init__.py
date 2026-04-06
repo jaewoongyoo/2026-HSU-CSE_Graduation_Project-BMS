@@ -2,6 +2,7 @@
 
 from soh_service.datasets.calce import (
     CALCE_DATASET_DIR,
+    CalceArchiveMemberFingerprint,
     CalceDatasetError,
     CalceDatasetLoader,
     CalceDatasetSummary,
@@ -20,6 +21,7 @@ from soh_service.datasets.nasa import (
 
 __all__ = [
     "CALCE_DATASET_DIR",
+    "CalceArchiveMemberFingerprint",
     "CalceDatasetError",
     "CalceDatasetLoader",
     "CalceDatasetSummary",
