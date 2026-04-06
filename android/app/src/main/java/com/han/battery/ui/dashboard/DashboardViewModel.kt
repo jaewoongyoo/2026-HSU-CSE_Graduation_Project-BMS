@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryStatus
@@ -59,36 +60,45 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val context = getApplication<Application>().applicationContext
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
 
-        // 주의: 최신 안드로이드 버전에서는 가급적 리시버 등록 시 flag를 고려해야 하지만,
-        // 배터리 상태 확인용 내부 호출은 null을 넣어 현재 상태 스냅샷만 가져옵니다.
+        // 현재 배터리 상태 스냅샷 가져오기
         val batteryStatusIntent = context.registerReceiver(null, intentFilter)
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
 
         return batteryStatusIntent?.let { intent ->
-            // 1. 잔량 계산 (%)
+            // 1. 잔량(SOC) 계산
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             val soc = if (level != -1 && scale != -1) (level / scale.toFloat() * 100).toInt() else 0
 
-            // 2. 전압 (mV -> V) 및 온도 (0.1°C -> °C)
+            // 2. 전압(V) 및 온도(°C)
             val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
             val temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
 
-            // 3. 실시간 전류 수집 (mA)
-            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            // 3. 전류(mA) - 기기에 따라 음수(방전)/양수(충전) 확인 필요
             val currentNow = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) / 1000f
 
-            // 4. 충전 여부 확인
+            // 4. 충전 상태 확인
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                     status == BatteryManager.BATTERY_STATUS_FULL
+
+            // 5. 완충 예상 시간 계산 (자체 계산 없이 시스템 API만 사용)
+            var remainingMinutes = -1L
+            if (isCharging && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val ms = batteryManager.computeChargeTimeRemaining()
+                // 시스템이 계산 중이거나 알 수 없을 때는 ms가 -1로 옵니다.
+                if (ms > 0) {
+                    remainingMinutes = ms / 1000 / 60
+                }
+            }
 
             BatteryStatus(
                 soc = soc,
                 voltage = voltage,
                 current = currentNow,
                 temperature = temperature,
-                isCharging = isCharging
-                // soh나 power는 필요 시 여기서 계산하거나 UI 단에서 계산하여 노출
+                isCharging = isCharging,
+                remainingTime = remainingMinutes // 이 값이 -1이면 UI에서 "계산 중..." 표시
             )
         } ?: BatteryStatus()
     }

@@ -9,5 +9,6 @@ data class BatteryStatus(
     val voltage: Float = 0f,      // 전압 (V)
     val current: Float = 0f,      // 전류 (mA)
     val temperature: Float = 0f,  // 온도 (°C)
-    val isCharging: Boolean = false
+    val isCharging: Boolean = false,
+    val remainingTime: Long = -1L // 추가: 남은 시간 (분 단위)
 )

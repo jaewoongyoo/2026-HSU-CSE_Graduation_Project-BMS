@@ -33,7 +33,8 @@ import com.han.battery.ui.theme.Slate500
 @Composable
 fun SocMonitorCard(
     modifier: Modifier = Modifier,
-    soc: Int
+    soc: Int,
+    predictionText: String = ""
 ) {
     Card(
         modifier = modifier,
@@ -106,6 +107,16 @@ fun SocMonitorCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = Slate500
             )
+
+            if (predictionText.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "⏳ 예측: $predictionText",
+                    style = MaterialTheme.typography.labelSmall, // 작게 표시
+                    color = MaterialTheme.colorScheme.primary,   // 파란색으로 포인트
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
