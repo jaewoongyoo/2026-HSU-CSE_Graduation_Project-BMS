@@ -1,5 +1,5 @@
 package com.han.battery.data.storage
-// 배터리 정보를 로컬 저장소(SharedPreferences)에 저장/로드하는 매니저
+// 배터리 정보를 로컬 저장소(SharedPreferences)에 저장/로드하는 매니저 (사용자별로 데이터 분리)
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -8,7 +8,7 @@ import com.han.battery.data.common.AppLogger
 import org.json.JSONArray
 import org.json.JSONObject
 
-class PreferenceManager(context: Context) {
+class PreferenceManager(context: Context, private val userManager: UserManager? = null) {
     private val prefs: SharedPreferences = context.getSharedPreferences(
         "battery_insight_prefs",
         Context.MODE_PRIVATE
@@ -21,7 +21,22 @@ class PreferenceManager(context: Context) {
     }
 
     /**
+     * 현재 로그인한 사용자의 고유 키를 생성합니다.
+     * 사용자별로 배터리 데이터를 분리하기 위해 사용됩니다.
+     */
+    private fun getUserDevicesKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_DEVICES"
+    }
+
+    private fun getUserDevicesExistsKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_DEVICES_EXISTS"
+    }
+
+    /**
      * 배터리 기기 정보를 저장합니다.
+     * 현재 로그인한 사용자별로 데이터가 분리되어 저장됩니다.
      */
     fun saveBatteryDevice(device: BatteryDevice) {
         try {
@@ -42,12 +57,16 @@ class PreferenceManager(context: Context) {
             }
 
             val jsonString = jsonArray.toString()
+            val userDevicesKey = getUserDevicesKey()
+            val userDevicesExistsKey = getUserDevicesExistsKey()
+
             prefs.edit().apply {
-                putString(KEY_DEVICES, jsonString)
-                putBoolean(KEY_DEVICES_EXISTS, true)
+                putString(userDevicesKey, jsonString)
+                putBoolean(userDevicesExistsKey, true)
                 apply()  // commit() 대신 apply() 사용 (비동기, 더 빠름)
             }
-            AppLogger.info("배터리 저장 성공: ${device.nickname}, 총 ${devices.size}개", TAG)
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("배터리 저장 성공 [$currentUser]: ${device.nickname}, 총 ${devices.size}개", TAG)
         } catch (e: Exception) {
             AppLogger.error("배터리 저장 실패", e, TAG)
         }
@@ -55,11 +74,13 @@ class PreferenceManager(context: Context) {
 
     /**
      * 저장된 모든 배터리 기기 정보를 로드합니다.
+     * 현재 로그인한 사용자의 데이터만 반환됩니다.
      */
     fun getAllDevices(): List<BatteryDevice> {
         return try {
-            val jsonString = prefs.getString(KEY_DEVICES, null)
-            
+            val userDevicesKey = getUserDevicesKey()
+            val jsonString = prefs.getString(userDevicesKey, null)
+
             if (jsonString.isNullOrEmpty()) {
                 return emptyList()
             }
@@ -78,7 +99,8 @@ class PreferenceManager(context: Context) {
                 devices.add(device)
             }
             
-            AppLogger.info("배터리 로드 성공: ${devices.size}개", TAG)
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("배터리 로드 성공 [$currentUser]: ${devices.size}개", TAG)
             devices
         } catch (e: Exception) {
             AppLogger.error("배터리 로드 실패", e, TAG)
@@ -98,7 +120,8 @@ class PreferenceManager(context: Context) {
      */
     fun isDeviceRegistered(): Boolean {
         val devices = getAllDevices()
-        val isRegistered = prefs.getBoolean(KEY_DEVICES_EXISTS, false) && devices.isNotEmpty()
+        val userDevicesExistsKey = getUserDevicesExistsKey()
+        val isRegistered = prefs.getBoolean(userDevicesExistsKey, false) && devices.isNotEmpty()
         return isRegistered
     }
 
@@ -125,13 +148,15 @@ class PreferenceManager(context: Context) {
                 }
 
                 val jsonString = jsonArray.toString()
+                val userDevicesKey = getUserDevicesKey()
                 prefs.edit().apply {
-                    putString(KEY_DEVICES, jsonString)
+                    putString(userDevicesKey, jsonString)
                     apply()  // commit() 대신 apply() 사용
                 }
             }
             
-            AppLogger.info("배터리 삭제 완료: $nickname", TAG)
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("배터리 삭제 완료 [$currentUser]: $nickname", TAG)
         } catch (e: Exception) {
             AppLogger.error("배터리 삭제 실패", e, TAG)
         }
@@ -139,13 +164,17 @@ class PreferenceManager(context: Context) {
 
     /**
      * 저장된 모든 배터리 기기 정보를 삭제합니다.
+     * 현재 사용자의 데이터만 삭제됩니다.
      */
     fun clearAllDevices() {
+        val userDevicesKey = getUserDevicesKey()
+        val userDevicesExistsKey = getUserDevicesExistsKey()
         prefs.edit().apply {
-            remove(KEY_DEVICES)
-            putBoolean(KEY_DEVICES_EXISTS, false)
+            remove(userDevicesKey)
+            putBoolean(userDevicesExistsKey, false)
             apply()  // commit() 대신 apply() 사용
         }
-        AppLogger.info("모든 배터리 삭제됨", TAG)
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        AppLogger.info("모든 배터리 삭제됨 [$currentUser]", TAG)
     }
 }
