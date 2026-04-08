@@ -10,6 +10,7 @@ data class UserInfo(
 
 class UserManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("users", Context.MODE_PRIVATE)
+    private val currentUserPrefs: SharedPreferences = context.getSharedPreferences("current_user", Context.MODE_PRIVATE)
 
     fun registerUser(username: String, password: String): Boolean {
         // 이미 존재하는 사용자인지 확인
@@ -23,6 +24,9 @@ class UserManager(context: Context) {
             putStringSet("registered_users", (getRegisteredUsers() + username).toSet())
             apply()
         }
+        
+        // 현재 사용자로 설정
+        setCurrentUser(username)
         return true
     }
 
@@ -32,7 +36,11 @@ class UserManager(context: Context) {
         }
 
         val storedPassword = prefs.getString("${username}_password", "")
-        return storedPassword == password
+        if (storedPassword == password) {
+            setCurrentUser(username)
+            return true
+        }
+        return false
     }
 
     fun userExists(username: String): Boolean {
@@ -50,12 +58,28 @@ class UserManager(context: Context) {
         )
     }
 
+    fun getCurrentUser(): String? {
+        return currentUserPrefs.getString("current_username", null)
+    }
+
+    fun setCurrentUser(username: String) {
+        currentUserPrefs.edit().putString("current_username", username).apply()
+    }
+
+    fun logout() {
+        currentUserPrefs.edit().remove("current_username").apply()
+    }
+
+    fun isLoggedIn(): Boolean {
+        return getCurrentUser() != null
+    }
+
     private fun getRegisteredUsers(): Set<String> {
         return prefs.getStringSet("registered_users", emptySet()) ?: emptySet()
     }
 
     fun clearAllUsers() {
         prefs.edit().clear().apply()
+        currentUserPrefs.edit().clear().apply()
     }
 }
-
