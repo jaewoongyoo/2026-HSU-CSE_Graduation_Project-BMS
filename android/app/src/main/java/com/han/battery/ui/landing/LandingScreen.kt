@@ -28,7 +28,7 @@ import com.han.battery.ui.theme.Slate50
 @Composable
 fun LandingScreen(
     onStartClick: (DeviceInfo) -> Unit,
-    onBackClick: (() -> Unit)? = null
+    onBackClick: () -> Unit
 ) {
     // ── 상태 관리 ──
     var brand by remember { mutableStateOf("") }
@@ -78,19 +78,17 @@ fun LandingScreen(
         )
 
         // 뒤로가기 버튼 (왼쪽 상단)
-        if (onBackClick != null) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "뒤로가기",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "뒤로가기",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
 
         Column(
