@@ -26,10 +26,12 @@ import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
+import com.han.battery.data.storage.UserManager
 
 @Composable
 fun SplashScreen(
-    onSplashFinished: () -> Unit
+    onSplashFinished: () -> Unit,
+    userManager: UserManager? = null
 ) {
     val logoAlpha = remember { Animatable(0f) }
     val textAlpha = remember { Animatable(0f) }
