@@ -65,6 +65,9 @@ fun HomeScreen(
     var deviceToDelete by remember { mutableStateOf<BatteryDevice?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    // 로그아웃 시 현재 사용자의 배터리 데이터를 리프레시하기 위한 상태
+    var currentUser by remember { mutableStateOf(userManager?.getCurrentUser()) }
+
     // 로그아웃 확인 다이얼로그
     if (showLogoutDialog) {
         AlertDialog(
@@ -75,6 +78,7 @@ fun HomeScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
+                        currentUser = null // 사용자 정보 초기화
                         userManager?.logout()
                         onLogout?.invoke()
                     }
