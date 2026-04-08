@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -18,25 +19,63 @@ import com.han.battery.ui.home.HomeScreen
 import com.han.battery.ui.landing.LandingScreen
 import com.han.battery.ui.splash.SplashScreen
 import com.han.battery.ui.theme.BatteryTheme
-// DeviceInfo가 typealias라면 이 파일에서 정의된 위치를 정확히 참조해야 합니다.
 import com.han.battery.DeviceInfo
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.ui.auth.LoginScreen
 import com.han.battery.ui.auth.SignupScreen
+import com.han.battery.data.storage.UserManager
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 
-class MainActivity : ComponentActivity() {
+class ainActivity : ComponentActivity() {
 
     private lateinit var preferenceManager: PreferenceManager
+    private lateinit var userManager: UserManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        preferenceManager = PreferenceManager(this)
+        userManager = UserManager(this)
+        preferenceManager = PreferenceManager(this, userManager)
 
         setContent {
             BatteryTheme {
                 val navController = rememberNavController()
                 var deviceRefreshKey by remember { mutableStateOf(0) }
+                var showExitDialog by remember { mutableStateOf(false) }
+
+                // BackHandler: 시스템 뒤로가기 버튼 처리
+                BackHandler {
+                    // 백스택이 비어있으면 (홈 스크린) 앱 종료 확인
+                    if (!navController.popBackStack()) {
+                        showExitDialog = true
+                    }
+                }
+
+                // 앱 종료 확인 다이얼로그
+                if (showExitDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showExitDialog = false },
+                        title = { Text("앱 종료") },
+                        text = { Text("정말 앱을 종료하시겠습니까?") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showExitDialog = false
+                                    finish()
+                                }
+                            ) {
+                                Text("종료", color = androidx.compose.ui.graphics.Color.Red)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showExitDialog = false }) {
+                                Text("취소")
+                            }
+                        }
+                    )
+                }
 
                 NavHost(
                     navController = navController,
@@ -45,9 +84,17 @@ class MainActivity : ComponentActivity() {
                     // 1. 스플래시 화면
                     composable("splash") {
                         SplashScreen(
+                            userManager = userManager,
                             onSplashFinished = {
-                                navController.navigate("login") {
-                                    popUpTo("splash") { inclusive = true }
+                                // 사용자가 이미 로그인되어 있는지 확인
+                                if (userManager.isLoggedIn()) {
+                                    navController.navigate("home") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate("login") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
                                 }
                             }
                         )
@@ -56,6 +103,7 @@ class MainActivity : ComponentActivity() {
                     // 2. 로그인 화면
                     composable("login") {
                         LoginScreen(
+                            userManager = userManager,
                             onNavigateToSignup = {
                                 navController.navigate("signup")
                             },
@@ -70,6 +118,7 @@ class MainActivity : ComponentActivity() {
                     // 3. 회원가입 화면
                     composable("signup") {
                         SignupScreen(
+                            userManager = userManager,
                             onNavigateToLogin = {
                                 navController.popBackStack()
                             },
@@ -96,6 +145,12 @@ class MainActivity : ComponentActivity() {
                                 onDeleteDevice = { device ->
                                     preferenceManager.deleteDevice(device.nickname)
                                     deviceRefreshKey++
+                                },
+                                userManager = userManager,
+                                onLogout = {
+                                    navController.navigate("login") {
+                                        popUpTo("home") { inclusive = true }
+                                    }
                                 }
                             )
                         }
@@ -118,6 +173,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("dashboard/${deviceInfo.nickname}") {
                                     popUpTo("landing") { inclusive = true }
                                 }
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
                             }
                         )
                     }
@@ -152,4 +210,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
