@@ -19,7 +19,6 @@ import com.han.battery.ui.home.HomeScreen
 import com.han.battery.ui.landing.LandingScreen
 import com.han.battery.ui.splash.SplashScreen
 import com.han.battery.ui.theme.BatteryTheme
-import com.han.battery.DeviceInfo
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.ui.auth.LoginScreen
 import com.han.battery.ui.auth.SignupScreen
@@ -28,7 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 
-class ainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var preferenceManager: PreferenceManager
     private lateinit var userManager: UserManager
