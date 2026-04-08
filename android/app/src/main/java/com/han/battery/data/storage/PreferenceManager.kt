@@ -177,4 +177,15 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         val currentUser = userManager?.getCurrentUser() ?: "default"
         AppLogger.info("모든 배터리 삭제됨 [$currentUser]", TAG)
     }
+
+    /**
+     * 사용자 로그아웃 시 호출되는 메서드
+     * 로그아웃 전 현재 사용자의 배터리 데이터를 초기화할 수 있습니다. (선택사항)
+     */
+    fun onUserLogout() {
+        // 로그아웃 시 실행할 정리 작업 (현재는 추가 작업 없음)
+        // 향후 필요 시 여기에 추가
+        val previousUser = userManager?.getCurrentUser() ?: "default"
+        AppLogger.info("사용자 로그아웃 처리 [$previousUser]", TAG)
+    }
 }
