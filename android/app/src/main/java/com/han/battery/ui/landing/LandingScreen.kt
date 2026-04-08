@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +27,8 @@ import com.han.battery.ui.theme.Slate50
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LandingScreen(
-    onStartClick: (DeviceInfo) -> Unit
+    onStartClick: (DeviceInfo) -> Unit,
+    onBackClick: (() -> Unit)? = null
 ) {
     // ── 상태 관리 ──
     var brand by remember { mutableStateOf("") }
@@ -74,6 +76,22 @@ fun LandingScreen(
                     )
                 )
         )
+
+        // 뒤로가기 버튼 (왼쪽 상단)
+        if (onBackClick != null) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "뒤로가기",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
