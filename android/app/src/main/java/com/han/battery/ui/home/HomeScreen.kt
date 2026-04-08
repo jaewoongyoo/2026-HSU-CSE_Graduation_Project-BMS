@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +50,7 @@ import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
+import com.han.battery.data.storage.UserManager
 
 @Composable
 fun HomeScreen(
@@ -56,10 +58,38 @@ fun HomeScreen(
     devices: List<BatteryDevice>,
     onDeviceSelected: (BatteryDevice) -> Unit,
     onAddNewDevice: () -> Unit,
-    onDeleteDevice: (BatteryDevice) -> Unit = {}
+    onDeleteDevice: (BatteryDevice) -> Unit = {},
+    userManager: UserManager? = null,
+    onLogout: (() -> Unit)? = null
 ) {
     var deviceToDelete by remember { mutableStateOf<BatteryDevice?>(null) }
-    
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // 로그아웃 확인 다이얼로그
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("로그아웃") },
+            text = { Text("정말 로그아웃하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        userManager?.logout()
+                        onLogout?.invoke()
+                    }
+                ) {
+                    Text("로그아웃", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
     // 삭제 확인 다이얼로그
     deviceToDelete?.let { device ->
         DeleteDeviceDialog(
@@ -97,6 +127,24 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // 헤더 상단 - 로그아웃 버튼
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ExitToApp,
+                            contentDescription = "로그아웃",
+                            tint = Blue600
+                        )
+                    }
+                }
+
                 AppLogo(size = LogoSize.Medium, showText = false)
                 
                 Spacer(modifier = Modifier.height(12.dp))
