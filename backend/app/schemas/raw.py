@@ -16,8 +16,6 @@ class RawDataPoint(BaseModel):
 
 
 class RawUploadRequest(BaseModel):
-    session_id: str
-    user_id: str
     data_points: List[RawDataPoint] = Field(..., min_length=1)
 
     @field_validator("data_points")
