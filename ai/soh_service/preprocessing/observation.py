@@ -5,7 +5,7 @@ from typing import Literal
 
 from soh_service.preprocessing.schemas import CanonicalSequenceSample
 
-ObservationVariantId = Literal["v1", "v2", "v3", "v4"]
+ObservationVariantId = Literal["v1", "v2", "v3"]
 
 CORE_SEQUENCE_INPUT_FIELDS = (
     "time_s",
@@ -19,7 +19,6 @@ OBSERVATION_DERIVED_FIELDS = (
     "cumulative_energy_wh",
     "effective_output_power_w",
     "estimated_output_current_5v_a",
-    "energy_progress_ratio",
 )
 
 
@@ -64,20 +63,6 @@ OBSERVATION_VARIANTS: dict[ObservationVariantId, ObservationVariantSpec] = {
         ),
         notes=(
             "Adds regulated-output proxy channels based on explicit efficiency and voltage assumptions.",
-        ),
-    ),
-    "v4": ObservationVariantSpec(
-        version_id="v4",
-        derived_sequence_fields=(
-            "power_w",
-            "cumulative_energy_wh",
-            "effective_output_power_w",
-            "estimated_output_current_5v_a",
-            "energy_progress_ratio",
-        ),
-        requires_full_sequence_context=True,
-        notes=(
-            "Adds normalized energy progress derived from the full sequence total.",
         ),
     ),
 }
@@ -154,17 +139,6 @@ def compute_estimated_output_current_series(
     ]
 
 
-def compute_energy_progress_ratio(
-    cumulative_energy_values_wh: list[float],
-) -> list[float]:
-    if not cumulative_energy_values_wh:
-        return []
-
-    total_energy_wh = cumulative_energy_values_wh[-1]
-    if total_energy_wh <= 0.0:
-        return [0.0 for _ in cumulative_energy_values_wh]
-    return [value_wh / total_energy_wh for value_wh in cumulative_energy_values_wh]
-
 
 def build_observation_feature_rows(
     sample: CanonicalSequenceSample,
@@ -189,8 +163,6 @@ def build_observation_feature_rows(
         effective_output_power_values_w,
         regulated_output_voltage_v=config.regulated_output_voltage_v,
     )
-    energy_progress_values = compute_energy_progress_ratio(cumulative_energy_values_wh)
-
     rows: list[dict[str, object]] = []
     for index, point in enumerate(sample.sequence):
         rows.append(
@@ -207,7 +179,6 @@ def build_observation_feature_rows(
                 "cumulative_energy_wh": cumulative_energy_values_wh[index],
                 "effective_output_power_w": effective_output_power_values_w[index],
                 "estimated_output_current_5v_a": estimated_output_current_values_a[index],
-                "energy_progress_ratio": energy_progress_values[index],
             }
         )
     return rows

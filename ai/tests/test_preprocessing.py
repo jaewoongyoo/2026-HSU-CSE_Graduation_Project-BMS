@@ -214,10 +214,7 @@ class PreprocessingHelpersTest(unittest.TestCase):
         self.assertAlmostEqual(rows[0]["effective_output_power_w"], 3.145)
         self.assertAlmostEqual(rows[1]["effective_output_power_w"], 2.907)
         self.assertAlmostEqual(rows[1]["estimated_output_current_5v_a"], 0.5814)
-        self.assertEqual(rows[0]["energy_progress_ratio"], 0.0)
-        self.assertEqual(rows[1]["energy_progress_ratio"], 1.0)
-
-    def test_observation_variant_registry_matches_four_step_ladder(self) -> None:
+    def test_observation_variant_registry_matches_three_step_ladder(self) -> None:
         self.assertEqual(
             get_lstm_sequence_fields("v1"),
             (
@@ -232,17 +229,15 @@ class PreprocessingHelpersTest(unittest.TestCase):
         self.assertIn("cumulative_energy_wh", get_lstm_sequence_fields("v2"))
         self.assertIn("effective_output_power_w", get_lstm_sequence_fields("v3"))
         self.assertIn("estimated_output_current_5v_a", get_lstm_sequence_fields("v3"))
-        self.assertIn("energy_progress_ratio", get_lstm_sequence_fields("v4"))
         self.assertFalse(get_observation_variant_spec("v3").requires_full_sequence_context)
-        self.assertTrue(get_observation_variant_spec("v4").requires_full_sequence_context)
 
     def test_lstm_variant_rows_and_metadata_follow_selected_version(self) -> None:
         sample = make_canonical_sample("obs:s2", "B2")
 
         v2_rows = build_lstm_variant_rows(sample, "v2")
-        v4_rows = build_lstm_variant_rows(sample, "v4")
+        v3_rows = build_lstm_variant_rows(sample, "v3")
         metadata = build_observation_transform_metadata(
-            "v4",
+            "v3",
             config=ObservationTransformConfig(
                 efficiency_value=0.9,
                 regulated_output_voltage_v=5.0,
@@ -254,9 +249,9 @@ class PreprocessingHelpersTest(unittest.TestCase):
             set(get_lstm_sequence_fields("v2")),
         )
         self.assertNotIn("effective_output_power_w", v2_rows[0])
-        self.assertIn("energy_progress_ratio", v4_rows[0])
-        self.assertEqual(metadata["observation_version"], "v4")
-        self.assertTrue(metadata["requires_full_sequence_context"])
+        self.assertIn("effective_output_power_w", v3_rows[0])
+        self.assertEqual(metadata["observation_version"], "v3")
+        self.assertFalse(metadata["requires_full_sequence_context"])
         self.assertEqual(metadata["efficiency_value"], 0.9)
 
     def test_resample_canonical_sample_builds_fixed_interval_grid(self) -> None:
@@ -290,6 +285,8 @@ class PreprocessingHelpersTest(unittest.TestCase):
         self.assertEqual(len(bundle.windows), 2)
         self.assertEqual(len(bundle.windows[0].sequence_rows), 30)
         self.assertEqual(len(bundle.windows[1].sequence_rows), 30)
+        self.assertEqual(bundle.windows[0].sequence_rows[0]["time_s"], 0.0)
+        self.assertEqual(bundle.windows[1].sequence_rows[0]["time_s"], 0.0)
         self.assertEqual(
             set(bundle.windows[0].sequence_rows[0].keys()),
             set(get_lstm_sequence_fields("v1")),
@@ -537,6 +534,72 @@ class CalcePreprocessingAdapterTest(unittest.TestCase):
         self.assertEqual(candidates[0].current_capacity_ah, 1.1)
         self.assertIn("missing_temperature", candidates[0].quality_flags)
 
+    def test_extract_calce_candidates_excludes_discharge_rows(self) -> None:
+        """Discharge rows (negative current) must not appear in charge sequences.
+
+        Arbin Charge_Capacity(Ah) is cumulative from test start so it is
+        always > 0 for cycles after the first, making a capacity-based mask
+        include discharge rows.  Only instantaneous current > 0 is reliable.
+        """
+        from datetime import date
+        from soh_service.datasets.calce import CalceFileMetadata, CalceRecord
+
+        metadata = CalceFileMetadata(
+            archive_name="CS2_3.zip",
+            inner_path="CS2_3/CS2_3_discharge_test.xlsx",
+            cell_id="CS2_3",
+            file_format="xlsx",
+            file_kind="cycling_log",
+            inferred_test_date=date(2012, 10, 5),
+            inferred_temperature_c=None,
+            note_flags=(),
+        )
+        # Cycle 2 with cumulative charge_capacity_ah > 0 on all rows,
+        # including the discharge row (negative current).
+        samples = [
+            {
+                "test_time_s": 100.0,
+                "step_index": 3,
+                "cycle_index": 2,
+                "current_a": 0.80,   # charge
+                "voltage_v": 3.80,
+                "charge_capacity_ah": 2.10,  # cumulative > 0 even on discharge rows
+                "discharge_capacity_ah": 0.00,
+            },
+            {
+                "test_time_s": 200.0,
+                "step_index": 3,
+                "cycle_index": 2,
+                "current_a": 0.60,   # charge (CV taper)
+                "voltage_v": 3.95,
+                "charge_capacity_ah": 2.20,
+                "discharge_capacity_ah": 0.00,
+            },
+            {
+                "test_time_s": 300.0,
+                "step_index": 4,
+                "cycle_index": 2,
+                "current_a": -1.00,  # discharge — must be excluded
+                "voltage_v": 3.70,
+                "charge_capacity_ah": 2.20,  # still > 0 (cumulative, unchanged)
+                "discharge_capacity_ah": 1.05,
+            },
+        ]
+        record = CalceRecord(
+            metadata=metadata,
+            columns=tuple(samples[0].keys()),
+            samples=samples,
+        )
+
+        candidates = _extract_calce_xlsx_candidates(record)
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].cycle_index, 2)
+        # Only the two charge rows must be in the sequence.
+        self.assertEqual(len(candidates[0].current_values_a), 2)
+        self.assertTrue(all(c > 0 for c in candidates[0].current_values_a),
+                        "discharge row with negative current leaked into charge sequence")
+
     def test_build_calce_xlsx_canonical_samples_uses_baseline_labeling(self) -> None:
         class StubLoader:
             def __init__(self, record: CalceRecord) -> None:
@@ -693,6 +756,35 @@ class PreprocessingPipelineTest(unittest.TestCase):
         self.assertEqual(assignments["s1"], assignments["s2"])
         self.assertEqual(len(manifest), 4)
         self.assertEqual(manifest[0]["source_id"], "s1")
+
+    def test_split_assignments_stratify_across_multiple_datasets(self) -> None:
+        """Each dataset must contribute cells to every split.
+
+        Without stratification the alphabetical sort of (dataset_id, cell_id)
+        puts all CALCE cells into train and all NASA cells into val/test, which
+        creates a cross-domain split rather than a within-dataset split.
+        """
+        nasa_samples = [
+            make_canonical_sample(f"nasa:s{i}", f"N{i}", dataset_id="nasa")
+            for i in range(1, 5)   # 4 NASA cells
+        ]
+        calce_samples = [
+            make_canonical_sample(f"calce:s{i}", f"C{i}", dataset_id="calce")
+            for i in range(1, 5)   # 4 CALCE cells
+        ]
+        assignments = build_group_split_assignments(
+            nasa_samples + calce_samples, train_ratio=0.5, val_ratio=0.25
+        )
+
+        nasa_splits = {assignments[s.metadata.source_id] for s in nasa_samples}
+        calce_splits = {assignments[s.metadata.source_id] for s in calce_samples}
+
+        # Both datasets must have at least one cell in train.
+        self.assertIn("train", nasa_splits, "NASA has no train cells")
+        self.assertIn("train", calce_splits, "CALCE has no train cells")
+        # Neither dataset should be confined to a single split.
+        self.assertGreater(len(nasa_splits), 1, "all NASA cells collapsed into one split")
+        self.assertGreater(len(calce_splits), 1, "all CALCE cells collapsed into one split")
 
     def test_metadata_and_sequence_tables_flatten_samples(self) -> None:
         class StubNasaLoader:

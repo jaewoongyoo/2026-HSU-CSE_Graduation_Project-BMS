@@ -200,23 +200,26 @@ def _project_calce_candidate(
 
 
 def _select_charge_rows(frame: pd.DataFrame) -> pd.DataFrame:
+    # Arbin Charge_Capacity(Ah) is cumulative from test start and never resets
+    # between cycles, so it is always > 0 for cycle 2+ regardless of step phase.
+    # Using it as a selection criterion would incorrectly include discharge and
+    # rest rows. Instantaneous current > 0 is the only reliable charge indicator.
     current_values = pd.to_numeric(frame.get("current_a"), errors="coerce").fillna(0.0)
-    charge_capacity = pd.to_numeric(
-        frame.get("charge_capacity_ah"),
-        errors="coerce",
-    ).fillna(0.0)
-    charge_mask = (current_values > 0.0) | (charge_capacity > 0.0)
-    return frame.loc[charge_mask].copy()
+    return frame.loc[current_values > 0.0].copy()
 
 
 def _extract_discharge_capacity_ah(frame: pd.DataFrame) -> float | None:
     if "discharge_capacity_ah" not in frame.columns:
         return None
     values = pd.to_numeric(frame["discharge_capacity_ah"], errors="coerce").dropna()
-    positive_values = values[values > 0.0]
-    if positive_values.empty:
+    if values.empty:
         return None
-    return float(positive_values.max())
+    # Arbin discharge_capacity_ah is cumulative from test start and never resets.
+    # The per-cycle capacity is the range (max - min) within the cycle's rows.
+    capacity = float(values.max() - values.min())
+    if capacity <= 0.0:
+        return None
+    return capacity
 
 
 def _extract_temperature_values(frame: pd.DataFrame) -> list[float | None]:

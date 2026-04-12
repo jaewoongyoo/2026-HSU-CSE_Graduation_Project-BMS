@@ -197,14 +197,21 @@ def build_windowed_sequence_bundle(
         if not full_rows:
             continue
 
-        selected_rows = tuple(
-            {field: row[field] for field in selected_fields}
-            for row in full_rows
-        )
-
         window_start_s = float(full_rows[0]["time_s"])
         nominal_window_end_s = window_start_s + policy.window_duration_s
         effective_window_end_s = min(nominal_window_end_s, parent_duration_s)
+        selected_rows = tuple(
+            {
+                field: (
+                    float(row["time_s"]) - window_start_s
+                    if field == "time_s"
+                    else row[field]
+                )
+                for field in selected_fields
+            }
+            for row in full_rows
+        )
+
         progress_start = _safe_progress_ratio(window_start_s, parent_duration_s)
         progress_mid = _safe_progress_ratio(
             window_start_s + (effective_window_end_s - window_start_s) / 2.0,
