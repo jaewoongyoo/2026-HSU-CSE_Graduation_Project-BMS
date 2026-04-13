@@ -222,7 +222,18 @@ class MainActivity : ComponentActivity() {
                                     return@LandingScreen
                                 }
 
-                                // 서버에도 저장 (비동기)
+                                // 키보드 숨기기
+                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                currentFocus?.windowToken?.let { token ->
+                                    imm.hideSoftInputFromWindow(token, 0)
+                                }
+
+                                // 대시보드로 이동 (서버 저장은 백그라운드에서 진행)
+                                navController.navigate("dashboard/${deviceInfo.nickname}") {
+                                    popUpTo("landing") { inclusive = true }
+                                }
+
+                                // 서버에 저장 (백그라운드 - UI와 독립적으로 진행)
                                 coroutineScope.launch {
                                     try {
                                         android.util.Log.d("BatteryRegistration",
@@ -243,27 +254,13 @@ class MainActivity : ComponentActivity() {
                                             val errorMsg = result.exceptionOrNull()?.message ?: "서버 등록 실패"
                                             android.util.Log.e("BatteryRegistration",
                                                 "배터리 서버 저장 실패: $errorMsg")
-                                            // 서버 저장 실패해도 계속 진행 (로컬 데이터는 있음)
-                                            registrationError = "서버 저장에 실패했습니다. 앱을 재시작하면 다시 시도됩니다.\n오류: $errorMsg"
                                         }
                                     } catch (e: Exception) {
                                         android.util.Log.e("BatteryRegistration",
                                             "배터리 서버 저장 중 예외 발생", e)
-                                        registrationError = "서버 저장 중 오류가 발생했습니다: ${e.message}"
                                     } finally {
                                         isRegistering = false
                                     }
-                                }
-
-                                // 키보드 숨기기
-                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                currentFocus?.windowToken?.let { token ->
-                                    imm.hideSoftInputFromWindow(token, 0)
-                                }
-
-                                // 대시보드로 이동
-                                navController.navigate("dashboard/${deviceInfo.nickname}") {
-                                    popUpTo("landing") { inclusive = true }
                                 }
                             },
                             onBackClick = {
