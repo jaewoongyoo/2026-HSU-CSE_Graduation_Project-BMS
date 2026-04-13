@@ -80,6 +80,9 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:2.3.8")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.8")
 
+    // SLF4J 구현 (로깅 경고 해결)
+    implementation("org.slf4j:slf4j-android:1.7.36")
+
     testImplementation(libs.junit)
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
