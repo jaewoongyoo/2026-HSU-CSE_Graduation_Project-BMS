@@ -190,5 +190,51 @@ class AuthRepository(
     fun getCurrentUser(): String? {
         return userManager.getCurrentUser()
     }
-}
 
+    /**
+     * 배터리 등록 (서버에 저장)
+     */
+    suspend fun registerBattery(nickname: String, capacity: Int, brand: String? = null, manufactureDate: String? = null): Result<BatteryResponse> {
+        return try {
+            AppLogger.info("배터리 등록 시도: $nickname ($capacity mAh)", TAG)
+
+            val request = BatteryRegistrationRequest(
+                nickname = nickname,
+                capacity = capacity,
+                brand = brand,
+                manufacture_date = manufactureDate
+            )
+            val response = apiService.registerBattery(request).getOrThrow()
+
+            AppLogger.info("배터리 등록 성공: ${response.nickname} (ID: ${response.id})", TAG)
+            Result.success(response)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "로그인이 필요합니다."
+                e.message?.contains("422", ignoreCase = true) == true ->
+                    "입력 정보가 올바르지 않습니다."
+                e.message?.contains("failed to connect", ignoreCase = true) == true ->
+                    "서버에 연결할 수 없습니다."
+                else -> e.message ?: "배터리 등록 실패"
+            }
+            AppLogger.error("배터리 등록 실패: $errorMessage", e, TAG)
+            Result.failure(Exception(errorMessage))
+        }
+    }
+
+    /**
+     * 배터리 목록 조회
+     */
+    suspend fun getBatteries(): Result<List<BatteryResponse>> {
+        return try {
+            AppLogger.info("배터리 목록 조회", TAG)
+            val batteries = apiService.getBatteries().getOrThrow()
+            AppLogger.info("배터리 목록 조회 완료: ${batteries.size}개", TAG)
+            Result.success(batteries)
+        } catch (e: Exception) {
+            AppLogger.error("배터리 목록 조회 실패", e, TAG)
+            Result.failure(e)
+        }
+    }
+}

@@ -78,6 +78,30 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         client.delete("$baseUrl/api/v1/users/$userId") {}.body()
     }
 
+    // 배터리 관련 API
+    suspend fun registerBattery(request: BatteryRegistrationRequest): Result<BatteryResponse> = runCatching {
+        val response = client.post("$baseUrl/api/v1/batteries") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("${response.status.value}: ${response.bodyAsText()}")
+        }
+        response.body()
+    }
+
+    suspend fun getBatteries(): Result<List<BatteryResponse>> = runCatching {
+        client.get("$baseUrl/api/v1/batteries") {}.body()
+    }
+
+    suspend fun getBattery(batteryId: Int): Result<BatteryResponse> = runCatching {
+        client.get("$baseUrl/api/v1/batteries/$batteryId") {}.body()
+    }
+
+    suspend fun deleteBattery(batteryId: Int): Result<String> = runCatching {
+        client.delete("$baseUrl/api/v1/batteries/$batteryId") {}.body()
+    }
+
     fun close() {
         client.close()
     }

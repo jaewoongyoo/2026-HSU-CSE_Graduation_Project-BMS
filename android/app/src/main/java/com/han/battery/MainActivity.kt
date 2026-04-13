@@ -167,11 +167,11 @@ class MainActivity : ComponentActivity() {
                     composable("landing") {
                         LandingScreen(
                             onStartClick = { deviceInfo ->
-                                // deviceInfo는 BatteryDevice의 별칭이므로 바로 저장 가능합니다.
+                                // 로컬에 저장
                                 preferenceManager.saveBatteryDevice(deviceInfo)
                                 deviceRefreshKey++
 
-                                // 키보드 숨기기 (Context 활용)
+                                // 키보드 숨기기
                                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                                 currentFocus?.windowToken?.let { token ->
                                     imm.hideSoftInputFromWindow(token, 0)

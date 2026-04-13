@@ -53,3 +53,24 @@ data class ErrorDetail(
     val msg: String,
     val type: String
 )
+
+// 배터리 관련 데이터 모델
+@Serializable
+data class BatteryRegistrationRequest(
+    val nickname: String,
+    val capacity: Int,
+    val brand: String? = null,
+    val manufacture_date: String? = null
+)
+
+@Serializable
+data class BatteryResponse(
+    val id: Int,
+    val user_id: Int,
+    val nickname: String,
+    val capacity: Int,
+    val brand: String? = null,
+    val manufacture_date: String? = null,
+    val created_at: String? = null
+)
+
