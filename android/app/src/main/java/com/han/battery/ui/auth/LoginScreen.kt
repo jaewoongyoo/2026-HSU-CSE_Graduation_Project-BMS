@@ -1,6 +1,7 @@
 package com.han.battery.ui.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,12 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Slate50
+import com.han.battery.ui.theme.Slate950
 import com.han.battery.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 
@@ -44,13 +47,18 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var uiState by remember { mutableStateOf<AuthUiState>(AuthUiState.Idle) }
     val coroutineScope = rememberCoroutineScope()
+    val isDarkTheme = isSystemInDarkTheme()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                    if (isDarkTheme) {
+                        listOf(Slate950, Color(0xFF1A1F35), Slate950)
+                    } else {
+                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                    }
                 )
             )
     ) {
@@ -76,6 +84,11 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
                 enabled = uiState !is AuthUiState.Loading
             )
 
@@ -86,8 +99,12 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 24.dp),
+                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
                 enabled = uiState !is AuthUiState.Loading
             )
 
@@ -110,10 +127,10 @@ fun LoginScreen(
                         uiState = AuthUiState.Error("비밀번호를 입력하세요")
                         return@Button
                     }
-                    if (username.length < 4) {
-                        uiState = AuthUiState.Error("사용자명은 4자 이상이어야 합니다")
-                        return@Button
-                    }
+                    if (username.length < 1) {
+                         uiState = AuthUiState.Error("사용자명은 1자 이상이어야 합니다")
+                         return@Button
+                     }
                     if (password.length < 4) {
                         uiState = AuthUiState.Error("비밀번호는 4자 이상이어야 합니다")
                         return@Button
