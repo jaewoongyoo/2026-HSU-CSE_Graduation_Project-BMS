@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.models import User
@@ -13,6 +14,10 @@ def create_user(db: Session, username: str, password_hash: str) -> User:
         password_hash=password_hash,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
     db.refresh(user)
     return user

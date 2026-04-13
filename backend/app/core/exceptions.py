@@ -23,3 +23,19 @@ class AIServiceException(HTTPException):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=detail,
         )
+
+
+class ResourceConflictException(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+
+class DatabaseOperationException(HTTPException):
+    def __init__(self, detail: str = "Database operation failed"):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        )

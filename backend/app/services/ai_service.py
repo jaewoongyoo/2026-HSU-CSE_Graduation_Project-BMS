@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import AIServiceException, InvalidRawDataException, SessionNotFoundException
 from app.repositories.postgres_repo import (
-    get_device,
-    get_device_raw_points,
+    get_session_meta,
+    get_session_raw_points,
     save_ai_result,
 )
 
@@ -23,11 +23,14 @@ def get_ai_health() -> dict:
 
 
 def predict_soh_for_session(db: Session, session_id: str) -> dict:
-    device = get_device(db, session_id)
-    if not device:
+    session = get_session_meta(db, session_id)
+    if not session:
         raise SessionNotFoundException(session_id)
 
-    raw_points = get_device_raw_points(db, session_id)
+    if session.status != "finished":
+        raise InvalidRawDataException("session must be finished before prediction")
+
+    raw_points = get_session_raw_points(db, session_id)
     if len(raw_points) < 10:
         raise InvalidRawDataException("cycle_records must contain at least 10 points")
 
@@ -46,8 +49,8 @@ def predict_soh_for_session(db: Session, session_id: str) -> dict:
             }
             for point in raw_points
         ],
-        "powerbank_capacity_mah": device.powerbank_capacity_mah or 10000,
-        "phone_capacity_mah": device.capacity_mah or 4000,
+        "powerbank_capacity_mah": session.powerbank_capacity_mah or 10000,
+        "phone_capacity_mah": session.phone_capacity_mah or 4000,
     }
 
     try:
@@ -58,7 +61,7 @@ def predict_soh_for_session(db: Session, session_id: str) -> dict:
         )
         response.raise_for_status()
         result = response.json()
-        save_ai_result(db, session_id, result)
+        save_ai_result(db, session_id, session.device_id, result)
         return result
     except requests.RequestException as exc:
         raise AIServiceException(str(exc)) from exc
