@@ -193,6 +193,13 @@ class AuthRepository(
 
     /**
      * 배터리 등록 (서버에 저장)
+     * @param modelName 배터리 모델명 (필수)
+     * @param capacityMah 배터리 용량 (필수, mAh 단위)
+     * @param manufacturer 제조사 (선택)
+     * @param manufactureDate 제조년월 (선택, YYYY-MM 형식)
+     * @param powerbankCapacityMah 파워뱅크 용량 (선택)
+     * @param deviceId 기기 ID (선택)
+     * @return 배터리 등록 결과
      */
     suspend fun registerBattery(
         modelName: String,
@@ -203,28 +210,56 @@ class AuthRepository(
         deviceId: String? = null
     ): Result<BatteryResponse> {
         return try {
+            // 입력값 검증
+            if (modelName.isBlank()) {
+                throw IllegalArgumentException("모델명은 필수입니다")
+            }
+            if (capacityMah <= 0) {
+                throw IllegalArgumentException("용량은 0보다 커야 합니다")
+            }
+            if (capacityMah > 100000) {
+                throw IllegalArgumentException("용량이 너무 많습니다 (최대 100000 mAh)")
+            }
+
             AppLogger.info("배터리 등록 시도: $modelName ($capacityMah mAh)", TAG)
 
             val request = BatteryRegistrationRequest(
                 device_id = deviceId,
-                manufacturer = manufacturer,
-                model_name = modelName,
+                manufacturer = manufacturer?.ifBlank { null },
+                model_name = modelName.trim(),
                 capacity_mah = capacityMah,
-                manufacture_date = manufactureDate,
+                manufacture_date = manufactureDate?.ifBlank { null },
                 powerbank_capacity_mah = powerbankCapacityMah
             )
+
+            AppLogger.info("API 요청: device_id=$deviceId, manufacturer=$manufacturer, " +
+                "model_name=$modelName, capacity=$capacityMah, date=$manufactureDate", TAG)
+
             val response = apiService.registerBattery(request).getOrThrow()
 
-            AppLogger.info("배터리 등록 성공: ${response.model_name} (ID: ${response.id})", TAG)
+            AppLogger.info("배터리 등록 성공: ${response.model_name} (ID: ${response.id}, user_id: ${response.user_id})", TAG)
             Result.success(response)
+        } catch (e: IllegalArgumentException) {
+            AppLogger.error("배터리 등록 입력값 검증 실패: ${e.message}", e, TAG)
+            Result.failure(e)
         } catch (e: Exception) {
             val errorMessage = when {
                 e.message?.contains("401", ignoreCase = true) == true ->
-                    "로그인이 필요합니다."
+                    "로그인이 필요합니다. 다시 로그인하세요."
+                e.message?.contains("403", ignoreCase = true) == true ->
+                    "배터리 등록 권한이 없습니다."
+                e.message?.contains("404", ignoreCase = true) == true ->
+                    "서버의 배터리 API가 준비되지 않았습니다. 백엔드 서버를 확인하세요."
                 e.message?.contains("422", ignoreCase = true) == true ->
-                    "입력 정보가 올바르지 않습니다."
+                    "입력 정보가 올바르지 않습니다. 각 항목을 다시 확인하세요."
                 e.message?.contains("failed to connect", ignoreCase = true) == true ->
-                    "서버에 연결할 수 없습니다."
+                    "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true ->
+                    "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("500", ignoreCase = true) == true ||
+                e.message?.contains("502", ignoreCase = true) == true ||
+                e.message?.contains("503", ignoreCase = true) == true ->
+                    "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
                 else -> e.message ?: "배터리 등록 실패"
             }
             AppLogger.error("배터리 등록 실패: $errorMessage", e, TAG)

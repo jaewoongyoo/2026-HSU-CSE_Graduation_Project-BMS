@@ -218,12 +218,22 @@ fun LandingScreen(
                                 // capacity를 숫자로 변환합니다. 변환 실패 시 0으로 처리합니다.
                                 val capacityInt = capacity.toIntOrNull() ?: 0
 
+                                // 추가 검증
+                                if (capacityInt <= 0) {
+                                    android.util.Log.e("LandingScreen", "유효하지 않은 용량: $capacityInt")
+                                    return@Button
+                                }
+                                if (capacityInt > 100000) {
+                                    android.util.Log.e("LandingScreen", "용량이 너무 큼: $capacityInt mAh")
+                                    return@Button
+                                }
+
                                 onStartClick(
                                     DeviceInfo(
-                                        nickname = nickname,
-                                        capacity = capacityInt, // 여기서 숫자로 넘겨줍니다!
-                                        manufactureDate = manufactureDate,
-                                        brand = brand
+                                        nickname = nickname.trim(),
+                                        capacity = capacityInt,
+                                        manufactureDate = manufactureDate.trim(),
+                                        brand = brand.trim()
                                     )
                                 )
                             }

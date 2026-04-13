@@ -12,6 +12,7 @@ typealias DeviceInfo = BatteryDevice
 
 /**
  * FormState의 데이터를 BatteryDevice로 변환합니다.
+ * @throws IllegalArgumentException 유효하지 않은 입력값일 경우
  */
 fun convertFormStateToBatteryDevice(
     brand: String,
@@ -19,10 +20,30 @@ fun convertFormStateToBatteryDevice(
     capacity: String,
     manufactureDate: String
 ): BatteryDevice {
+    val trimmedNickname = nickname.trim()
+    val capacityInt = capacity.trim().toIntOrNull()
+
+    // 유효성 검사
+    if (trimmedNickname.isBlank()) {
+        throw IllegalArgumentException("모델명은 필수입니다")
+    }
+    if (trimmedNickname.length > 100) {
+        throw IllegalArgumentException("모델명은 100자 이하여야 합니다")
+    }
+    if (capacityInt == null) {
+        throw IllegalArgumentException("용량은 유효한 숫자여야 합니다")
+    }
+    if (capacityInt <= 0) {
+        throw IllegalArgumentException("용량은 0보다 커야 합니다")
+    }
+    if (capacityInt > 100000) {
+        throw IllegalArgumentException("용량은 100000 mAh 이하여야 합니다")
+    }
+
     return BatteryDevice(
-        brand = brand.ifBlank { "미지정" },
-        nickname = nickname,
-        capacity = capacity.toIntOrNull() ?: 0,
-        manufactureDate = manufactureDate.ifBlank { "미지정" }
+        brand = brand.trim().ifBlank { "미지정" },
+        nickname = trimmedNickname,
+        capacity = capacityInt,
+        manufactureDate = manufactureDate.trim().ifBlank { "미지정" }
     )
 }

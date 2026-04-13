@@ -88,6 +88,16 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         Log.d("ApiService", "배터리 등록 API 호출: POST $baseUrl/api/v1/batteries")
         Log.d("ApiService", "요청 데이터: model_name=${request.model_name}, capacity_mah=${request.capacity_mah}")
 
+        // API 엔드포인트 검증
+        if (!baseUrl.startsWith("http")) {
+            throw IllegalArgumentException("Invalid baseUrl: $baseUrl")
+        }
+
+        // Capacity validation
+        if (request.capacity_mah == null || request.capacity_mah <= 0) {
+            throw IllegalArgumentException("용량이 설정되지 않았습니다. 1~200000 mAh 범위의 값을 입력하세요.")
+        }
+
         val response = client.post("$baseUrl/api/v1/batteries") {
             contentType(ContentType.Application.Json)
             setBody(request)
@@ -98,7 +108,19 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         if (!response.status.isSuccess()) {
             val errorBody = response.bodyAsText()
             Log.e("ApiService", "배터리 등록 실패: ${response.status.value} - $errorBody")
-            throw Exception("${response.status.value}: $errorBody")
+
+            // 상세한 에러 메시지 생성
+            val errorMessage = when (response.status.value) {
+                400 -> "요청 형식이 잘못되었습니다. 모든 필수 필드를 확인하세요."
+                401 -> "인증이 필요합니다. 다시 로그인하세요."
+                403 -> "권한이 없습니다. 관리자에게 문의하세요."
+                404 -> "서버의 배터리 등록 엔드포인트를 찾을 수 없습니다. 서버 URL을 확인하세요: $baseUrl"
+                409 -> "이미 등록된 배터리입니다."
+                422 -> "입력 데이터가 올바르지 않습니다. 모델명(1-100자), 용량(1-200000 mAh)을 확인하세요."
+                500, 502, 503 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
+                else -> "배터리 등록 실패 (${response.status.value}): $errorBody"
+            }
+            throw Exception(errorMessage)
         }
 
         val result = response.body<BatteryResponse>()
