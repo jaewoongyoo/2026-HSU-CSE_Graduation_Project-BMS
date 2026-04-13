@@ -1,0 +1,47 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Docker 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/bms-backend:latest
+
+      - name: EC2 SSH 접속 후 배포
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/bms-backend:latest
+            docker stop bms-backend || true
+            docker rm bms-backend || true
+            docker run -d \
+              --name bms-backend \
+              --restart always \
+              -p 8000:8000 \
+              --env-file /home/${{ secrets.EC2_USER }}/.env \
+              ${{ secrets.DOCKER_USERNAME }}/bms-backend:latest
+            docker image prune -f
