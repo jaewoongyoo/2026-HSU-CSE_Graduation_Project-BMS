@@ -3,12 +3,12 @@ import json
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import SessionNotFoundException
-from app.repositories.postgres_repo import get_device, get_latest_ai_result
+from app.repositories.postgres_repo import get_latest_ai_result, get_session_meta
 
 
 def get_session_result_service(db: Session, session_id: str) -> dict:
-    device = get_device(db, session_id)
-    if not device:
+    session = get_session_meta(db, session_id)
+    if not session:
         raise SessionNotFoundException(session_id)
 
     result = get_latest_ai_result(db, session_id)
@@ -21,7 +21,7 @@ def get_session_result_service(db: Session, session_id: str) -> dict:
 
     return {
         "session_id": session_id,
-        "status": "finished" if result else "in_progress",
+        "status": session.status,
         "soh_percentage": result.current_soh if result else None,
         "condition": result.grade if result else None,
         "estimated_full_charges": raw_payload.get("estimated_full_charges"),

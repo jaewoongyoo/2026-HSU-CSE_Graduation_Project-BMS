@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
@@ -14,13 +15,16 @@ class AuthException(Exception):
 def signup_service(db: Session, request: SignUpRequest) -> dict:
     existing_user = get_user_by_username(db, request.username)
     if existing_user:
-        raise AuthException("이미 사용 중인 아이디입니다.")
+        raise AuthException("이미 사용 중인 사용자명입니다.")
 
-    user = create_user(
-        db=db,
-        username=request.username,
-        password_hash=hash_password(request.password),
-    )
+    try:
+        user = create_user(
+            db=db,
+            username=request.username,
+            password_hash=hash_password(request.password),
+        )
+    except IntegrityError as exc:
+        raise AuthException("이미 사용 중인 사용자명입니다.") from exc
 
     return {
         "id": user.id,
