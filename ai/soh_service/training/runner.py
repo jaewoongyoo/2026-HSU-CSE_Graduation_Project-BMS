@@ -53,6 +53,7 @@ class LstmTrainingConfig:
     num_workers: int = 0
     device: str = "cpu"
     use_quality_weighting: bool = False
+    lr_scheduler: str | None = None  # None: 고정 LR, "cosine": CosineAnnealingLR
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,11 @@ def run_lstm_training(
         lr=config.learning_rate,
         weight_decay=config.weight_decay,
     )
+    scheduler = (
+        torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs)
+        if config.lr_scheduler == "cosine"
+        else None
+    )
     loss_fn = nn.MSELoss()
     use_quality_weighting = config.use_quality_weighting
 
@@ -182,6 +188,9 @@ def run_lstm_training(
             training=False,
             use_quality_weighting=False,
         )
+        if scheduler is not None:
+            scheduler.step()
+
         history.append(
             {
                 "epoch": epoch_index,
@@ -191,6 +200,7 @@ def run_lstm_training(
                 "val_loss": val_metrics["loss"],
                 "val_mae": val_metrics["mae"],
                 "val_rmse": val_metrics["rmse"],
+                "lr": optimizer.param_groups[0]["lr"],
             }
         )
 

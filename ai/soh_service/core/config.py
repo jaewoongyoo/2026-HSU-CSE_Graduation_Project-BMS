@@ -14,7 +14,7 @@ LSTM_CHECKPOINT_DIR = (
     / "lstm"
     / "nasa_calce"
     / "v3"
-    / "nc_v3_s1_ep30"
+    / "nc_v3_s1_cosine_ep30"
 )
 
 # 배터리 물리 상수

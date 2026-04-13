@@ -61,6 +61,13 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Checkpoint directory to resume from (must contain last.pt and metrics.json).",
     )
+    parser.add_argument(
+        "--lr-scheduler",
+        type=str,
+        default=None,
+        choices=("cosine",),
+        help="LR scheduler 종류. 미지정 시 고정 LR 사용.",
+    )
     return parser.parse_args()
 
 
@@ -82,6 +89,7 @@ def main() -> None:
             random_seed=args.seed,
             device=args.device,
             use_quality_weighting=args.quality_weighting,
+            lr_scheduler=args.lr_scheduler,
         ),
         window_policy=WindowPolicyConfig(
             window_duration_s=args.window_duration_s,
