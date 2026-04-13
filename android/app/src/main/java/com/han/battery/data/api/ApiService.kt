@@ -4,6 +4,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.cookies.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -16,6 +17,9 @@ import com.han.battery.DevConfig
 
 class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
     private val client = HttpClient(Android) {
+        // 쿠키 자동 관리 (세션 기반 인증용)
+        install(HttpCookies)
+
         install(ContentNegotiation) {
             json(Json {
                 prettyPrint = true
