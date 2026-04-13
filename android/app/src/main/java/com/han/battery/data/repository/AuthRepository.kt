@@ -194,19 +194,28 @@ class AuthRepository(
     /**
      * 배터리 등록 (서버에 저장)
      */
-    suspend fun registerBattery(nickname: String, capacity: Int, brand: String? = null, manufactureDate: String? = null): Result<BatteryResponse> {
+    suspend fun registerBattery(
+        modelName: String,
+        capacityMah: Int,
+        manufacturer: String? = null,
+        manufactureDate: String? = null,
+        powerbankCapacityMah: Int? = null,
+        deviceId: String? = null
+    ): Result<BatteryResponse> {
         return try {
-            AppLogger.info("배터리 등록 시도: $nickname ($capacity mAh)", TAG)
+            AppLogger.info("배터리 등록 시도: $modelName ($capacityMah mAh)", TAG)
 
             val request = BatteryRegistrationRequest(
-                nickname = nickname,
-                capacity = capacity,
-                brand = brand,
-                manufacture_date = manufactureDate
+                device_id = deviceId,
+                manufacturer = manufacturer,
+                model_name = modelName,
+                capacity_mah = capacityMah,
+                manufacture_date = manufactureDate,
+                powerbank_capacity_mah = powerbankCapacityMah
             )
             val response = apiService.registerBattery(request).getOrThrow()
 
-            AppLogger.info("배터리 등록 성공: ${response.nickname} (ID: ${response.id})", TAG)
+            AppLogger.info("배터리 등록 성공: ${response.model_name} (ID: ${response.id})", TAG)
             Result.success(response)
         } catch (e: Exception) {
             val errorMessage = when {

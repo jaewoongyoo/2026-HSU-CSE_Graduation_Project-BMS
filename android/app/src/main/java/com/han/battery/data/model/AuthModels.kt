@@ -57,20 +57,24 @@ data class ErrorDetail(
 // 배터리 관련 데이터 모델
 @Serializable
 data class BatteryRegistrationRequest(
-    val nickname: String,
-    val capacity: Int,
-    val brand: String? = null,
-    val manufacture_date: String? = null
+    val device_id: String? = null,
+    val manufacturer: String? = null,
+    val model_name: String,
+    val capacity_mah: Int,
+    val manufacture_date: String? = null,
+    val powerbank_capacity_mah: Int? = null
 )
 
 @Serializable
 data class BatteryResponse(
     val id: Int,
     val user_id: Int,
-    val nickname: String,
-    val capacity: Int,
-    val brand: String? = null,
+    val device_id: String? = null,
+    val manufacturer: String? = null,
+    val model_name: String,
+    val capacity_mah: Int,
     val manufacture_date: String? = null,
+    val powerbank_capacity_mah: Int? = null,
     val created_at: String? = null
 )
 
