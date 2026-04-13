@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import AIServiceException, InvalidRawDataException, SessionNotFoundException
 from app.repositories.postgres_repo import (
-    get_session_meta,
-    get_session_raw_points,
+    get_device,
+    get_device_raw_points,
     save_ai_result,
 )
 
@@ -23,33 +23,31 @@ def get_ai_health() -> dict:
 
 
 def predict_soh_for_session(db: Session, session_id: str) -> dict:
-    meta = get_session_meta(db, session_id)
-    if not meta:
+    device = get_device(db, session_id)
+    if not device:
         raise SessionNotFoundException(session_id)
 
-    if meta.status != "finished":
-        raise InvalidRawDataException("session must be finished before prediction")
-
-    if meta.capacity_ah is None:
-        raise InvalidRawDataException("capacity_ah is required before prediction")
-
-    raw_points = get_session_raw_points(db, session_id)
+    raw_points = get_device_raw_points(db, session_id)
     if len(raw_points) < 10:
         raise InvalidRawDataException("cycle_records must contain at least 10 points")
 
+    start_time = raw_points[0].timestamp
     payload = {
         "cycle_records": [
             {
-                "voltage_mv": point.voltage_mv,
+                "voltage_mv": (point.voltage or 0.0) * 1000.0,
                 "current_ma": point.current_ma,
                 "temperature_c": point.temperature_c,
-                "elapsed_ms": point.elapsed_ms,
+                "elapsed_ms": (
+                    point.elapsed_ms
+                    if point.elapsed_ms is not None
+                    else (point.timestamp - start_time).total_seconds() * 1000.0
+                ),
             }
             for point in raw_points
         ],
-        "capacity_ah": meta.capacity_ah,
-        "powerbank_capacity_mah": meta.powerbank_capacity_mah or 10000,
-        "phone_capacity_mah": meta.phone_capacity_mah or 4000,
+        "powerbank_capacity_mah": device.powerbank_capacity_mah or 10000,
+        "phone_capacity_mah": device.capacity_mah or 4000,
     }
 
     try:

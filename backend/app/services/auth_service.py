@@ -18,14 +18,12 @@ def signup_service(db: Session, request: SignUpRequest) -> dict:
 
     user = create_user(
         db=db,
-        name=request.name,
         username=request.username,
         password_hash=hash_password(request.password),
     )
 
     return {
         "id": user.id,
-        "name": user.name,
         "username": user.username,
         "message": "회원가입이 완료되었습니다.",
     }
@@ -41,7 +39,6 @@ def login_service(db: Session, request: LoginRequest) -> dict:
 
     return {
         "id": user.id,
-        "name": user.name,
         "username": user.username,
         "message": "로그인에 성공했습니다.",
     }

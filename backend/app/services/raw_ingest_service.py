@@ -1,17 +1,17 @@
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidRawDataException, SessionNotFoundException
-from app.repositories.postgres_repo import get_session_meta, save_raw_points
+from app.repositories.postgres_repo import get_device, save_raw_points
 from app.schemas.raw import RawUploadRequest
 
 
 def upload_raw_service(db: Session, session_id: str, request: RawUploadRequest) -> dict:
-    meta = get_session_meta(db, session_id)
-    if not meta:
+    device = get_device(db, session_id)
+    if not device:
         raise SessionNotFoundException(session_id)
 
-    if meta.status != "in_progress":
-        raise InvalidRawDataException("raw upload is only allowed for in_progress sessions")
+    if not request.data_points:
+        raise InvalidRawDataException("data_points must not be empty")
 
     count = save_raw_points(db, session_id, request.data_points)
     return {
