@@ -172,29 +172,86 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 5. 랜딩 화면
+                     // 5. 랜딩 화면
                     composable("landing") {
                         val coroutineScope = rememberCoroutineScope()
+                        var isRegistering by remember { mutableStateOf(false) }
+                        var registrationError by remember { mutableStateOf<String?>(null) }
+
+                        if (registrationError != null) {
+                            AlertDialog(
+                                onDismissRequest = { registrationError = null },
+                                title = { Text("배터리 등록 알림") },
+                                text = {
+                                    Text(
+                                        registrationError ?: "알 수 없는 오류가 발생했습니다.",
+                                        color = androidx.compose.ui.graphics.Color.Red
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { registrationError = null }) {
+                                        Text("확인")
+                                    }
+                                }
+                            )
+                        }
 
                         LandingScreen(
                             onStartClick = { deviceInfo ->
+                                // 입력 데이터 유효성 검증
+                                if (deviceInfo.nickname.isBlank()) {
+                                    registrationError = "모델명을 입력해주세요"
+                                    return@LandingScreen
+                                }
+                                if (deviceInfo.capacity <= 0) {
+                                    registrationError = "용량은 0보다 커야 합니다"
+                                    return@LandingScreen
+                                }
+
+                                isRegistering = true
+
                                 // 로컬에 저장
-                                preferenceManager.saveBatteryDevice(deviceInfo)
-                                deviceRefreshKey++
+                                try {
+                                    preferenceManager.saveBatteryDevice(deviceInfo)
+                                    deviceRefreshKey++
+                                    android.util.Log.d("BatteryRegistration", "배터리 로컬 저장 성공: ${deviceInfo.nickname}")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("BatteryRegistration", "배터리 로컬 저장 실패", e)
+                                    registrationError = "로컬 저장에 실패했습니다: ${e.message}"
+                                    isRegistering = false
+                                    return@LandingScreen
+                                }
 
                                 // 서버에도 저장 (비동기)
                                 coroutineScope.launch {
-                                    val result = authRepository.registerBattery(
-                                        modelName = deviceInfo.nickname,
-                                        capacityMah = deviceInfo.capacity,
-                                        manufacturer = deviceInfo.brand,
-                                        manufactureDate = deviceInfo.manufactureDate,
-                                        powerbankCapacityMah = deviceInfo.capacity
-                                    )
-                                    if (result.isSuccess) {
-                                        android.util.Log.d("BatteryRegistration", "배터리 서버 저장 성공")
-                                    } else {
-                                        android.util.Log.e("BatteryRegistration", "배터리 서버 저장 실패: ${result.exceptionOrNull()?.message}")
+                                    try {
+                                        android.util.Log.d("BatteryRegistration",
+                                            "서버 등록 시작 - model: ${deviceInfo.nickname}, capacity: ${deviceInfo.capacity}")
+
+                                        val result = authRepository.registerBattery(
+                                            modelName = deviceInfo.nickname,
+                                            capacityMah = deviceInfo.capacity,
+                                            manufacturer = deviceInfo.brand.ifBlank { null },
+                                            manufactureDate = deviceInfo.manufactureDate.ifBlank { null },
+                                            powerbankCapacityMah = deviceInfo.capacity
+                                        )
+
+                                        if (result.isSuccess) {
+                                            android.util.Log.d("BatteryRegistration",
+                                                "배터리 서버 저장 성공: ${result.getOrNull()?.id}")
+                                        } else {
+                                            val errorMsg = result.exceptionOrNull()?.message ?: "서버 등록 실패"
+                                            android.util.Log.e("BatteryRegistration",
+                                                "배터리 서버 저장 실패: $errorMsg")
+                                            // 서버 저장 실패해도 계속 진행 (로컬 데이터는 있음)
+                                            registrationError = "서버 저장에 실패했습니다. 앱을 재시작하면 다시 시도됩니다.\n오류: $errorMsg"
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("BatteryRegistration",
+                                            "배터리 서버 저장 중 예외 발생", e)
+                                        registrationError = "서버 저장 중 오류가 발생했습니다: ${e.message}"
+                                    } finally {
+                                        isRegistering = false
                                     }
                                 }
 
@@ -204,6 +261,7 @@ class MainActivity : ComponentActivity() {
                                     imm.hideSoftInputFromWindow(token, 0)
                                 }
 
+                                // 대시보드로 이동
                                 navController.navigate("dashboard/${deviceInfo.nickname}") {
                                     popUpTo("landing") { inclusive = true }
                                 }
@@ -228,7 +286,7 @@ class MainActivity : ComponentActivity() {
 
                         DashboardScreen(
                             viewModel = dashboardViewModel,
-                            device = device ?: BatteryDevice(nickname = nickname), // 방어 코드
+                            device = device ?: BatteryDevice(nickname = nickname, capacity = 0), // 임시 기기 정보 (실제 용량 미지정)
                             onBack = { navController.popBackStack() },
                             onChangeDevice = { navController.navigate("home") },
                             onDeleteDevice = {

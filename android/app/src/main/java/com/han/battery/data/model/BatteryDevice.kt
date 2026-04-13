@@ -1,4 +1,6 @@
 package com.han.battery.data.model
+
+import com.han.battery.data.model.BatteryRegistrationRequest
 // 사용자가 등록한 배터리 기기 정보를 담는 데이터 모델 (제조사, 모델명, 용량, 제조년월 등)
 
 /**
@@ -15,29 +17,47 @@ package com.han.battery.data.model
 data class BatteryDevice(
     val brand: String = "미지정",
     val nickname: String,
-    val capacity: Int = 0,
+    val capacity: Int = 0,  // 기본값을 0으로 설정 (실제 용량값이 설정되지 않은 상태를 명시)
     val manufactureDate: String = "미지정"
 ) {
     init {
         // 유효성 검증
         require(nickname.isNotBlank()) { "배터리 모델명은 필수입니다" }
-        require(capacity > 0) { "용량은 0보다 커야 합니다" }
+        require(nickname.length <= 100) { "모델명은 100자 이하여야 합니다" }
+        // capacity가 0인 경우는 대시보드에서 임시 사용하는 경우이므로 검증에서 제외
+        if (capacity > 0) {
+            require(capacity in 100..200000) { "용량은 100 ~ 200000 mAh 범위여야 합니다" }
+        }
     }
 
     /**
      * 유효한 배터리 정보인지 확인합니다.
+     * capacity가 0이면 미설정 상태이므로 false 반환
      */
-    fun isValid(): Boolean = nickname.isNotBlank() && capacity > 0
+    fun isValid(): Boolean = nickname.isNotBlank() && capacity in 100..200000
 
     /**
      * 표시용 제조사명을 반환합니다.
      */
-    fun getDisplayBrand(): String = brand.takeIf { it.isNotBlank() } ?: "미지정"
+    fun getDisplayBrand(): String = brand.takeIf { it.isNotBlank() && it != "미지정" } ?: "미지정"
 
     /**
      * 표시용 제조일을 반환합니다.
      */
-    fun getDisplayManufactureDate(): String = manufactureDate.takeIf { it.isNotBlank() } ?: "미지정"
+    fun getDisplayManufactureDate(): String = manufactureDate.takeIf { it.isNotBlank() && it != "미지정" } ?: "미지정"
+
+    /**
+     * 서버 등록용 요청 데이터를 생성합니다.
+     */
+    fun toRegistrationRequest(): BatteryRegistrationRequest {
+        return BatteryRegistrationRequest(
+            manufacturer = brand.takeIf { it.isNotBlank() && it != "미지정" },
+            model_name = nickname,
+            capacity_mah = capacity,
+            manufacture_date = manufactureDate.takeIf { it.isNotBlank() && it != "미지정" },
+            powerbank_capacity_mah = capacity
+        )
+    }
 }
 
 /**
