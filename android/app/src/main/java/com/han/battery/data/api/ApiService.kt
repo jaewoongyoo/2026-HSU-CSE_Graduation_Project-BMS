@@ -6,6 +6,7 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
@@ -34,17 +35,25 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
     }
 
     suspend fun signup(request: SignupRequest): Result<AuthResponse> = runCatching {
-        client.post("$baseUrl/api/v1/auth/signup") {
+        val response = client.post("$baseUrl/api/v1/auth/signup") {
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("${response.status.value}: ${response.bodyAsText()}")
+        }
+        response.body()
     }
 
     suspend fun login(request: LoginRequest): Result<AuthResponse> = runCatching {
-        client.post("$baseUrl/api/v1/auth/login") {
+        val response = client.post("$baseUrl/api/v1/auth/login") {
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("${response.status.value}: ${response.bodyAsText()}")
+        }
+        response.body()
     }
 
     suspend fun getUsers(skip: Int = 0, limit: Int = 10): Result<List<UserResponse>> = runCatching {

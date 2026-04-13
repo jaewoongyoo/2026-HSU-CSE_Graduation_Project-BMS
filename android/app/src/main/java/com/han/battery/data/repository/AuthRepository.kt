@@ -42,14 +42,14 @@ class AuthRepository(
             Result.success(response)
         } catch (e: Exception) {
             val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "사용자명 또는 비밀번호가 잘못되었습니다."
                 e.message?.contains("failed to connect", ignoreCase = true) == true ->
                     "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
                 e.message?.contains("Connection refused", ignoreCase = true) == true ->
                     "서버에 접속할 수 없습니다. 잠시 후 다시 시도하세요."
                 e.message?.contains("timeout", ignoreCase = true) == true ->
                     "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
-                e.message?.contains("401", ignoreCase = true) == true ->
-                    "사용자명 또는 비밀번호가 잘못되었습니다."
                 e.message?.contains("422", ignoreCase = true) == true ->
                     "입력하신 정보가 올바르지 않습니다. 사용자명과 비밀번호를 확인하세요."
                 e.message?.contains("503", ignoreCase = true) == true ->
