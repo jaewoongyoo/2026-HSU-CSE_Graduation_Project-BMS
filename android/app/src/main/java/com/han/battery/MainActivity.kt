@@ -115,6 +115,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("signup")
                             },
                             onLoginSuccess = {
+                                // 로그인 성공 후 로컬 데이터 정리 (다른 사용자의 데이터 제거)
+                                preferenceManager.clearAllDevices()
+                                deviceRefreshKey++
                                 navController.navigate("home") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -130,6 +133,9 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack()
                             },
                             onSignupSuccess = {
+                                // 회원가입 성공 후 로컬 데이터 정리
+                                preferenceManager.clearAllDevices()
+                                deviceRefreshKey++
                                 navController.navigate("home") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -156,6 +162,8 @@ class MainActivity : ComponentActivity() {
                                 userManager = userManager,
                                 onLogout = {
                                     authRepository.logout()
+                                    preferenceManager.clearAllDevices()  // 로그아웃 시 로컬 데이터 정리
+                                    deviceRefreshKey++
                                     navController.navigate("login") {
                                         popUpTo("home") { inclusive = true }
                                     }
