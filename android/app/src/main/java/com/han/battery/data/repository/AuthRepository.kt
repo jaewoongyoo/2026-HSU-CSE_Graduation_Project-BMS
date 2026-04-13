@@ -66,16 +66,15 @@ class AuthRepository(
 
     /**
      * 사용자 회원가입
-     * @param name 이름
      * @param username 사용자명
      * @param password 비밀번호
      * @return 회원가입 결과 (성공: AuthResponse, 실패: Exception)
      */
-    suspend fun signup(name: String, username: String, password: String): Result<AuthResponse> {
+    suspend fun signup(username: String, password: String): Result<AuthResponse> {
         return try {
             AppLogger.info("회원가입 시도: $username", TAG)
             
-            val request = SignupRequest(name, username, password)
+            val request = SignupRequest(null, username, password)
             val response = apiService.signup(request).getOrThrow()
 
             // ✅ 회원가입 성공 - 자동 로그인 (사용자 정보만 저장)
