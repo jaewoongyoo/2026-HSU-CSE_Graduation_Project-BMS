@@ -5,4 +5,4 @@ pydantic-settings
 sqlalchemy
 psycopg2-binary
 requests
-passlib[bcrypt]
+passlib[bcrypt]alembic
