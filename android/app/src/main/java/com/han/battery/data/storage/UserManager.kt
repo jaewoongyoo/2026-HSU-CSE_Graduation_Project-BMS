@@ -2,84 +2,60 @@ package com.han.battery.data.storage
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.han.battery.data.common.AppLogger
 
-data class UserInfo(
-    val username: String,
-    val password: String
-)
-
+/**
+ * 현재 로그인 사용자 정보 관리 (로컬 저장소)
+ * - 로그인 상태 유지용으로만 사용
+ * - 사용자 인증/검증은 모두 서버에서 처리 (세션 기반)
+ */
 class UserManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("users", Context.MODE_PRIVATE)
-    private val currentUserPrefs: SharedPreferences = context.getSharedPreferences("current_user", Context.MODE_PRIVATE)
+    private val currentUserPrefs: SharedPreferences = context.getSharedPreferences(
+        "current_user",
+        Context.MODE_PRIVATE
+    )
 
-    fun registerUser(username: String, password: String): Boolean {
-        // 이미 존재하는 사용자인지 확인
-        if (userExists(username)) {
-            return false
-        }
+    companion object {
+        private const val CURRENT_USERNAME_KEY = "current_username"
+        private const val TAG = "UserManager"
+    }
 
-        // 사용자 정보 저장
-        prefs.edit().apply {
-            putString("${username}_password", password)
-            putStringSet("registered_users", (getRegisteredUsers() + username).toSet())
+    /**
+     * 현재 로그인한 사용자 설정
+     * @param username 사용자명
+     */
+    fun setCurrentUser(username: String) {
+        currentUserPrefs.edit().apply {
+            putString(CURRENT_USERNAME_KEY, username)
             apply()
         }
-        
-        // 현재 사용자로 설정
-        setCurrentUser(username)
-        return true
+        AppLogger.info("현재 사용자 설정: $username", TAG)
     }
 
-    fun validateUser(username: String, password: String): Boolean {
-        if (!userExists(username)) {
-            return false
-        }
-
-        val storedPassword = prefs.getString("${username}_password", "")
-        if (storedPassword == password) {
-            setCurrentUser(username)
-            return true
-        }
-        return false
-    }
-
-    fun userExists(username: String): Boolean {
-        return prefs.contains("${username}_password")
-    }
-
-    fun getUser(username: String): UserInfo? {
-        if (!userExists(username)) {
-            return null
-        }
-
-        return UserInfo(
-            username = username,
-            password = prefs.getString("${username}_password", "") ?: ""
-        )
-    }
-
+    /**
+     * 현재 로그인한 사용자명 조회
+     * @return 사용자명 (로그아웃 상태면 null)
+     */
     fun getCurrentUser(): String? {
-        return currentUserPrefs.getString("current_username", null)
+        return currentUserPrefs.getString(CURRENT_USERNAME_KEY, null)
     }
 
-    fun setCurrentUser(username: String) {
-        currentUserPrefs.edit().putString("current_username", username).apply()
-    }
-
+    /**
+     * 로그아웃 (현재 사용자 초기화)
+     */
     fun logout() {
-        currentUserPrefs.edit().remove("current_username").apply()
+        currentUserPrefs.edit().apply {
+            remove(CURRENT_USERNAME_KEY)
+            apply()
+        }
+        AppLogger.info("사용자 로그아웃", TAG)
     }
 
+    /**
+     * 로그인 상태 확인
+     */
     fun isLoggedIn(): Boolean {
         return getCurrentUser() != null
     }
-
-    private fun getRegisteredUsers(): Set<String> {
-        return prefs.getStringSet("registered_users", emptySet()) ?: emptySet()
-    }
-
-    fun clearAllUsers() {
-        prefs.edit().clear().apply()
-        currentUserPrefs.edit().clear().apply()
-    }
 }
+

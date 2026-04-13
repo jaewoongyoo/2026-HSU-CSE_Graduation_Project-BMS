@@ -23,6 +23,8 @@ import com.han.battery.data.model.BatteryDevice
 import com.han.battery.ui.auth.LoginScreen
 import com.han.battery.ui.auth.SignupScreen
 import com.han.battery.data.storage.UserManager
+import com.han.battery.data.api.ApiService
+import com.han.battery.data.repository.AuthRepository
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,11 +33,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var preferenceManager: PreferenceManager
     private lateinit var userManager: UserManager
+    private lateinit var apiService: ApiService
+    private lateinit var authRepository: AuthRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         userManager = UserManager(this)
+        apiService = ApiService(baseUrl = com.han.battery.DevConfig.API_BASE_URL)
+        authRepository = AuthRepository(apiService, userManager)
         preferenceManager = PreferenceManager(this, userManager)
 
         setContent {
@@ -84,9 +90,10 @@ class MainActivity : ComponentActivity() {
                     composable("splash") {
                         SplashScreen(
                             userManager = userManager,
+                            context = this@MainActivity,
                             onSplashFinished = {
-                                // 사용자가 이미 로그인되어 있는지 확인
-                                if (userManager.isLoggedIn()) {
+                                // 세션 기반 인증: 사용자 정보로 로그인 상태 판단
+                                if (userManager.getCurrentUser() != null) {
                                     navController.navigate("home") {
                                         popUpTo("splash") { inclusive = true }
                                     }
@@ -102,7 +109,7 @@ class MainActivity : ComponentActivity() {
                     // 2. 로그인 화면
                     composable("login") {
                         LoginScreen(
-                            userManager = userManager,
+                            authRepository = authRepository,
                             onNavigateToSignup = {
                                 navController.navigate("signup")
                             },
@@ -117,7 +124,7 @@ class MainActivity : ComponentActivity() {
                     // 3. 회원가입 화면
                     composable("signup") {
                         SignupScreen(
-                            userManager = userManager,
+                            authRepository = authRepository,
                             onNavigateToLogin = {
                                 navController.popBackStack()
                             },
@@ -147,6 +154,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 userManager = userManager,
                                 onLogout = {
+                                    authRepository.logout()
                                     navController.navigate("login") {
                                         popUpTo("home") { inclusive = true }
                                     }
