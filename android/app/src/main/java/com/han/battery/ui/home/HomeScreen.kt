@@ -60,7 +60,8 @@ fun HomeScreen(
     onAddNewDevice: () -> Unit,
     onDeleteDevice: (BatteryDevice) -> Unit = {},
     userManager: UserManager? = null,
-    onLogout: (() -> Unit)? = null
+    onLogout: (() -> Unit)? = null,
+    onNavigateToBoard: () -> Unit
 ) {
     var deviceToDelete by remember { mutableStateOf<BatteryDevice?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -123,8 +124,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(16.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 0.dp)
         ) {
             // 헤더
             Column(
@@ -238,6 +238,7 @@ fun HomeScreen(
                     fontWeight = FontWeight.SemiBold
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

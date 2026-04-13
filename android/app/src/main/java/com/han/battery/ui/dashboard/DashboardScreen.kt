@@ -127,7 +127,8 @@ fun DashboardScreen(
                     containerColor = Color(0xFFF6F8FC)
                 )
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -138,10 +139,8 @@ fun DashboardScreen(
                     )
                 )
                 .padding(innerPadding)
-                .statusBarsPadding()
-                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 0.dp)
         ) {
             // ── 1. 실시간 모니터링 섹션 ──
             MonitoringSection(
@@ -153,9 +152,9 @@ fun DashboardScreen(
                 predictionText = predictionText // ⭐ AiAnalysisSection에 있던 걸 여기로 옮깁니다!
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // ── 2. AI 분석 섹션 (예측된 텍스트 전달) ──
             // ⭐ AiAnalysisSection에 값을 넘겨주도록 변경했습니다.
@@ -163,13 +162,13 @@ fun DashboardScreen(
                 predictedTimeText = predictionText
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // ── 3. 예측 차트 섹션 ──
             PredictionSection()
 
             // ── 4. 온도 정보 ──
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(12.dp),
