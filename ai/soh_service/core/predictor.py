@@ -10,6 +10,7 @@ from soh_service.core.config import (
     CONVERTER_EFFICIENCY,
     DEFAULT_POWERBANK_CAPACITY_MAH,
     DEFAULT_PHONE_CAPACITY_MAH,
+    N_MAX_SESSIONS,
 )
 from soh_service.inference.predictor import (
     LstmSOHPredictor,
@@ -23,6 +24,40 @@ class SOHPredictor:
 
     def __init__(self) -> None:
         self._predictor: LstmSOHPredictor = load_lstm_predictor(LSTM_CHECKPOINT_DIR)
+
+    def predict_multi(
+        self,
+        sessions: list[list[TelemetryPoint]],
+        powerbank_capacity_mah: int = DEFAULT_POWERBANK_CAPACITY_MAH,
+        phone_capacity_mah: int = DEFAULT_PHONE_CAPACITY_MAH,
+    ) -> dict:
+        """
+        여러 세션 텔레메트리 → SOH 예측 결과
+
+        최근 N_MAX_SESSIONS개 세션만 사용한다 (오래된 세션 희석 방지).
+        10분 미만 세션은 자동 제외된다.
+
+        Returns:
+            predict()와 동일한 구조 + sessions_used (유효 세션 수)
+        """
+        trimmed = sessions[-N_MAX_SESSIONS:] if len(sessions) > N_MAX_SESSIONS else sessions
+        all_telemetry = [t for s in trimmed for t in s]
+        soh, sessions_used = self._predictor.predict_multi(trimmed)
+
+        powerbank_usable_mah = powerbank_capacity_mah * soh * CONVERTER_EFFICIENCY
+        estimated_full_charges = powerbank_usable_mah / phone_capacity_mah
+        mean_temperature_c = _mean_temperature(all_telemetry)
+
+        return {
+            "soh_percentage": round(soh * 100, 2),
+            "condition": _condition_label(soh),
+            "estimated_full_charges": round(estimated_full_charges, 2),
+            "powerbank_usable_mah": round(powerbank_usable_mah, 1),
+            "mean_temperature_c": (
+                round(mean_temperature_c, 1) if mean_temperature_c is not None else None
+            ),
+            "sessions_used": sessions_used,
+        }
 
     def predict(
         self,

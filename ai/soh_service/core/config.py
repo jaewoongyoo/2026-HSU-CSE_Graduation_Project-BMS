@@ -24,3 +24,7 @@ OUTPUT_VOLTAGE = 5.0            # 스마트폰 수신 전압 (V)
 # 사용자 기기 기본값 (API 요청 시 오버라이드 가능)
 DEFAULT_PHONE_CAPACITY_MAH = 4000
 DEFAULT_POWERBANK_CAPACITY_MAH = 10000
+
+# Multi-session inference: 최근 N개 세션만 사용 (슬라이딩 윈도우)
+# 너무 오래된 세션은 현재 SOH와 다른 상태를 반영할 수 있음
+N_MAX_SESSIONS = 20

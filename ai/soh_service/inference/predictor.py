@@ -122,7 +122,7 @@ class LstmSOHPredictor:
 
     def predict(self, telemetry: list[TelemetryPoint]) -> float:
         """
-        충전 텔레메트리 시퀀스 → SOH 추정값
+        단일 세션 텔레메트리 시퀀스 → SOH 추정값
 
         Args:
             telemetry: 시간 오름차순으로 정렬된 TelemetryPoint 리스트
@@ -145,9 +145,55 @@ class LstmSOHPredictor:
                 f"텔레메트리 시퀀스가 너무 짧습니다. "
                 f"최소 {self._window_policy.window_duration_s:.0f}초 이상의 데이터가 필요합니다."
             )
+        return self._run_windows(list(bundle.windows))
 
+    def predict_multi(self, sessions: list[list[TelemetryPoint]]) -> tuple[float, int]:
+        """
+        여러 세션 텔레메트리를 하나의 bundle로 합쳐 SOH 추정
+
+        각 세션을 독립적으로 윈도잉한 뒤 window들을 시간순으로 이어붙여
+        bundle encoder에 입력한다. 10분 미만 세션은 window가 생성되지 않으므로
+        자동으로 제외된다.
+
+        Args:
+            sessions: 세션 목록 (오래된 것부터 시간 오름차순). 각 원소는
+                      한 세션의 TelemetryPoint 리스트.
+
+        Returns:
+            (soh_ratio, sessions_used) 튜플
+            - soh_ratio: SOH 추정값 (0.0 ~ 1.0)
+            - sessions_used: 유효 window가 생성된 세션 수
+
+        Raises:
+            ValueError: 유효한 window를 생성할 수 있는 세션이 하나도 없는 경우
+        """
+        all_windows = []
+        sessions_used = 0
+
+        for session_telemetry in sessions:
+            sample = _build_canonical_sample(session_telemetry)
+            bundle = build_windowed_sequence_bundle(
+                sample,
+                version_id=self._version_id,
+                policy=self._window_policy,
+                transform_config=self._transform_config,
+            )
+            if bundle is not None:
+                all_windows.extend(bundle.windows)
+                sessions_used += 1
+
+        if not all_windows:
+            raise ValueError(
+                f"유효한 세션이 없습니다. "
+                f"각 세션은 최소 {self._window_policy.window_duration_s:.0f}초 이상이어야 합니다."
+            )
+
+        return self._run_windows(all_windows), sessions_used
+
+    def _run_windows(self, windows: list) -> float:
+        """window 목록 → 모델 forward → SOH 추정값 (0.0 ~ 1.0)"""
         window_arrays: list[np.ndarray] = []
-        for window in bundle.windows:
+        for window in windows:
             raw = np.array(
                 [
                     [_coerce(row.get(field)) for field in self._feature_names]
