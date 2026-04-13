@@ -59,3 +59,14 @@ artifacts/reports/**
 !artifacts/checkpoints/.gitkeep
 !artifacts/exports/.gitkeep
 !artifacts/reports/.gitkeep
+
+# 배포 모델 예외: NASA+CALCE V3 seed=1 (서비스 추론 필수 파일만, last.pt/metrics.json 제외)
+# artifacts/checkpoints/** 와 *.pt 규칙을 덮어쓰려면 중간 디렉토리도 순서대로 un-ignore 필요
+!artifacts/checkpoints/lstm/
+!artifacts/checkpoints/lstm/nasa_calce/
+!artifacts/checkpoints/lstm/nasa_calce/v3/
+!artifacts/checkpoints/lstm/nasa_calce/v3/nc_v3_s1_ep30/
+!artifacts/checkpoints/lstm/nasa_calce/v3/nc_v3_s1_ep30/best.pt
+!artifacts/checkpoints/lstm/nasa_calce/v3/nc_v3_s1_ep30/config.json
+!artifacts/checkpoints/lstm/nasa_calce/v3/nc_v3_s1_ep30/normalization_stats.json
+!artifacts/checkpoints/lstm/nasa_calce/v3/nc_v3_s1_ep30/transform_metadata.json
