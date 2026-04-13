@@ -6,14 +6,15 @@ from app.schemas.raw import RawUploadRequest
 
 
 def upload_raw_service(db: Session, session_id: str, request: RawUploadRequest) -> dict:
-    meta = get_session_meta(db, session_id)
-    if not meta:
+    session = get_session_meta(db, session_id)
+    if not session:
         raise SessionNotFoundException(session_id)
-
-    if meta.status != "in_progress":
+    if session.status != "in_progress":
         raise InvalidRawDataException("raw upload is only allowed for in_progress sessions")
+    if not request.data_points:
+        raise InvalidRawDataException("data_points must not be empty")
 
-    count = save_raw_points(db, session_id, request.data_points)
+    count = save_raw_points(db, session_id, session.device_id, request.data_points)
     return {
         "session_id": session_id,
         "received_count": count,
