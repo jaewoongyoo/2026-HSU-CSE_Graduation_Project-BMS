@@ -1,0 +1,20 @@
+{
+  "dataset_scope": "nasa_calce",
+  "observation_variant": "v3",
+  "artifact_dir": null,
+  "output_root": null,
+  "report_root": null,
+  "run_id": "nc_v3_s1_cosine_ep30",
+  "batch_size": 8,
+  "epochs": 30,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0,
+  "step_hidden_size": 64,
+  "bundle_hidden_size": 64,
+  "dropout": 0.1,
+  "random_seed": 1,
+  "num_workers": 0,
+  "device": "cpu",
+  "use_quality_weighting": false,
+  "lr_scheduler": "cosine"
+}

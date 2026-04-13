@@ -1,0 +1,35 @@
+{
+  "feature_names": [
+    "time_s",
+    "voltage_v",
+    "current_a",
+    "temperature_c",
+    "temperature_mask",
+    "power_w",
+    "cumulative_energy_wh",
+    "effective_output_power_w",
+    "estimated_output_current_5v_a"
+  ],
+  "mean_by_feature": {
+    "time_s": 290.0,
+    "voltage_v": 4.199480949042748,
+    "current_a": 0.3750303040511158,
+    "temperature_c": 6.345963497890529,
+    "temperature_mask": 0.0,
+    "power_w": 1.5695815821428176,
+    "cumulative_energy_wh": 3.5367359396316225,
+    "effective_output_power_w": 1.3341443448213897,
+    "estimated_output_current_5v_a": 0.2668288689642809
+  },
+  "std_by_feature": {
+    "time_s": 173.1088289679838,
+    "voltage_v": 0.04440814860418633,
+    "current_a": 0.39638087091915164,
+    "temperature_c": 1.1152591736255357,
+    "temperature_mask": 1.0,
+    "power_w": 1.6458468387551568,
+    "cumulative_energy_wh": 1.5090646415236362,
+    "effective_output_power_w": 1.398969812941851,
+    "estimated_output_current_5v_a": 0.2797939625883714
+  }
+}
