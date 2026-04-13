@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import com.han.battery.data.model.*
 import io.ktor.client.engine.android.*
 import com.han.battery.DevConfig
+import android.util.Log
 
 class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
     private val client = HttpClient(Android) {
@@ -84,14 +85,25 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
 
     // 배터리 관련 API
     suspend fun registerBattery(request: BatteryRegistrationRequest): Result<BatteryResponse> = runCatching {
+        Log.d("ApiService", "배터리 등록 API 호출: POST $baseUrl/api/v1/batteries")
+        Log.d("ApiService", "요청 데이터: model_name=${request.model_name}, capacity_mah=${request.capacity_mah}")
+
         val response = client.post("$baseUrl/api/v1/batteries") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }
+
+        Log.d("ApiService", "응답 상태: ${response.status} (${response.status.value})")
+
         if (!response.status.isSuccess()) {
-            throw Exception("${response.status.value}: ${response.bodyAsText()}")
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "배터리 등록 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
         }
-        response.body()
+
+        val result = response.body<BatteryResponse>()
+        Log.d("ApiService", "배터리 등록 성공: ID=${result.id}, model_name=${result.model_name}")
+        result
     }
 
     suspend fun getBatteries(): Result<List<BatteryResponse>> = runCatching {
