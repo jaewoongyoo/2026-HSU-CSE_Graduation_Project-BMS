@@ -28,6 +28,7 @@ import com.han.battery.data.repository.AuthRepository
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -165,11 +166,24 @@ class MainActivity : ComponentActivity() {
 
                     // 5. 랜딩 화면
                     composable("landing") {
+                        val coroutineScope = rememberCoroutineScope()
+
                         LandingScreen(
                             onStartClick = { deviceInfo ->
                                 // 로컬에 저장
                                 preferenceManager.saveBatteryDevice(deviceInfo)
                                 deviceRefreshKey++
+
+                                // 서버에도 저장 (비동기)
+                                coroutineScope.launch {
+                                    authRepository.registerBattery(
+                                        modelName = deviceInfo.nickname,
+                                        capacityMah = deviceInfo.capacity,
+                                        manufacturer = deviceInfo.brand,
+                                        manufactureDate = deviceInfo.manufactureDate,
+                                        powerbankCapacityMah = deviceInfo.capacity
+                                    )
+                                }
 
                                 // 키보드 숨기기
                                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
