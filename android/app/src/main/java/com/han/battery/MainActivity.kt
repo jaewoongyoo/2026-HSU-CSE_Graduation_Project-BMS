@@ -184,13 +184,18 @@ class MainActivity : ComponentActivity() {
 
                                 // 서버에도 저장 (비동기)
                                 coroutineScope.launch {
-                                    authRepository.registerBattery(
+                                    val result = authRepository.registerBattery(
                                         modelName = deviceInfo.nickname,
                                         capacityMah = deviceInfo.capacity,
                                         manufacturer = deviceInfo.brand,
                                         manufactureDate = deviceInfo.manufactureDate,
                                         powerbankCapacityMah = deviceInfo.capacity
                                     )
+                                    if (result.isSuccess) {
+                                        android.util.Log.d("BatteryRegistration", "배터리 서버 저장 성공")
+                                    } else {
+                                        android.util.Log.e("BatteryRegistration", "배터리 서버 저장 실패: ${result.exceptionOrNull()?.message}")
+                                    }
                                 }
 
                                 // 키보드 숨기기
