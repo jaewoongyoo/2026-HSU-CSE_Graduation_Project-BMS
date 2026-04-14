@@ -32,7 +32,7 @@ def signup_service(db: Session, request: SignUpRequest) -> dict:
         "message": "회원가입이 완료되었습니다.",
     }
 
-# 하이루
+
 def login_service(db: Session, request: LoginRequest) -> dict:
     user = get_user_by_username(db, request.username)
     if not user:

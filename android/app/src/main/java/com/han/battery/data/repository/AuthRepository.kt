@@ -223,7 +223,11 @@ class AuthRepository(
 
             AppLogger.info("배터리 등록 시도: $modelName ($capacityMah mAh)", TAG)
 
+            val currentUser = userManager.getCurrentUser()
+                ?: throw IllegalStateException("로그인된 사용자가 없습니다.")
+
             val request = BatteryRegistrationRequest(
+                user_id = currentUser,
                 device_id = deviceId,
                 manufacturer = manufacturer?.ifBlank { null },
                 model_name = modelName.trim(),

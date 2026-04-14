@@ -57,6 +57,7 @@ data class ErrorDetail(
 // 배터리 관련 데이터 모델
 @Serializable
 data class BatteryRegistrationRequest(
+    val user_id: String,
     val device_id: String? = null,
     val manufacturer: String? = null,
     val model_name: String,

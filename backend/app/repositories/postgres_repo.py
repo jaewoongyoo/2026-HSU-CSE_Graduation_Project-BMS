@@ -38,14 +38,18 @@ def create_device(db: Session, device_id: str, request: Any) -> Device:
     if not user:
         raise ValueError(f"user not found: {request.user_id}")
 
+    model_name = getattr(request, "model_name", None) or getattr(request, "device_model", None)
+    if not model_name:
+        raise ValueError("model_name is required")
+
     device = Device(
         device_id=device_id,
         user_id=user.id,
-        manufacturer=None,
-        model_name=request.device_model,
-        capacity_mah=request.phone_capacity_mah,
-        powerbank_capacity_mah=request.powerbank_capacity_mah,
-        manufacture_date=None,
+        manufacturer=getattr(request, "manufacturer", None),
+        model_name=model_name,
+        capacity_mah=getattr(request, "capacity_mah", None) or getattr(request, "phone_capacity_mah", None),
+        powerbank_capacity_mah=getattr(request, "powerbank_capacity_mah", None),
+        manufacture_date=getattr(request, "manufacture_date", None),
     )
     db.add(device)
     _commit_or_raise(
@@ -135,6 +139,35 @@ def create_device_and_session(
 
 def get_device(db: Session, device_id: str) -> Optional[Device]:
     return db.query(Device).filter(Device.device_id == device_id).first()
+
+
+def get_device_by_pk(db: Session, battery_id: int) -> Optional[Device]:
+    return db.query(Device).filter(Device.id == battery_id).first()
+
+
+def list_devices(db: Session, user_identifier: Optional[str] = None) -> list[Device]:
+    query = db.query(Device).order_by(Device.created_at.desc(), Device.id.desc())
+    if not user_identifier:
+        return query.all()
+
+    user = get_user_by_identifier(db, user_identifier)
+    if not user:
+        return []
+    return query.filter(Device.user_id == user.id).all()
+
+
+def delete_device_by_pk(db: Session, battery_id: int) -> bool:
+    device = get_device_by_pk(db, battery_id)
+    if not device:
+        return False
+
+    db.delete(device)
+    _commit_or_raise(
+        db,
+        conflict_detail=f"device delete conflict: {battery_id}",
+        operation_detail="failed to delete device",
+    )
+    return True
 
 
 def get_session_meta(db: Session, session_id: str) -> Optional[BatterySession]:
