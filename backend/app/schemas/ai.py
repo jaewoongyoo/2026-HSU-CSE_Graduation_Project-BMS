@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -6,13 +6,12 @@ from pydantic import BaseModel, Field
 class CycleRecord(BaseModel):
     voltage_mv: float
     current_ma: float
-    temperature_c: float
+    temperature_c: Optional[float] = None
     elapsed_ms: float
 
 
 class SohPredictRequest(BaseModel):
     cycle_records: List[CycleRecord] = Field(..., min_length=10)
-    capacity_ah: float
     powerbank_capacity_mah: int = 10000
     phone_capacity_mah: int = 4000
 
@@ -22,11 +21,11 @@ class SohPredictResponse(BaseModel):
     condition: str
     estimated_full_charges: float
     powerbank_usable_mah: float
-    smartphone_received_mah: float
-    mean_temperature_c: float
+    smartphone_received_mah: Optional[float] = None
+    mean_temperature_c: Optional[float] = None
+    sessions_used: Optional[int] = None
 
 
 class SohHealthResponse(BaseModel):
     status: str
     model_loaded: bool
-    scaler_loaded: bool

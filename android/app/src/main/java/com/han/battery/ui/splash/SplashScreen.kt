@@ -27,16 +27,26 @@ import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.data.storage.UserManager
+import com.han.battery.data.storage.PreferenceManager
+import android.content.Context
 
 @Composable
 fun SplashScreen(
     onSplashFinished: () -> Unit,
-    userManager: UserManager? = null
+    userManager: UserManager? = null,
+    context: Context? = null
 ) {
     val logoAlpha = remember { Animatable(0f) }
     val textAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
+        // 로그인 전 "default" 사용자의 기기 데이터 자동 정리
+        // (로그인 후 새 사용자의 데이터만 표시하기 위함)
+        if (userManager?.getCurrentUser() == null && context != null) {
+            val defaultPrefs = PreferenceManager(context, null)
+            defaultPrefs.clearAllDevices()
+        }
+
         // 로고 페이드인
         logoAlpha.animateTo(1f, animationSpec = tween(800))
         // 텍스트 페이드인

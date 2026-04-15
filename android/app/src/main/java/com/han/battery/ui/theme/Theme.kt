@@ -32,6 +32,7 @@ private val DarkColors = darkColorScheme(
     outline          = Slate500,
     onSurface        = Slate100,
     onBackground     = Slate100,
+    onSurfaceVariant = Slate200,
 )
 
 @Composable

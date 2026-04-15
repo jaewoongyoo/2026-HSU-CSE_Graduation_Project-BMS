@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.han.battery.DeviceInfo
 import com.han.battery.ui.theme.Slate50
+import com.han.battery.ui.theme.Slate950
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +38,7 @@ fun LandingScreen(
     var manufactureDate by remember { mutableStateOf("") }
 
     val isFormValid = nickname.isNotBlank() && capacity.isNotBlank()
+    val isDarkTheme = isSystemInDarkTheme()
 
     // ── 애니메이션 로직 ──
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -60,7 +62,13 @@ fun LandingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(listOf(Slate50, Color(0xFFF6F8FC), Slate50))
+                Brush.verticalGradient(
+                    if (isDarkTheme) {
+                        listOf(Slate950, Color(0xFF1A1F35), Slate950)
+                    } else {
+                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                    }
+                )
             )
             .statusBarsPadding()
             .navigationBarsPadding()
@@ -77,19 +85,6 @@ fun LandingScreen(
                 )
         )
 
-        // 뒤로가기 버튼 (왼쪽 상단)
-        IconButton(
-            onClick = onBackClick,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "뒤로가기",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
 
         Column(
             modifier = Modifier
@@ -223,12 +218,22 @@ fun LandingScreen(
                                 // capacity를 숫자로 변환합니다. 변환 실패 시 0으로 처리합니다.
                                 val capacityInt = capacity.toIntOrNull() ?: 0
 
+                                // 추가 검증
+                                if (capacityInt <= 0) {
+                                    android.util.Log.e("LandingScreen", "유효하지 않은 용량: $capacityInt")
+                                    return@Button
+                                }
+                                if (capacityInt > 100000) {
+                                    android.util.Log.e("LandingScreen", "용량이 너무 큼: $capacityInt mAh")
+                                    return@Button
+                                }
+
                                 onStartClick(
                                     DeviceInfo(
-                                        nickname = nickname,
-                                        capacity = capacityInt, // 여기서 숫자로 넘겨줍니다!
-                                        manufactureDate = manufactureDate,
-                                        brand = brand
+                                        nickname = nickname.trim(),
+                                        capacity = capacityInt,
+                                        manufactureDate = manufactureDate.trim(),
+                                        brand = brand.trim()
                                     )
                                 )
                             }
@@ -278,6 +283,20 @@ fun LandingScreen(
                     }
                 }
             }
+        }
+
+        // 뒤로가기 버튼 (왼쪽 상단 - Column 위에 표시)
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "뒤로가기",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

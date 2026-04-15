@@ -23,33 +23,34 @@ def get_ai_health() -> dict:
 
 
 def predict_soh_for_session(db: Session, session_id: str) -> dict:
-    meta = get_session_meta(db, session_id)
-    if not meta:
+    session = get_session_meta(db, session_id)
+    if not session:
         raise SessionNotFoundException(session_id)
 
-    if meta.status != "finished":
+    if session.status != "finished":
         raise InvalidRawDataException("session must be finished before prediction")
-
-    if meta.capacity_ah is None:
-        raise InvalidRawDataException("capacity_ah is required before prediction")
 
     raw_points = get_session_raw_points(db, session_id)
     if len(raw_points) < 10:
         raise InvalidRawDataException("cycle_records must contain at least 10 points")
 
+    start_time = raw_points[0].timestamp
     payload = {
         "cycle_records": [
             {
-                "voltage_mv": point.voltage_mv,
+                "voltage_mv": (point.voltage or 0.0) * 1000.0,
                 "current_ma": point.current_ma,
                 "temperature_c": point.temperature_c,
-                "elapsed_ms": point.elapsed_ms,
+                "elapsed_ms": (
+                    point.elapsed_ms
+                    if point.elapsed_ms is not None
+                    else (point.timestamp - start_time).total_seconds() * 1000.0
+                ),
             }
             for point in raw_points
         ],
-        "capacity_ah": meta.capacity_ah,
-        "powerbank_capacity_mah": meta.powerbank_capacity_mah or 10000,
-        "phone_capacity_mah": meta.phone_capacity_mah or 4000,
+        "powerbank_capacity_mah": session.powerbank_capacity_mah or 10000,
+        "phone_capacity_mah": session.phone_capacity_mah or 4000,
     }
 
     try:
@@ -60,7 +61,7 @@ def predict_soh_for_session(db: Session, session_id: str) -> dict:
         )
         response.raise_for_status()
         result = response.json()
-        save_ai_result(db, session_id, result)
+        save_ai_result(db, session_id, session.device_id, result)
         return result
     except requests.RequestException as exc:
         raise AIServiceException(str(exc)) from exc

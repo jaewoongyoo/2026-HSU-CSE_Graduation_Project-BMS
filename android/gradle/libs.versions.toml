@@ -10,6 +10,7 @@ junit = "4.13.2"
 navigation-compose = "2.9.7"
 aws-android-sdk = "2.75.0"
 room = "2.7.0-alpha01"
+ktor = "2.3.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -24,6 +25,10 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation-compose" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
+ktor-client-serialization = { group = "io.ktor", name = "ktor-client-serialization", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 aws-android-sdk-iot = { group = "com.amazonaws", name = "aws-android-sdk-iot", version.ref = "aws-android-sdk" }
 aws-android-sdk-mobile-client = { group = "com.amazonaws", name = "aws-android-sdk-mobile-client", version.ref = "aws-android-sdk" }
 # JSON 직렬화를 위한 Gson (이미 kotlinx-serialization을 사용 중이시라면 대체 가능)

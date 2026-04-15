@@ -1,6 +1,7 @@
 package com.han.battery.ui.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,36 +19,46 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Slate50
-import com.han.battery.data.storage.UserManager
+import com.han.battery.ui.theme.Slate950
+import com.han.battery.data.repository.AuthRepository
+import kotlinx.coroutines.launch
 
 
 @Composable
 fun LoginScreen(
-    userManager: UserManager,
+    authRepository: AuthRepository,
     onNavigateToSignup: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var uiState by remember { mutableStateOf<AuthUiState>(AuthUiState.Idle) }
+    val coroutineScope = rememberCoroutineScope()
+    val isDarkTheme = isSystemInDarkTheme()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                    if (isDarkTheme) {
+                        listOf(Slate950, Color(0xFF1A1F35), Slate950)
+                    } else {
+                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                    }
                 )
             )
     ) {
@@ -73,6 +84,11 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
                 enabled = uiState !is AuthUiState.Loading
             )
 
@@ -83,8 +99,12 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 24.dp),
+                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
                 enabled = uiState !is AuthUiState.Loading
             )
 
@@ -98,17 +118,35 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    if (username.isBlank() || password.isBlank()) {
-                        uiState = AuthUiState.Error("모든 필드를 입력하세요")
+                    // 입력 검증
+                    if (username.isBlank()) {
+                        uiState = AuthUiState.Error("사용자명을 입력하세요")
+                        return@Button
+                    }
+                    if (password.isBlank()) {
+                        uiState = AuthUiState.Error("비밀번호를 입력하세요")
+                        return@Button
+                    }
+                    if (username.length < 1) {
+                         uiState = AuthUiState.Error("사용자명은 1자 이상이어야 합니다")
+                         return@Button
+                     }
+                    if (password.length < 4) {
+                        uiState = AuthUiState.Error("비밀번호는 4자 이상이어야 합니다")
                         return@Button
                     }
 
-                    // 사용자 검증
-                    if (userManager.validateUser(username, password)) {
-                        uiState = AuthUiState.Success("로그인 성공")
-                        onLoginSuccess()
-                    } else {
-                        uiState = AuthUiState.Error("사용자명 또는 비밀번호가 잘못되었습니다")
+                    uiState = AuthUiState.Loading
+                    coroutineScope.launch {
+                        val result = authRepository.login(username, password)
+                        uiState = if (result.isSuccess) {
+                            AuthUiState.Success("로그인 성공")
+                            onLoginSuccess()
+                            AuthUiState.Idle
+                        } else {
+                            val errorMessage = result.exceptionOrNull()?.message ?: "로그인 실패"
+                            AuthUiState.Error(errorMessage)
+                        }
                     }
                 },
                 modifier = Modifier
@@ -137,3 +175,5 @@ fun LoginScreen(
         }
     }
 }
+
+

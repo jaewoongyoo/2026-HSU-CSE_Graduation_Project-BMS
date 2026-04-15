@@ -2,8 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class SignUpRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=50)
-    username: str = Field(..., min_length=4, max_length=50)
+    username: str = Field(..., min_length=1, max_length=50)
     password: str = Field(..., min_length=4, max_length=72)
 
     @field_validator("password")
@@ -15,13 +14,12 @@ class SignUpRequest(BaseModel):
 
 class SignUpResponse(BaseModel):
     id: int
-    name: str
     username: str
     message: str
 
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., min_length=4, max_length=50)
+    username: str = Field(..., min_length=1, max_length=50)
     password: str = Field(..., min_length=4, max_length=72)
 
     @field_validator("password")
@@ -34,6 +32,5 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     id: int
-    name: str
     username: str
     message: str
