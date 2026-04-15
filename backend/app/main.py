@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import auth, batteries, health, result, session, upload, users
+from app.api.v1 import auth, devices, health, result, session, upload, users
 from app.core.logging import configure_logging
 from app.db import models  # noqa: F401
 
@@ -37,4 +37,4 @@ app.include_router(result.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
-app.include_router(batteries.router)
+app.include_router(devices.router)

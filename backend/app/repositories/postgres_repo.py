@@ -5,7 +5,15 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DatabaseOperationException, ResourceConflictException
-from app.db.models import BatterySession, BatteryTelemetry, Device, SohAnalysis, User
+from app.db.models import (
+    BatteryAiResult,
+    BatterySession,
+    BatteryTelemetry,
+    Device,
+    SharedReport,
+    SohAnalysis,
+    User,
+)
 
 
 def _commit_or_raise(
@@ -33,28 +41,22 @@ def get_user_by_identifier(db: Session, user_identifier: str) -> Optional[User]:
     return db.query(User).filter(User.username == user_identifier).first()
 
 
-def create_device(db: Session, device_id: str, request: Any) -> Device:
+def create_device(db: Session, request: Any) -> Device:
     user = get_user_by_identifier(db, request.user_id)
     if not user:
         raise ValueError(f"user not found: {request.user_id}")
 
-    model_name = getattr(request, "model_name", None) or getattr(request, "device_model", None)
-    if not model_name:
-        raise ValueError("model_name is required")
-
     device = Device(
-        device_id=device_id,
         user_id=user.id,
         manufacturer=getattr(request, "manufacturer", None),
-        model_name=model_name,
-        capacity_mah=getattr(request, "capacity_mah", None) or getattr(request, "phone_capacity_mah", None),
-        powerbank_capacity_mah=getattr(request, "powerbank_capacity_mah", None),
+        model_name=request.model_name,
+        powerbank_capacity_mah=request.powerbank_capacity_mah,
         manufacture_date=getattr(request, "manufacture_date", None),
     )
     db.add(device)
     _commit_or_raise(
         db,
-        conflict_detail=f"device already exists: {device_id}",
+        conflict_detail="device already exists",
         operation_detail="failed to create device",
     )
     db.refresh(device)
@@ -64,13 +66,13 @@ def create_device(db: Session, device_id: str, request: Any) -> Device:
 def create_session(db: Session, session_id: str, device: Device, request: Any) -> BatterySession:
     session = BatterySession(
         session_id=session_id,
-        device_id=device.device_id,
+        device_id=device.id,
         user_id=device.user_id,
         android_api_level=request.android_api_level,
-        powerbank_id=request.powerbank_id,
-        cable_id=request.cable_id,
-        phone_capacity_mah=request.phone_capacity_mah,
-        powerbank_capacity_mah=request.powerbank_capacity_mah,
+        powerbank_id=getattr(request, "powerbank_id", None),
+        powerbank_capacity_mah=getattr(request, "powerbank_capacity_mah", None)
+        or device.powerbank_capacity_mah
+        or 10000,
         session_start_ts=request.session_start_ts,
         status="in_progress",
     )
@@ -87,58 +89,12 @@ def create_session(db: Session, session_id: str, device: Device, request: Any) -
 def create_device_and_session(
     db: Session,
     *,
-    device_id: str,
     session_id: str,
     request: Any,
 ) -> tuple[Device, BatterySession]:
-    user = get_user_by_identifier(db, request.user_id)
-    if not user:
-        raise ValueError(f"user not found: {request.user_id}")
-
-    device = Device(
-        device_id=device_id,
-        user_id=user.id,
-        manufacturer=None,
-        model_name=request.device_model,
-        capacity_mah=request.phone_capacity_mah,
-        powerbank_capacity_mah=request.powerbank_capacity_mah,
-        manufacture_date=None,
-    )
-    db.add(device)
-    try:
-        db.flush()
-    except IntegrityError as exc:
-        db.rollback()
-        raise ResourceConflictException(f"device already exists: {device_id}") from exc
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise DatabaseOperationException("failed to create device") from exc
-
-    session = BatterySession(
-        session_id=session_id,
-        device_id=device.device_id,
-        user_id=device.user_id,
-        android_api_level=request.android_api_level,
-        powerbank_id=request.powerbank_id,
-        cable_id=request.cable_id,
-        phone_capacity_mah=request.phone_capacity_mah,
-        powerbank_capacity_mah=request.powerbank_capacity_mah,
-        session_start_ts=request.session_start_ts,
-        status="in_progress",
-    )
-    db.add(session)
-    _commit_or_raise(
-        db,
-        conflict_detail=f"session already exists: {session_id}",
-        operation_detail="failed to create session",
-    )
-    db.refresh(device)
-    db.refresh(session)
+    device = create_device(db, request=request)
+    session = create_session(db, session_id=session_id, device=device, request=request)
     return device, session
-
-
-def get_device(db: Session, device_id: str) -> Optional[Device]:
-    return db.query(Device).filter(Device.device_id == device_id).first()
 
 
 def get_device_by_pk(db: Session, battery_id: int) -> Optional[Device]:
@@ -161,6 +117,36 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
     if not device:
         return False
 
+    session_ids = [
+        row.session_id
+        for row in db.query(BatterySession.session_id)
+        .filter(BatterySession.device_id == battery_id)
+        .all()
+    ]
+
+    if session_ids:
+        db.query(BatteryAiResult).filter(BatteryAiResult.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(BatteryTelemetry).filter(BatteryTelemetry.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SohAnalysis).filter(SohAnalysis.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(BatterySession).filter(BatterySession.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+
+    db.query(BatteryTelemetry).filter(BatteryTelemetry.device_id == battery_id).delete(
+        synchronize_session=False
+    )
+    db.query(SohAnalysis).filter(SohAnalysis.device_id == battery_id).delete(
+        synchronize_session=False
+    )
+    db.query(SharedReport).filter(SharedReport.device_id == battery_id).delete(
+        synchronize_session=False
+    )
     db.delete(device)
     _commit_or_raise(
         db,
@@ -205,7 +191,7 @@ def update_session_finish(db: Session, session_id: str, request: Any) -> Optiona
     return session
 
 
-def save_raw_points(db: Session, session_id: str, device_id: str, points: Iterable[Any]) -> int:
+def save_raw_points(db: Session, session_id: str, device_id: int, points: Iterable[Any]) -> int:
     rows = []
     for point in points:
         rows.append(
@@ -250,15 +236,27 @@ def get_session_raw_points(db: Session, session_id: str) -> list[BatteryTelemetr
     )
 
 
-def save_ai_result(db: Session, session_id: str, device_id: str, result: dict) -> SohAnalysis:
-    row = SohAnalysis(
-        device_id=device_id,
+def save_ai_result(db: Session, session_id: str, device_id: int, result: dict) -> BatteryAiResult:
+    row = BatteryAiResult(
         session_id=session_id,
-        current_soh=result.get("soh_percentage"),
-        grade=result.get("condition"),
-        recommendation=json.dumps(result, ensure_ascii=False),
+        soh_percentage=result.get("soh_percentage"),
+        condition=result.get("condition"),
+        estimated_full_charges=result.get("estimated_full_charges"),
+        powerbank_usable_mah=result.get("powerbank_usable_mah"),
+        smartphone_received_mah=result.get("smartphone_received_mah"),
+        mean_temperature_c=result.get("mean_temperature_c"),
+        raw_response_json=json.dumps(result, ensure_ascii=False),
     )
     db.add(row)
+    db.add(
+        SohAnalysis(
+            device_id=device_id,
+            session_id=session_id,
+            current_soh=result.get("soh_percentage"),
+            grade=result.get("condition"),
+            recommendation=json.dumps(result, ensure_ascii=False),
+        )
+    )
     _commit_or_raise(
         db,
         conflict_detail=f"ai result conflict for session: {session_id}",
@@ -268,10 +266,63 @@ def save_ai_result(db: Session, session_id: str, device_id: str, result: dict) -
     return row
 
 
-def get_latest_ai_result(db: Session, session_id: str) -> Optional[SohAnalysis]:
+def get_latest_ai_result(db: Session, session_id: str) -> Optional[BatteryAiResult]:
     return (
-        db.query(SohAnalysis)
-        .filter(SohAnalysis.session_id == session_id)
-        .order_by(SohAnalysis.analyzed_at.desc(), SohAnalysis.id.desc())
+        db.query(BatteryAiResult)
+        .filter(BatteryAiResult.session_id == session_id)
+        .order_by(BatteryAiResult.created_at.desc(), BatteryAiResult.id.desc())
         .first()
     )
+
+
+def delete_user_by_id(db: Session, user_id: int) -> bool:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return False
+
+    device_ids = [
+        row.id
+        for row in db.query(Device.id)
+        .filter(Device.user_id == user_id)
+        .all()
+    ]
+    session_ids = [
+        row.session_id
+        for row in db.query(BatterySession.session_id)
+        .filter(BatterySession.user_id == user_id)
+        .all()
+    ]
+
+    if session_ids:
+        db.query(BatteryAiResult).filter(BatteryAiResult.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(BatteryTelemetry).filter(BatteryTelemetry.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SohAnalysis).filter(SohAnalysis.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(BatterySession).filter(BatterySession.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+
+    if device_ids:
+        db.query(BatteryTelemetry).filter(BatteryTelemetry.device_id.in_(device_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SohAnalysis).filter(SohAnalysis.device_id.in_(device_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SharedReport).filter(SharedReport.device_id.in_(device_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(Device).filter(Device.id.in_(device_ids)).delete(synchronize_session=False)
+
+    db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+    _commit_or_raise(
+        db,
+        conflict_detail=f"user delete conflict: {user_id}",
+        operation_detail="failed to delete user",
+    )
+    return True
