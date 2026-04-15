@@ -50,6 +50,8 @@ import androidx.navigation.navArgument
 import com.han.battery.data.api.ApiService
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.repository.AuthRepository
+import com.han.battery.data.repository.AdvancedBatteryRepository
+import com.han.battery.data.repository.AdvancedUserRepository
 import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.data.storage.UserManager
 import com.han.battery.ui.auth.LoginScreen
@@ -69,6 +71,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var userManager: UserManager
     private lateinit var apiService: ApiService
     private lateinit var authRepository: AuthRepository
+    private lateinit var advancedBatteryRepository: AdvancedBatteryRepository
+    private lateinit var advancedUserRepository: AdvancedUserRepository
     private lateinit var chargingReceiver: ChargingReceiver
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +81,9 @@ class MainActivity : ComponentActivity() {
         userManager = UserManager(this)
         apiService = ApiService(baseUrl = DevConfig.API_BASE_URL)
         authRepository = AuthRepository(apiService, userManager, this)
+        // ✅ AdvancedRepository 초기화
+        advancedBatteryRepository = AdvancedBatteryRepository(apiService, userManager, this, authRepository)
+        advancedUserRepository = AdvancedUserRepository(apiService, userManager, this, authRepository)
         preferenceManager = PreferenceManager(this, userManager)
 
         // 충전 감지 리시버 동적 등록
@@ -97,6 +104,7 @@ class MainActivity : ComponentActivity() {
 
                 var deviceRefreshKey by remember { mutableIntStateOf(0) }
                 var showExitDialog by remember { mutableStateOf(false) }
+                var devicesList by remember { mutableStateOf(preferenceManager.getAllDevices()) }
 
                 val showBottomBar = currentRoute in listOf(
                     "home",
@@ -257,8 +265,11 @@ class MainActivity : ComponentActivity() {
 
                         composable("home") {
                             key(deviceRefreshKey) {
+                                // deviceRefreshKey가 변경될 때마다 devices 리스트 새로고침
+                                devicesList = preferenceManager.getAllDevices()
+
                                 HomeScreen(
-                                    devices = preferenceManager.getAllDevices(),
+                                    devices = devicesList,
                                     onDeviceSelected = { device ->
                                         navController.navigate("dashboard/${device.model_name}")
                                     },
@@ -275,7 +286,8 @@ class MainActivity : ComponentActivity() {
                                                     android.util.Log.d("MainActivity", "✅ 서버 삭제 성공, 로컬에서도 삭제: ${device.model_name}")
                                                     // 로컬에서도 삭제
                                                     preferenceManager.deleteDevice(device.model_name)
-                                                    deviceRefreshKey++
+                                                    // 리스트 즉시 업데이트
+                                                    devicesList = preferenceManager.getAllDevices()
                                                     Toast.makeText(
                                                         this@MainActivity,
                                                         "Device deleted successfully.",
@@ -295,7 +307,8 @@ class MainActivity : ComponentActivity() {
                                                 // ID가 없으면 로컬에서만 삭제
                                                 android.util.Log.d("MainActivity", "⚠️ 배터리 ID가 없음, 로컬에서만 삭제: ${device.model_name}")
                                                 preferenceManager.deleteDevice(device.model_name)
-                                                deviceRefreshKey++
+                                                // 리스트 즉시 업데이트
+                                                devicesList = preferenceManager.getAllDevices()
                                                 Toast.makeText(
                                                     this@MainActivity,
                                                     "Device deleted locally.",
@@ -308,6 +321,7 @@ class MainActivity : ComponentActivity() {
                                     onLogout = {
                                         authRepository.logout()
                                         preferenceManager.clearAllDevices()
+                                        devicesList = emptyList()
                                         deviceRefreshKey++
                                         navController.navigate("login") {
                                             popUpTo("home") { inclusive = true }
@@ -413,7 +427,7 @@ class MainActivity : ComponentActivity() {
                                     onChangeDevice = { navController.navigate("home") },
                                     onDeleteDevice = {
                                         coroutineScope.launch {
-                                            // 서버에서 배터리 삭제
+                                            // ...existing code...
                                             if (device.id > 0) {
                                                 android.util.Log.d("MainActivity", "🗑️ 배터리 삭제 시작: ${device.model_name} (ID: ${device.id})")
                                                 val result = authRepository.deleteBattery(device.id)
@@ -462,6 +476,7 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack()
                             }
                         }
+
 
                         composable("board") {
                             val dummyPosts = listOf(
