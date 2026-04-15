@@ -30,8 +30,6 @@ class Device(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    device_id = Column(String(100), unique=True, nullable=False)
-    manufacturer = Column(String(100), nullable=True)
     model_name = Column(String(100), nullable=False)
     capacity_mah = Column(Integer, nullable=False)
     powerbank_capacity_mah = Column(Integer, nullable=True)

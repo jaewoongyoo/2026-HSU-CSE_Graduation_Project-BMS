@@ -1,19 +1,20 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 
 class SessionStartRequest(BaseModel):
-    user_id: str = Field(..., description="사용자 식별자")
-    device_id: str = Field(..., description="등록된 보조배터리 device_id")  # ← 추가
-    device_model: str = Field(..., description="스마트폰 기종")
-    android_api_level: int = Field(..., description="안드로이드 API 레벨")
-    powerbank_id: Optional[str] = Field(default=None, description="보조배터리 식별자")
-    cable_id: Optional[str] = Field(default=None, description="케이블 식별자")
-    phone_capacity_mah: int = Field(default=4000, description="스마트폰 배터리 용량(mAh)")
-    powerbank_capacity_mah: int = Field(default=10000, description="보조배터리 정격 용량(mAh)")
-    session_start_ts: datetime = Field(..., description="세션 시작 시각")
+    user_id: str = Field(..., description="User ID or username")
+    device_id: int = Field(..., gt=0, description="devices.id")
+    android_api_level: int = Field(..., ge=1, description="Android API level")
+    powerbank_id: str | None = Field(default=None, description="Power bank identifier")
+    powerbank_capacity_mah: int | None = Field(
+        default=None,
+        gt=0,
+        le=200000,
+        description="Power bank capacity override in mAh",
+    )
+    session_start_ts: datetime = Field(..., description="Session start timestamp")
 
 
 class SessionStartResponse(BaseModel):
@@ -22,8 +23,8 @@ class SessionStartResponse(BaseModel):
 
 
 class SessionFinishRequest(BaseModel):
-    session_end_ts: datetime = Field(..., description="세션 종료 시각")
-    capacity_ah: float = Field(..., description="이번 세션 총 방전 용량(Ah)")
+    session_end_ts: datetime = Field(..., description="Session end timestamp")
+    capacity_ah: float = Field(..., gt=0, description="Measured delivered capacity in Ah")
 
 
 class SessionFinishResponse(BaseModel):
