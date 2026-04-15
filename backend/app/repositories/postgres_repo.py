@@ -71,7 +71,8 @@ def create_session(db: Session, session_id: str, device: Device, request: Any) -
         android_api_level=request.android_api_level,
         powerbank_id=getattr(request, "powerbank_id", None),
         powerbank_capacity_mah=getattr(request, "powerbank_capacity_mah", None)
-        or device.powerbank_capacity_mah,
+        or device.powerbank_capacity_mah
+        or 10000,
         session_start_ts=request.session_start_ts,
         status="in_progress",
     )

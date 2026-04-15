@@ -23,7 +23,7 @@ class DeviceCreateRequest(BaseModel):
             raise ValueError("must not be blank")
         return value
 
-    @field_validator("manufacturer", "manufacture_date")
+    @field_validator("manufacture_date")
     @classmethod
     def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:

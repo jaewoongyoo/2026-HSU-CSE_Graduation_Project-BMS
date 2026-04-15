@@ -8,8 +8,8 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 
 
-def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
-    return db.query(User).offset(skip).limit(limit).all()
+def get_all_users(db: Session) -> list[User]:
+    return db.query(User).order_by(User.id.asc()).all()
 
 
 def update_user(db: Session, user: User, update_data: dict) -> User:

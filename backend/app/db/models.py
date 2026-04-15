@@ -30,28 +30,20 @@ class Device(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    manufacturer = Column(String(100), nullable=True)
     model_name = Column(String(100), nullable=False)
-    capacity_mah = Column(Integer, nullable=False)
     powerbank_capacity_mah = Column(Integer, nullable=True)
     manufacture_date = Column(String(20), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
 
     user = relationship("User", back_populates="devices")
-    sessions = relationship(
-        "BatterySession",
-        back_populates="device",
-        cascade="all, delete-orphan",
-    )
+    sessions = relationship("BatterySession", back_populates="device", cascade="all, delete-orphan")
     telemetry_points = relationship(
         "BatteryTelemetry",
         back_populates="device",
         cascade="all, delete-orphan",
     )
-    soh_analyses = relationship(
-        "SohAnalysis",
-        back_populates="device",
-        cascade="all, delete-orphan",
-    )
+    soh_analyses = relationship("SohAnalysis", back_populates="device", cascade="all, delete-orphan")
     shared_reports = relationship(
         "SharedReport",
         back_populates="device",
@@ -64,17 +56,15 @@ class BatterySession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), unique=True, nullable=False, index=True)
-    device_id = Column(String(100), ForeignKey("devices.device_id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     android_api_level = Column(Integer, nullable=False)
     powerbank_id = Column(String(100), nullable=True)
-    cable_id = Column(String(100), nullable=True)
-    phone_capacity_mah = Column(Integer, nullable=False)
     powerbank_capacity_mah = Column(Integer, nullable=False)
     session_start_ts = Column(DateTime, nullable=False)
     session_end_ts = Column(DateTime, nullable=True)
     capacity_ah = Column(Float, nullable=True)
-    status = Column(String(30), nullable=False, server_default="in_progress")
+    status = Column(String(30), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
@@ -84,18 +74,20 @@ class BatterySession(Base):
         back_populates="session",
         cascade="all, delete-orphan",
     )
-    soh_analyses = relationship(
-        "SohAnalysis",
+    ai_result = relationship(
+        "BatteryAiResult",
         back_populates="session",
         cascade="all, delete-orphan",
+        uselist=False,
     )
+    soh_analyses = relationship("SohAnalysis", back_populates="session", cascade="all, delete-orphan")
 
 
 class BatteryTelemetry(Base):
     __tablename__ = "battery_telemetry"
 
     id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String(100), ForeignKey("devices.device_id", ondelete="CASCADE"), nullable=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
     session_id = Column(String(100), ForeignKey("battery_sessions.session_id", ondelete="CASCADE"), nullable=True)
     timestamp = Column(DateTime, nullable=False)
     soc = Column(Float, nullable=True)
@@ -112,11 +104,35 @@ class BatteryTelemetry(Base):
     session = relationship("BatterySession", back_populates="telemetry_points")
 
 
+class BatteryAiResult(Base):
+    __tablename__ = "battery_ai_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(
+        String(100),
+        ForeignKey("battery_sessions.session_id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    soh_percentage = Column(Float, nullable=True)
+    condition = Column(String(50), nullable=True)
+    estimated_full_charges = Column(Float, nullable=True)
+    powerbank_usable_mah = Column(Float, nullable=True)
+    smartphone_received_mah = Column(Float, nullable=True)
+    mean_temperature_c = Column(Float, nullable=True)
+    raw_response_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
+
+    session = relationship("BatterySession", back_populates="ai_result")
+
+
 class SohAnalysis(Base):
     __tablename__ = "soh_analysis"
 
     id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String(100), ForeignKey("devices.device_id", ondelete="CASCADE"), nullable=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
     session_id = Column(String(100), ForeignKey("battery_sessions.session_id", ondelete="CASCADE"), nullable=True)
     analyzed_at = Column(DateTime, server_default=func.now(), nullable=True)
     current_soh = Column(Float, nullable=True)
@@ -135,7 +151,7 @@ class SharedReport(Base):
     __tablename__ = "shared_reports"
 
     id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String(100), ForeignKey("devices.device_id", ondelete="CASCADE"), nullable=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
     share_token = Column(String(100), unique=True, nullable=False)
     phone_model = Column(String(100), nullable=True)
     is_public = Column(Boolean, server_default="true", nullable=True)
