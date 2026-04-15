@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidRawDataException, SessionNotFoundException
 from app.repositories.postgres_repo import (
-    create_device_and_session,
+    create_session,
+    get_device,
     get_session_meta,
     update_session_finish,
 )
@@ -12,17 +13,17 @@ from app.schemas.session import SessionFinishRequest, SessionStartRequest
 
 
 def start_session_service(db: Session, request: SessionStartRequest) -> dict:
-    device_id = f"dev_{uuid.uuid4().hex[:12]}"
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
+
+    device = get_device(db, request.device_id)
+    if not device:
+        raise InvalidRawDataException(f"device not found: {request.device_id}")
+
     try:
-        create_device_and_session(
-            db,
-            device_id=device_id,
-            session_id=session_id,
-            request=request,
-        )
+        create_session(db, session_id=session_id, device=device, request=request)
     except ValueError as exc:
         raise InvalidRawDataException(str(exc)) from exc
+
     return {"session_id": session_id, "status": "in_progress"}
 
 

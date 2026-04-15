@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class SessionStartRequest(BaseModel):
     user_id: str = Field(..., description="사용자 식별자")
+    device_id: str = Field(..., description="등록된 보조배터리 device_id")  # ← 추가
     device_model: str = Field(..., description="스마트폰 기종")
     android_api_level: int = Field(..., description="안드로이드 API 레벨")
     powerbank_id: Optional[str] = Field(default=None, description="보조배터리 식별자")
