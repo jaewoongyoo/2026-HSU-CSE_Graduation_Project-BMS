@@ -17,19 +17,22 @@ class UserManager(context: Context) {
 
     companion object {
         private const val CURRENT_USERNAME_KEY = "current_username"
+        private const val CURRENT_USER_ID_KEY = "current_user_id"
         private const val TAG = "UserManager"
     }
 
     /**
      * 현재 로그인한 사용자 설정
      * @param username 사용자명
+     * @param userId 사용자 ID
      */
-    fun setCurrentUser(username: String) {
+    fun setCurrentUser(username: String, userId: Int) {
         currentUserPrefs.edit().apply {
             putString(CURRENT_USERNAME_KEY, username)
+            putInt(CURRENT_USER_ID_KEY, userId)
             apply()
         }
-        AppLogger.info("현재 사용자 설정: $username", TAG)
+        AppLogger.info("현재 사용자 설정: $username (ID: $userId)", TAG)
     }
 
     /**
@@ -41,11 +44,20 @@ class UserManager(context: Context) {
     }
 
     /**
+     * 현재 로그인한 사용자 ID 조회
+     * @return 사용자 ID (로그아웃 상태면 0)
+     */
+    fun getCurrentUserId(): Int {
+        return currentUserPrefs.getInt(CURRENT_USER_ID_KEY, 0)
+    }
+
+    /**
      * 로그아웃 (현재 사용자 초기화)
      */
     fun logout() {
         currentUserPrefs.edit().apply {
             remove(CURRENT_USERNAME_KEY)
+            remove(CURRENT_USER_ID_KEY)
             apply()
         }
         AppLogger.info("사용자 로그아웃", TAG)

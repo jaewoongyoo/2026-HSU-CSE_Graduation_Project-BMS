@@ -230,10 +230,9 @@ fun LandingScreen(
 
                                 onStartClick(
                                     DeviceInfo(
-                                        nickname = nickname.trim(),
-                                        capacity = capacityInt,
-                                        manufactureDate = manufactureDate.trim(),
-                                        brand = brand.trim()
+                                        model_name = nickname.trim(),
+                                        powerbank_capacity_mah = capacityInt,
+                                        manufacture_date = manufactureDate.trim()
                                     )
                                 )
                             }

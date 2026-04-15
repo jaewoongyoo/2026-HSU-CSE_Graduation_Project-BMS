@@ -272,20 +272,20 @@ fun DeviceCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = device.nickname.ifBlank { "배터리" },
+                    text = device.model_name.ifBlank { "배터리" },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${device.brand} · ${device.capacity}mAh",
+                    text = "${device.powerbank_capacity_mah}mAh",
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "제조: ${device.manufactureDate}",
+                    text = "제조: ${device.manufacture_date}",
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
@@ -336,7 +336,7 @@ fun DeleteDeviceDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("배터리 삭제") },
-        text = { Text("'${device.nickname}'을(를) 삭제하시겠습니까?") },
+        text = { Text("'${device.model_name}'을(를) 삭제하시겠습니까?") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text("삭제", color = Color.Red)

@@ -1,6 +1,7 @@
 package com.han.battery.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.JsonElement
 
 @Serializable
@@ -11,16 +12,18 @@ data class LoginRequest(
 
 @Serializable
 data class SignupRequest(
-    val name: String? = null,
     val username: String,
-    val password: String
+    val password: String,
+    val phone_model: String? = null,
+    val phone_uid: String? = null
 )
 
 @Serializable
 data class AuthResponse(
-    val id: Int? = null,
-    val name: String? = null,
-    val username: String? = null,
+    val id: Int,
+    val username: String,
+    val phone_model: String? = null,   // ✅ nullable로 변경
+    val phone_uid: String? = null,     // ✅ nullable로 변경
     val message: String? = null
 )
 
@@ -54,28 +57,22 @@ data class ErrorDetail(
     val type: String
 )
 
-// 배터리 관련 데이터 모델
+// 배터리 관련 데이터 모델 (ERD 기준: devices 테이블)
 @Serializable
 data class BatteryRegistrationRequest(
-    val user_id: String,
-    val device_id: String? = null,
-    val manufacturer: String? = null,
+    val user_id: String,           // ✅ API 명세: user_id는 String
     val model_name: String,
-    val capacity_mah: Int,
-    val manufacture_date: String? = null,
-    val powerbank_capacity_mah: Int? = null
+    val powerbank_capacity_mah: Int,
+    val manufacture_date: String? = null
 )
 
 @Serializable
 data class BatteryResponse(
     val id: Int,
     val user_id: Int,
-    val device_id: String? = null,
-    val manufacturer: String? = null,
     val model_name: String,
-    val capacity_mah: Int,
-    val manufacture_date: String? = null,
-    val powerbank_capacity_mah: Int? = null,
-    val created_at: String? = null
+    val powerbank_capacity_mah: Int? = null,   // ✅ nullable로 변경
+    val manufacture_date: String? = null,       // ✅ nullable로 변경
+    val created_at: String? = null              // ✅ nullable로 변경
 )
 

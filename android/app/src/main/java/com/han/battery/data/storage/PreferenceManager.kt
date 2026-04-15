@@ -1,5 +1,7 @@
 package com.han.battery.data.storage
+
 // 배터리 정보를 로컬 저장소(SharedPreferences)에 저장/로드하는 매니저 (사용자별로 데이터 분리)
+// ERD의 devices 테이블 기준
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -35,23 +37,23 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     }
 
     /**
-     * 배터리 기기 정보를 저장합니다.
+     * 배터리 기기 정보를 저장합니다. (ERD devices 테이블 기준)
      * 현재 로그인한 사용자별로 데이터가 분리되어 저장됩니다.
      */
     fun saveBatteryDevice(device: BatteryDevice) {
         try {
             val devices = getAllDevices().toMutableList()
-            // 같은 별칭의 기기가 있으면 제거
-            devices.removeAll { it.nickname == device.nickname }
+            // 같은 모델명의 기기가 있으면 제거
+            devices.removeAll { it.model_name == device.model_name }
             devices.add(device)
 
             val jsonArray = JSONArray()
             for (d in devices) {
                 val json = JSONObject().apply {
-                    put("brand", d.brand)
-                    put("nickname", d.nickname)
-                    put("capacity", d.capacity)
-                    put("manufactureDate", d.manufactureDate)
+                    put("id", d.id)
+                    put("model_name", d.model_name)
+                    put("powerbank_capacity_mah", d.powerbank_capacity_mah)
+                    put("manufacture_date", d.manufacture_date)
                 }
                 jsonArray.put(json)
             }
@@ -66,14 +68,14 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
                 apply()  // commit() 대신 apply() 사용 (비동기, 더 빠름)
             }
             val currentUser = userManager?.getCurrentUser() ?: "default"
-            AppLogger.info("배터리 저장 성공 [$currentUser]: ${device.nickname}, 총 ${devices.size}개", TAG)
+            AppLogger.info("배터리 저장 성공 [$currentUser]: ${device.model_name}, 총 ${devices.size}개", TAG)
         } catch (e: Exception) {
             AppLogger.error("배터리 저장 실패", e, TAG)
         }
     }
 
     /**
-     * 저장된 모든 배터리 기기 정보를 로드합니다.
+     * 저장된 모든 배터리 기기 정보를 로드합니다. (ERD devices 테이블 기준)
      * 현재 로그인한 사용자의 데이터만 반환됩니다.
      */
     fun getAllDevices(): List<BatteryDevice> {
@@ -91,10 +93,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             for (i in 0 until jsonArray.length()) {
                 val json = jsonArray.getJSONObject(i)
                 val device = BatteryDevice(
-                    brand = json.getString("brand"),
-                    nickname = json.getString("nickname"),
-                    capacity = json.getInt("capacity"),
-                    manufactureDate = json.getString("manufactureDate")
+                    model_name = json.getString("model_name"),
+                    powerbank_capacity_mah = json.getInt("powerbank_capacity_mah"),
+                    manufacture_date = json.getString("manufacture_date"),
+                    id = json.optInt("id", 0)  // ✅ ID 필드 추가 (없으면 기본값 0)
                 )
                 devices.add(device)
             }
@@ -109,10 +111,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     }
 
     /**
-     * 특정 별칭의 배터리 기기 정보를 로드합니다.
+     * 특정 모델명의 배터리 기기 정보를 로드합니다.
      */
-    fun getBatteryDevice(nickname: String): BatteryDevice? {
-        return getAllDevices().find { it.nickname == nickname }
+    fun getBatteryDevice(modelName: String): BatteryDevice? {
+        return getAllDevices().find { it.model_name == modelName }
     }
 
     /**
@@ -128,10 +130,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     /**
      * 특정 기기를 삭제합니다.
      */
-    fun deleteDevice(nickname: String) {
+    fun deleteDevice(modelName: String) {
         try {
             val devices = getAllDevices().toMutableList()
-            devices.removeAll { it.nickname == nickname }
+            devices.removeAll { it.model_name == modelName }
 
             if (devices.isEmpty()) {
                 clearAllDevices()
@@ -139,10 +141,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
                 val jsonArray = JSONArray()
                 for (d in devices) {
                     val json = JSONObject().apply {
-                        put("brand", d.brand)
-                        put("nickname", d.nickname)
-                        put("capacity", d.capacity)
-                        put("manufactureDate", d.manufactureDate)
+                        put("id", d.id)
+                        put("model_name", d.model_name)
+                        put("powerbank_capacity_mah", d.powerbank_capacity_mah)
+                        put("manufacture_date", d.manufacture_date)
                     }
                     jsonArray.put(json)
                 }
@@ -156,7 +158,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             }
             
             val currentUser = userManager?.getCurrentUser() ?: "default"
-            AppLogger.info("배터리 삭제 완료 [$currentUser]: $nickname", TAG)
+            AppLogger.info("배터리 삭제 완료 [$currentUser]: $modelName", TAG)
         } catch (e: Exception) {
             AppLogger.error("배터리 삭제 실패", e, TAG)
         }

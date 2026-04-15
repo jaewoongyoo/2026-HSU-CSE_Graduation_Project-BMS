@@ -60,7 +60,7 @@ fun DashboardScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog.value = false },
             title = { Text("배터리 삭제") },
-            text = { Text("'${device.nickname.ifBlank { "배터리" }}'을(를) 삭제하시겠습니까?") },
+            text = { Text("'${device.model_name.ifBlank { "배터리" }}'을(를) 삭제하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -81,11 +81,11 @@ fun DashboardScreen(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = device.nickname.ifBlank { "보조배터리" },
+                            text = device.model_name.ifBlank { "보조배터리" },
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "${device.brand.ifBlank { "브랜드 미입력" }} · ${device.capacity} mAh",
+                            text = "${device.powerbank_capacity_mah} mAh",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
