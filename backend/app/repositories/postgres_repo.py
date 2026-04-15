@@ -170,6 +170,20 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
     return True
 
 
+def delete_device_by_device_id(db: Session, device_id: str) -> bool:
+    device = get_device(db, device_id)
+    if not device:
+        return False
+
+    db.delete(device)
+    _commit_or_raise(
+        db,
+        conflict_detail=f"device delete conflict: {device_id}",
+        operation_detail="failed to delete device",
+    )
+    return True
+
+
 def get_session_meta(db: Session, session_id: str) -> Optional[BatterySession]:
     return db.query(BatterySession).filter(BatterySession.session_id == session_id).first()
 
