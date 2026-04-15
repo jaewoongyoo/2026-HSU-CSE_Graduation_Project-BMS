@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import InvalidRawDataException
 from app.repositories.postgres_repo import (
     create_device,
-    delete_device_by_pk,
-    get_device_by_pk,
+    delete_device_by_device_id,
+    get_device,
     list_devices,
 )
 from app.schemas.battery import BatteryCreateRequest
@@ -27,21 +27,21 @@ def list_batteries_service(db: Session, user_id: Optional[str] = None):
     return list_devices(db, user_identifier=user_id)
 
 
-def get_battery_service(db: Session, battery_id: int):
-    device = get_device_by_pk(db, battery_id)
+def get_battery_service(db: Session, device_id: str):
+    device = get_device(db, device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"battery not found: {battery_id}",
+            detail=f"battery not found: {device_id}",
         )
     return device
 
 
-def delete_battery_service(db: Session, battery_id: int):
-    deleted = delete_device_by_pk(db, battery_id)
+def delete_battery_service(db: Session, device_id: str):
+    deleted = delete_device_by_device_id(db, device_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"battery not found: {battery_id}",
+            detail=f"battery not found: {device_id}",
         )
     return {"message": "battery deleted"}

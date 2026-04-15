@@ -25,11 +25,11 @@ def read_batteries(user_id: Optional[str] = None, db: Session = Depends(get_db))
     return list_batteries_service(db, user_id=user_id)
 
 
-@router.get("/{battery_id}", response_model=BatteryResponse)
-def read_battery(battery_id: int, db: Session = Depends(get_db)):
-    return get_battery_service(db, battery_id)
+@router.get("/{device_id}", response_model=BatteryResponse)
+def read_battery(device_id: str, db: Session = Depends(get_db)):
+    return get_battery_service(db, device_id)
 
 
-@router.delete("/{battery_id}")
-def delete_battery(battery_id: int, db: Session = Depends(get_db)):
-    return delete_battery_service(db, battery_id)
+@router.delete("/{device_id}")
+def delete_battery(device_id: str, db: Session = Depends(get_db)):
+    return delete_battery_service(db, device_id)
