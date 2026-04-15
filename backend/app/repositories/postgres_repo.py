@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DatabaseOperationException, ResourceConflictException
-from app.db.models import BatterySession, BatteryTelemetry, Device, SohAnalysis, User
+from app.db.models import BatterySession, BatteryTelemetry, Device, SharedReport, SohAnalysis, User
 
 
 def _commit_or_raise(
@@ -175,6 +175,36 @@ def delete_device_by_device_id(db: Session, device_id: str) -> bool:
     if not device:
         return False
 
+<<<<<<< HEAD
+=======
+    session_ids = [
+        row.session_id
+        for row in db.query(BatterySession.session_id)
+        .filter(BatterySession.device_id == device_id)
+        .all()
+    ]
+
+    if session_ids:
+        db.query(BatteryTelemetry).filter(BatteryTelemetry.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SohAnalysis).filter(SohAnalysis.session_id.in_(session_ids)).delete(
+            synchronize_session=False
+        )
+
+    db.query(BatteryTelemetry).filter(BatteryTelemetry.device_id == device_id).delete(
+        synchronize_session=False
+    )
+    db.query(SohAnalysis).filter(SohAnalysis.device_id == device_id).delete(
+        synchronize_session=False
+    )
+    db.query(SharedReport).filter(SharedReport.device_id == device_id).delete(
+        synchronize_session=False
+    )
+    db.query(BatterySession).filter(BatterySession.device_id == device_id).delete(
+        synchronize_session=False
+    )
+>>>>>>> fix/backend
     db.delete(device)
     _commit_or_raise(
         db,
