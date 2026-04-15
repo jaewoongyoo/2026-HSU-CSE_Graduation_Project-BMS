@@ -12,3 +12,8 @@ local.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# AWS IoT Certificates (절대 깃허브에 올라가면 안 되는 파일들!)
+app/src/main/res/raw/certificate*
+app/src/main/res/raw/private_key*
+app/src/main/res/raw/amazon_root_ca1*
