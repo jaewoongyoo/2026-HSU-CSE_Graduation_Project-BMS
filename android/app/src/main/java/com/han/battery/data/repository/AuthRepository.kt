@@ -345,6 +345,74 @@ class AuthRepository(
     }
 
     /**
+     * 배터리 수정 (서버에서 수정)
+     * @param batteryId 수정할 배터리 ID
+     * @param modelName 배터리 모델명 (선택)
+     * @param powerbankCapacityMah 파워뱅크 용량 (선택)
+     * @param manufactureDate 제조년월 (선택)
+     * @return 배터리 수정 결과
+     */
+    suspend fun updateBattery(
+        batteryId: Int,
+        modelName: String? = null,
+        powerbankCapacityMah: Int? = null,
+        manufactureDate: String? = null
+    ): Result<BatteryResponse> {
+        return try {
+            // 수정할 항목이 없으면 실패
+            if (modelName.isNullOrBlank() && powerbankCapacityMah == null && manufactureDate.isNullOrBlank()) {
+                throw IllegalArgumentException("수정할 항목이 하나 이상 필요합니다")
+            }
+
+            // 용량 검증
+            if (powerbankCapacityMah != null && powerbankCapacityMah <= 0) {
+                throw IllegalArgumentException("용량은 0보다 커야 합니다")
+            }
+            if (powerbankCapacityMah != null && powerbankCapacityMah > 100000) {
+                throw IllegalArgumentException("용량이 너무 많습니다 (최대 100000 mAh)")
+            }
+
+            AppLogger.info("배터리 수정 시도: ID $batteryId", TAG)
+
+            val request = BatteryUpdateRequest(
+                model_name = modelName?.trim(),
+                powerbank_capacity_mah = powerbankCapacityMah,
+                manufacture_date = manufactureDate?.ifBlank { null }
+            )
+
+            val response = apiService.updateBattery(batteryId, request).getOrThrow()
+
+            AppLogger.info("✅ 배터리 수정 성공: ID $batteryId, 모델명: ${response.model_name}", TAG)
+            Result.success(response)
+        } catch (e: IllegalArgumentException) {
+            AppLogger.error("배터리 수정 입력값 검증 실패: ${e.message}", e, TAG)
+            Result.failure(e)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "로그인이 필요합니다. 다시 로그인하세요."
+                e.message?.contains("403", ignoreCase = true) == true ->
+                    "배터리 수정 권한이 없습니다."
+                e.message?.contains("404", ignoreCase = true) == true ->
+                    "수정할 배터리를 찾을 수 없습니다."
+                e.message?.contains("422", ignoreCase = true) == true ->
+                    "입력 정보가 올바르지 않습니다."
+                e.message?.contains("failed to connect", ignoreCase = true) == true ->
+                    "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true ->
+                    "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("500", ignoreCase = true) == true ||
+                e.message?.contains("502", ignoreCase = true) == true ||
+                e.message?.contains("503", ignoreCase = true) == true ->
+                    "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
+                else -> e.message ?: "배터리 수정 실패"
+            }
+            AppLogger.error("❌ 배터리 수정 실패: $errorMessage (ID: $batteryId)", e, TAG)
+            Result.failure(Exception(errorMessage))
+        }
+    }
+
+    /**
      * 배터리 삭제 (서버에서 삭제)
      * @param batteryId 삭제할 배터리 ID
      * @return 배터리 삭제 결과

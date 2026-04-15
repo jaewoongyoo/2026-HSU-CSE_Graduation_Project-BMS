@@ -76,3 +76,10 @@ data class BatteryResponse(
     val created_at: String? = null              // ✅ nullable로 변경
 )
 
+@Serializable
+data class BatteryUpdateRequest(
+    val model_name: String? = null,
+    val powerbank_capacity_mah: Int? = null,
+    val manufacture_date: String? = null
+)
+

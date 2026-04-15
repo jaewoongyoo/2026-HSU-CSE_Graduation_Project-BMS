@@ -170,6 +170,38 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         client.get("$baseUrl/api/v1/devices/$batteryId") {}.body()
     }
 
+    suspend fun updateBattery(batteryId: Int, request: BatteryUpdateRequest): Result<BatteryResponse> = runCatching {
+        Log.d("ApiService", "배터리 수정 API 호출: PATCH $baseUrl/api/v1/devices/$batteryId")
+        Log.d("ApiService", "요청 데이터: model_name=${request.model_name}, powerbank_capacity_mah=${request.powerbank_capacity_mah}")
+
+        val response = client.patch("$baseUrl/api/v1/devices/$batteryId") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+
+        Log.d("ApiService", "응답 상태: ${response.status} (${response.status.value})")
+
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "배터리 수정 실패: ${response.status.value} - $errorBody")
+
+            val errorMessage = when (response.status.value) {
+                400 -> "요청 형식이 잘못되었습니다."
+                401 -> "인증이 필요합니다. 다시 로그인하세요."
+                403 -> "배터리 수정 권한이 없습니다."
+                404 -> "수정할 배터리를 찾을 수 없습니다."
+                422 -> "입력 데이터가 올바르지 않습니다."
+                500, 502, 503 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
+                else -> "배터리 수정 실패 (${response.status.value})"
+            }
+            throw Exception(errorMessage)
+        }
+
+        val result = response.body<BatteryResponse>()
+        Log.d("ApiService", "배터리 수정 성공: ID=${result.id}, model_name=${result.model_name}")
+        result
+    }
+
     suspend fun deleteBattery(batteryId: Int): Result<String> = runCatching {
         Log.d("ApiService", "배터리 삭제 API 호출: DELETE $baseUrl/api/v1/devices/$batteryId")
         
