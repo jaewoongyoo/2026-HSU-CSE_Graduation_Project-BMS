@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -12,4 +13,4 @@ class SessionResultResponse(BaseModel):
     powerbank_usable_mah: Optional[float] = None
     smartphone_received_mah: Optional[float] = None
     mean_temperature_c: Optional[float] = None
-    sessions_used: Optional[int] = None
+    analyzed_at: Optional[datetime] = None

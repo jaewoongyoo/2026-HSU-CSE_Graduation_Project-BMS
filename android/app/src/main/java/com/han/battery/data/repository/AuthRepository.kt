@@ -1,5 +1,8 @@
 package com.han.battery.data.repository
 
+import android.os.Build
+import android.provider.Settings
+import android.content.Context
 import com.han.battery.data.api.ApiService
 import com.han.battery.data.model.*
 import com.han.battery.data.storage.UserManager
@@ -17,10 +20,36 @@ import com.han.battery.data.common.AppLogger
  */
 class AuthRepository(
     private val apiService: ApiService,
-    private val userManager: UserManager
+    private val userManager: UserManager,
+    private val context: Context
 ) {
     companion object {
         private const val TAG = "AuthRepository"
+    }
+
+    /**
+     * Android 기기 고유 ID 가져오기 (ERD의 users.phone_uid)
+     */
+    private fun getDeviceId(): String {
+        return try {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            ) ?: (Build.DEVICE + "_" + Build.SERIAL)
+        } catch (e: Exception) {
+            Build.DEVICE + "_" + Build.SERIAL
+        }
+    }
+
+    /**
+     * 기기 모델명 가져오기 (ERD의 users.phone_model)
+     */
+    private fun getPhoneModel(): String {
+        return try {
+            Build.MODEL ?: "Unknown"
+        } catch (e: Exception) {
+            "Unknown"
+        }
     }
 
     /**
@@ -36,14 +65,16 @@ class AuthRepository(
             val request = LoginRequest(username, password)
             val response = apiService.login(request).getOrThrow()
 
-            // ✅ 로그인 성공 - 사용자 정보만 저장 (세션은 서버에서 관리)
-            userManager.setCurrentUser(username)
+            // ✅ 로그인 성공 - 사용자 정보 저장
+            userManager.setCurrentUser(username, response.id)
             AppLogger.info("로그인 성공: $username (ID: ${response.id})", TAG)
             Result.success(response)
         } catch (e: Exception) {
             val errorMessage = when {
                 e.message?.contains("401", ignoreCase = true) == true ->
                     "사용자명 또는 비밀번호가 잘못되었습니다."
+                e.message?.contains("400", ignoreCase = true) == true ->
+                    "요청 형식이 잘못되었습니다. 입력 정보를 다시 확인하세요."
                 e.message?.contains("failed to connect", ignoreCase = true) == true ->
                     "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
                 e.message?.contains("Connection refused", ignoreCase = true) == true ->
@@ -52,6 +83,10 @@ class AuthRepository(
                     "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
                 e.message?.contains("422", ignoreCase = true) == true ->
                     "입력하신 정보가 올바르지 않습니다. 사용자명과 비밀번호를 확인하세요."
+                e.message?.contains("500", ignoreCase = true) == true ->
+                    "서버에 문제가 발생했습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("502", ignoreCase = true) == true ->
+                    "서버 게이트웨이 오류입니다. 잠시 후 다시 시도하세요."
                 e.message?.contains("503", ignoreCase = true) == true ->
                     "서버가 점검 중입니다. 잠시 후 다시 시도하세요."
                 else -> {
@@ -74,11 +109,34 @@ class AuthRepository(
         return try {
             AppLogger.info("회원가입 시도: $username", TAG)
             
-            val request = SignupRequest(null, username, password)
+            // 기기 정보 수집 (실패해도 진행)
+            val phoneModel = try {
+                getPhoneModel()
+            } catch (e: Exception) {
+                AppLogger.info("기기 모델명 수집 실패: ${e.message}", TAG)
+                null
+            }
+            
+            val phoneUid = try {
+                getDeviceId()
+            } catch (e: Exception) {
+                AppLogger.info("기기 UID 수집 실패: ${e.message}", TAG)
+                null
+            }
+
+            val request = SignupRequest(
+                username = username,
+                password = password,
+                phone_model = phoneModel,
+                phone_uid = phoneUid
+            )
+
+            AppLogger.info("회원가입 요청: username=$username, phone_model=$phoneModel, phone_uid=$phoneUid", TAG)
+
             val response = apiService.signup(request).getOrThrow()
 
-            // ✅ 회원가입 성공 - 자동 로그인 (사용자 정보만 저장)
-            userManager.setCurrentUser(username)
+            // ✅ 회원가입 성공 - 자동 로그인 (사용자 정보 저장)
+            userManager.setCurrentUser(username, response.id)
 
             AppLogger.info("회원가입 성공: $username (ID: ${response.id})", TAG)
             Result.success(response)
@@ -90,10 +148,18 @@ class AuthRepository(
                     "서버에 접속할 수 없습니다. 잠시 후 다시 시도하세요."
                 e.message?.contains("timeout", ignoreCase = true) == true ->
                     "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("400", ignoreCase = true) == true ->
+                    "요청 형식이 잘못되었습니다. 입력 정보를 다시 확인하세요."
                 e.message?.contains("422", ignoreCase = true) == true ->
                     "입력하신 정보가 올바르지 않습니다. 모든 필드를 올바르게 입력하세요."
+                e.message?.contains("409", ignoreCase = true) == true ->
+                    "이미 사용 중인 사용자명입니다. 다른 사용자명을 시도하세요."
                 e.message?.contains("already exists", ignoreCase = true) == true ->
                     "이미 사용 중인 사용자명입니다. 다른 사용자명을 시도하세요."
+                e.message?.contains("500", ignoreCase = true) == true ->
+                    "서버에 문제가 발생했습니다. 입력하신 정보를 다시 확인하고 잠시 후 다시 시도하세요."
+                e.message?.contains("502", ignoreCase = true) == true ->
+                    "서버 게이트웨이 오류입니다. 잠시 후 다시 시도하세요."
                 e.message?.contains("503", ignoreCase = true) == true ->
                     "서버가 점검 중입니다. 잠시 후 다시 시도하세요."
                 else -> {
@@ -139,10 +205,10 @@ class AuthRepository(
     /**
      * 사용자 정보 수정
      */
-    suspend fun updateUser(userId: Int, name: String? = null, password: String? = null): Result<UserResponse> {
+    suspend fun updateUser(userId: Int, password: String? = null): Result<UserResponse> {
         return try {
             AppLogger.info("사용자 정보 수정 시도: ID $userId", TAG)
-            val request = UpdateUserRequest(name, password)
+            val request = UpdateUserRequest(password = password)
             val user = apiService.updateUser(userId, request).getOrThrow()
             AppLogger.info("사용자 정보 수정 완료: ${user.username}", TAG)
             Result.success(user)
@@ -192,52 +258,44 @@ class AuthRepository(
     }
 
     /**
-     * 배터리 등록 (서버에 저장)
+     * 배터리 등록 (서버에 저장 - ERD devices 테이블)
      * @param modelName 배터리 모델명 (필수)
-     * @param capacityMah 배터리 용량 (필수, mAh 단위)
-     * @param manufacturer 제조사 (선택)
+     * @param powerbankCapacityMah 파워뱅크 용량 (필수, mAh 단위)
      * @param manufactureDate 제조년월 (선택, YYYY-MM 형식)
-     * @param powerbankCapacityMah 파워뱅크 용량 (선택)
-     * @param deviceId 기기 ID (선택)
      * @return 배터리 등록 결과
      */
     suspend fun registerBattery(
         modelName: String,
-        capacityMah: Int,
-        manufacturer: String? = null,
-        manufactureDate: String? = null,
-        powerbankCapacityMah: Int? = null,
-        deviceId: String? = null
+        powerbankCapacityMah: Int,
+        manufactureDate: String? = null
     ): Result<BatteryResponse> {
         return try {
             // 입력값 검증
             if (modelName.isBlank()) {
                 throw IllegalArgumentException("모델명은 필수입니다")
             }
-            if (capacityMah <= 0) {
+            if (powerbankCapacityMah <= 0) {
                 throw IllegalArgumentException("용량은 0보다 커야 합니다")
             }
-            if (capacityMah > 100000) {
+            if (powerbankCapacityMah > 100000) {
                 throw IllegalArgumentException("용량이 너무 많습니다 (최대 100000 mAh)")
             }
 
-            AppLogger.info("배터리 등록 시도: $modelName ($capacityMah mAh)", TAG)
+            AppLogger.info("배터리 등록 시도: $modelName ($powerbankCapacityMah mAh)", TAG)
 
-            val currentUser = userManager.getCurrentUser()
-                ?: throw IllegalStateException("로그인된 사용자가 없습니다.")
+            val userId = userManager.getCurrentUserId()
+            if (userId <= 0) {
+                throw IllegalStateException("로그인된 사용자가 없습니다.")
+            }
 
             val request = BatteryRegistrationRequest(
-                user_id = currentUser,
-                device_id = deviceId,
-                manufacturer = manufacturer?.ifBlank { null },
+                user_id = userId.toString(),    // ✅ String으로 변환
                 model_name = modelName.trim(),
-                capacity_mah = capacityMah,
-                manufacture_date = manufactureDate?.ifBlank { null },
-                powerbank_capacity_mah = powerbankCapacityMah
+                powerbank_capacity_mah = powerbankCapacityMah,
+                manufacture_date = manufactureDate?.ifBlank { null }
             )
 
-            AppLogger.info("API 요청: device_id=$deviceId, manufacturer=$manufacturer, " +
-                "model_name=$modelName, capacity=$capacityMah, date=$manufactureDate", TAG)
+            AppLogger.info("API 요청: user_id=$userId, model_name=$modelName, powerbank_capacity_mah=$powerbankCapacityMah, date=$manufactureDate", TAG)
 
             val response = apiService.registerBattery(request).getOrThrow()
 
@@ -283,6 +341,108 @@ class AuthRepository(
         } catch (e: Exception) {
             AppLogger.error("배터리 목록 조회 실패", e, TAG)
             Result.failure(e)
+        }
+    }
+
+    /**
+     * 배터리 수정 (서버에서 수정)
+     * @param batteryId 수정할 배터리 ID
+     * @param modelName 배터리 모델명 (선택)
+     * @param powerbankCapacityMah 파워뱅크 용량 (선택)
+     * @param manufactureDate 제조년월 (선택)
+     * @return 배터리 수정 결과
+     */
+    suspend fun updateBattery(
+        batteryId: Int,
+        modelName: String? = null,
+        powerbankCapacityMah: Int? = null,
+        manufactureDate: String? = null
+    ): Result<BatteryResponse> {
+        return try {
+            // 수정할 항목이 없으면 실패
+            if (modelName.isNullOrBlank() && powerbankCapacityMah == null && manufactureDate.isNullOrBlank()) {
+                throw IllegalArgumentException("수정할 항목이 하나 이상 필요합니다")
+            }
+
+            // 용량 검증
+            if (powerbankCapacityMah != null && powerbankCapacityMah <= 0) {
+                throw IllegalArgumentException("용량은 0보다 커야 합니다")
+            }
+            if (powerbankCapacityMah != null && powerbankCapacityMah > 100000) {
+                throw IllegalArgumentException("용량이 너무 많습니다 (최대 100000 mAh)")
+            }
+
+            AppLogger.info("배터리 수정 시도: ID $batteryId", TAG)
+
+            val request = BatteryUpdateRequest(
+                model_name = modelName?.trim(),
+                powerbank_capacity_mah = powerbankCapacityMah,
+                manufacture_date = manufactureDate?.ifBlank { null }
+            )
+
+            val response = apiService.updateBattery(batteryId, request).getOrThrow()
+
+            AppLogger.info("✅ 배터리 수정 성공: ID $batteryId, 모델명: ${response.model_name}", TAG)
+            Result.success(response)
+        } catch (e: IllegalArgumentException) {
+            AppLogger.error("배터리 수정 입력값 검증 실패: ${e.message}", e, TAG)
+            Result.failure(e)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "로그인이 필요합니다. 다시 로그인하세요."
+                e.message?.contains("403", ignoreCase = true) == true ->
+                    "배터리 수정 권한이 없습니다."
+                e.message?.contains("404", ignoreCase = true) == true ->
+                    "수정할 배터리를 찾을 수 없습니다."
+                e.message?.contains("422", ignoreCase = true) == true ->
+                    "입력 정보가 올바르지 않습니다."
+                e.message?.contains("failed to connect", ignoreCase = true) == true ->
+                    "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true ->
+                    "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("500", ignoreCase = true) == true ||
+                e.message?.contains("502", ignoreCase = true) == true ||
+                e.message?.contains("503", ignoreCase = true) == true ->
+                    "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
+                else -> e.message ?: "배터리 수정 실패"
+            }
+            AppLogger.error("❌ 배터리 수정 실패: $errorMessage (ID: $batteryId)", e, TAG)
+            Result.failure(Exception(errorMessage))
+        }
+    }
+
+    /**
+     * 배터리 삭제 (서버에서 삭제)
+     * @param batteryId 삭제할 배터리 ID
+     * @return 배터리 삭제 결과
+     */
+    suspend fun deleteBattery(batteryId: Int): Result<String> {
+        return try {
+            AppLogger.info("배터리 삭제 시도: ID $batteryId", TAG)
+            val message = apiService.deleteBattery(batteryId).getOrThrow()
+            AppLogger.info("✅ 배터리 삭제 성공: ID $batteryId, 서버 응답: $message", TAG)
+            Result.success(message)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "로그인이 필요합니다. 다시 로그인하세요."
+                e.message?.contains("403", ignoreCase = true) == true ->
+                    "배터리 삭제 권한이 없습니다."
+                e.message?.contains("404", ignoreCase = true) == true ->
+                    "삭제할 배터리를 찾을 수 없습니다. 배터리 ID를 확인하세요."
+                e.message?.contains("failed to connect", ignoreCase = true) == true ->
+                    "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true ->
+                    "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요."
+                e.message?.contains("500", ignoreCase = true) == true ||
+                e.message?.contains("502", ignoreCase = true) == true ||
+                e.message?.contains("503", ignoreCase = true) == true ->
+                    "서버 오류가 발생했습니다. 잠시 후 다시 시도하세요."
+                else -> e.message ?: "배터리 삭제 실패"
+            }
+            AppLogger.error("❌ 배터리 삭제 실패: $errorMessage (ID: $batteryId)", e, TAG)
+            Result.failure(Exception(errorMessage))
         }
     }
 }

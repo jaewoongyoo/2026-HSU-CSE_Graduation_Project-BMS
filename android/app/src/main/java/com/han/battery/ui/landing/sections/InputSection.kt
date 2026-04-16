@@ -57,10 +57,9 @@ import com.han.battery.ui.theme.Slate300
 import com.han.battery.ui.theme.Slate500
 
 data class FormState(
-    val brand: String = "",
-    val nickname: String = "",
-    val capacity: String = "",
-    val manufactureDate: String = ""
+    val model_name: String = "",
+    val powerbank_capacity_mah: String = "",
+    val manufacture_date: String = ""
 )
 
 /**
@@ -69,11 +68,11 @@ data class FormState(
  */
 fun validateFormState(formState: FormState): String? {
     return when {
-        formState.nickname.isBlank() -> "모델명을 입력해주세요"
-        formState.capacity.isBlank() -> "용량을 입력해주세요"
-        formState.capacity.toIntOrNull() == null -> "용량은 숫자로 입력해주세요"
-        formState.capacity.toInt() <= 0 -> "용량은 0보다 커야 합니다"
-        formState.capacity.toInt() > 100000 -> "용량이 너무 많습니다 (최대 100000mAh)"
+        formState.model_name.isBlank() -> "모델명을 입력해주세요"
+        formState.powerbank_capacity_mah.isBlank() -> "용량을 입력해주세요"
+        formState.powerbank_capacity_mah.toIntOrNull() == null -> "용량은 숫자로 입력해주세요"
+        formState.powerbank_capacity_mah.toInt() <= 0 -> "용량은 0보다 커야 합니다"
+        formState.powerbank_capacity_mah.toInt() > 100000 -> "용량이 너무 많습니다 (최대 100000mAh)"
         else -> null  // 검증 성공
     }
 }
@@ -89,7 +88,7 @@ fun InputSection(
     
     // 폼 유효성 검사
     val validationError = validateFormState(formState)
-    val isFormValid = validationError == null && formState.nickname.isNotBlank() && formState.capacity.isNotBlank()
+    val isFormValid = validationError == null && formState.model_name.isNotBlank() && formState.powerbank_capacity_mah.isNotBlank()
 
     // 첫 번째 필드에 자동 포커스
     LaunchedEffect(Unit) {
@@ -141,10 +140,10 @@ fun InputSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             LandingField(
-                label = "제조사",
-                value = formState.brand,
-                onValueChange = { onFormChange(formState.copy(brand = it)) },
-                placeholder = "예: Anker, 삼성, 샤오미",
+                label = "모델명",
+                value = formState.model_name,
+                onValueChange = { onFormChange(formState.copy(model_name = it)) },
+                placeholder = "예: PowerBank Pro, 나의 맥세이프",
                 keyboardType = KeyboardType.Text,
                 onNext = { focusManager.moveFocus(FocusDirection.Down) },
                 modifier = Modifier.focusRequester(firstFieldFocus)
@@ -153,23 +152,12 @@ fun InputSection(
             Spacer(modifier = Modifier.height(12.dp))
 
             LandingField(
-                label = "모델명",
-                value = formState.nickname,
-                onValueChange = { onFormChange(formState.copy(nickname = it)) },
-                placeholder = "예: PowerBank Pro, 나의 맥세이프",
-                keyboardType = KeyboardType.Text,
-                onNext = { focusManager.moveFocus(FocusDirection.Down) }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LandingField(
                 label = "정격 용량 (MAH)",
-                value = formState.capacity,
+                value = formState.powerbank_capacity_mah,
                 onValueChange = { input ->
                     // 숫자만 입력 가능하게 필터링
                     val filtered = input.filter { it.isDigit() }
-                    onFormChange(formState.copy(capacity = filtered))
+                    onFormChange(formState.copy(powerbank_capacity_mah = filtered))
                 },
                 placeholder = "예: 10000",
                 keyboardType = KeyboardType.Number,
@@ -182,8 +170,8 @@ fun InputSection(
 
             DatePickerField(
                 label = "제조년월",
-                value = formState.manufactureDate,
-                onValueChange = { onFormChange(formState.copy(manufactureDate = it)) },
+                value = formState.manufacture_date,
+                onValueChange = { onFormChange(formState.copy(manufacture_date = it)) },
                 placeholder = "YYYY-MM 형식"
             )
 
@@ -200,14 +188,14 @@ fun InputSection(
                     
                     // FormState를 BatteryDevice로 변환하여 전달
                     val batteryDevice = convertFormStateToBatteryDevice(
-                        brand = formState.brand,
-                        nickname = formState.nickname,
-                        capacity = formState.capacity,
-                        manufactureDate = formState.manufactureDate
+                        manufacturer = "", // manufacturer는 더 이상 사용되지 않음
+                        model_name = formState.model_name,
+                        powerbank_capacity_mah = formState.powerbank_capacity_mah,
+                        manufacture_date = formState.manufacture_date
                     )
 
-                    android.util.Log.d("InputSection", "배터리 저장 시도: ${batteryDevice.nickname}")
-                    
+                    android.util.Log.d("InputSection", "배터리 저장 시도: ${batteryDevice.model_name}")
+
                     // DeviceInfo는 BatteryDevice의 별칭이므로 직접 전달
                     onStart(batteryDevice)
                 },

@@ -19,15 +19,14 @@ object PreferenceTest {
         Log.d(TAG, "=== 테스트 시작 ===")
         Log.d(TAG, "기존 기기 수: ${pm.getAllDevices().size}")
         pm.getAllDevices().forEach {
-            Log.d(TAG, "  - ${it.nickname} (${it.capacity}mAh)")
+            Log.d(TAG, "  - ${it.model_name} (${it.powerbank_capacity_mah}mAh)")
         }
         
         // 테스트 데이터 생성
         val testDevice = BatteryDevice(
-            brand = "테스트제조사",
-            nickname = "테스트배터리",
-            capacity = 5000,
-            manufactureDate = "2024-01"
+            model_name = "테스트배터리",
+            powerbank_capacity_mah = 5000,
+            manufacture_date = "2024-01"
         )
         
         // 저장
@@ -38,7 +37,7 @@ object PreferenceTest {
         Log.d(TAG, "저장 후 즉시 확인:")
         val loaded = pm.getBatteryDevice("테스트배터리")
         if (loaded != null) {
-            Log.d(TAG, "✅ 저장된 데이터 확인: ${loaded.nickname} (${loaded.capacity}mAh)")
+            Log.d(TAG, "✅ 저장된 데이터 확인: ${loaded.model_name} (${loaded.powerbank_capacity_mah}mAh)")
         } else {
             Log.e(TAG, "❌ 저장된 데이터를 찾을 수 없음!")
         }
@@ -50,7 +49,7 @@ object PreferenceTest {
         // 전체 기기 목록
         Log.d(TAG, "현재 저장된 기기 목록:")
         pm.getAllDevices().forEach {
-            Log.d(TAG, "  - ${it.nickname} (${it.capacity}mAh)")
+            Log.d(TAG, "  - ${it.model_name} (${it.powerbank_capacity_mah}mAh)")
         }
         Log.d(TAG, "=== 테스트 완료 ===")
     }
