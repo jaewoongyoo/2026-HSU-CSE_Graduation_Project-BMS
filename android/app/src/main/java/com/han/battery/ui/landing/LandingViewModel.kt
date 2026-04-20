@@ -1,23 +1,28 @@
 package com.han.battery.ui.landing
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.han.battery.BatteryApplication
 import com.han.battery.DeviceInfo
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.repository.AuthRepository
+import com.han.battery.data.storage.PreferenceManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface LandingUiEvent {
     data class ShowMessage(val message: String, val isError: Boolean = false) : LandingUiEvent
     data class NavigateToDashboard(val modelName: String) : LandingUiEvent
 }
 
-class LandingViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as BatteryApplication
+@HiltViewModel
+class LandingViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+    private val preferenceManager: PreferenceManager
+) : ViewModel() {
     private val _events = MutableSharedFlow<LandingUiEvent>()
     val events: SharedFlow<LandingUiEvent> = _events.asSharedFlow()
 
@@ -36,7 +41,7 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch {
-            val result = app.authRepository.registerBattery(
+            val result = authRepository.registerBattery(
                 modelName = deviceInfo.model_name,
                 powerbankCapacityMah = deviceInfo.powerbank_capacity_mah,
                 manufactureDate = deviceInfo.manufacture_date.ifBlank { null }
@@ -44,7 +49,7 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
 
             result.onSuccess { batteryResponse ->
                 val deviceWithId: BatteryDevice = deviceInfo.copy(id = batteryResponse.id)
-                app.preferenceManager.saveBatteryDevice(deviceWithId)
+                preferenceManager.saveBatteryDevice(deviceWithId)
                 _events.emit(LandingUiEvent.ShowMessage("Device registered."))
                 _events.emit(LandingUiEvent.NavigateToDashboard(deviceWithId.model_name))
             }.onFailure {
