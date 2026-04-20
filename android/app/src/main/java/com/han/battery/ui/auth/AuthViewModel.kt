@@ -1,9 +1,9 @@
 package com.han.battery.ui.auth
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.han.battery.BatteryApplication
+import com.han.battery.data.repository.AuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,14 +11,16 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface AuthUiEvent {
     data object SignedIn : AuthUiEvent
 }
 
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as BatteryApplication
-
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<AuthUiEvent>()
@@ -46,7 +48,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
-            val result = app.authRepository.login(username, password)
+            val result = authRepository.login(username, password)
             _uiState.value = if (result.isSuccess) {
                 _events.emit(AuthUiEvent.SignedIn)
                 AuthUiState.Success("로그인 성공")
@@ -82,7 +84,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
-            val result = app.authRepository.signup(username, password)
+            val result = authRepository.signup(username, password)
             _uiState.value = if (result.isSuccess) {
                 _events.emit(AuthUiEvent.SignedIn)
                 AuthUiState.Success("회원가입 성공")
