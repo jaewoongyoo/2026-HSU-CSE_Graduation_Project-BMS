@@ -35,6 +35,18 @@ def fit_standard_curve_from_artifact(
     allowed_dataset_ids = _resolve_dataset_scope(dataset_scope)
     split_by_source_id = {row["source_id"]: row["split"] for row in split_rows}
 
+    # canonical artifact의 sequence는 안드로이드 소비자(=스마트폰) 관측 공간과 맞추기 위해
+    # **charge 구간**을 시계열로 사용한다 (보조배터리 입장에서는 방전이지만
+    # 스마트폰 입장에선 충전). 라벨(SOH)은 별도 방전 사이클에서 계산된
+    # soh_ratio에 이미 반영되어 있으므로 여기에서는 다시 선별하지 않는다.
+    #
+    # 추가 필터:
+    #  - baseline_capacity_ah >= 1.0: 연구용으로 파손/열화된 cell(B0041 = 0.056Ah 등) 배제.
+    #    실제 보조배터리는 1Ah 이상의 셀을 사용하므로 이 기준으로 고장 cell을 제외.
+    #  - 0.6 <= soh_ratio <= 1.1: 보조배터리 실사용 범위(SOH 60%~110%).
+    #    NASA는 cell을 SOH 3%까지 파괴적으로 사이클링한 데이터가 포함되어 있고,
+    #    baseline 산정 오차로 soh_ratio > 1.1이 되는 초기 사이클도 있다. 이들은 앱 시나리오와
+    #    맞지 않아 표준 곡선을 왜곡하므로 제외한다.
     selected_metadata = [
         row
         for row in metadata_rows
@@ -42,7 +54,9 @@ def fit_standard_curve_from_artifact(
         and (not only_train_split or split_by_source_id.get(row["source_id"]) == "train")
         and row["soh_ratio"] is not None
         and row["baseline_capacity_ah"] is not None
-        and row["sequence_phase"] == "discharge"
+        and row["sequence_phase"] == "charge"
+        and float(row["baseline_capacity_ah"]) >= 1.0
+        and 0.6 <= float(row["soh_ratio"]) <= 1.1
     ]
 
     sequences_by_source_id: dict[str, list[dict]] = defaultdict(list)
@@ -80,7 +94,8 @@ def fit_standard_curve_from_artifact(
             cumulative_energy_wh += cycle_energy_wh
             normalized_x = cumulative_energy_wh / nominal_cell_energy_wh
             soh_ratio = float(meta_row["soh_ratio"])
-            if 0.0 < soh_ratio <= 1.2 and normalized_x >= 0.0:
+            # 상위 필터에서 이미 0.6 <= soh_ratio <= 1.1을 보장하지만 안전을 위해 한 번 더 확인.
+            if 0.6 <= soh_ratio <= 1.1 and normalized_x >= 0.0:
                 fit_x_values.append(normalized_x)
                 fit_soh_values.append(soh_ratio)
 
@@ -130,14 +145,22 @@ def _resolve_dataset_scope(dataset_scope: str) -> set[str]:
 
 
 def _integrate_cycle_energy_wh(cycle_rows: list[dict]) -> float:
-    """단일 방전 사이클의 전달 에너지 적분 (Wh). 전류는 방전 시 음수이므로 절댓값."""
+    """단일 충전 사이클의 전달 에너지 적분 (Wh).
+
+    NASA 'charge' 시퀀스 앞부분에는 셀 특성 측정용 방전 펄스(전류 음수)가 섞여 있다.
+    순수 충전 구간만 반영하기 위해 **양수 전류 구간만 적분**한다.
+    양수 구간을 선별한 뒤 원래의 time_s 간격을 유지해 trapezoid로 적분한다.
+    (음수 샘플의 전력 기여분은 0으로 처리)
+    """
     cycle_rows = sorted(cycle_rows, key=lambda row: float(row["time_s"]))
     if len(cycle_rows) < 2:
         return 0.0
     times_s = np.array([float(row["time_s"]) for row in cycle_rows], dtype=float)
     voltages_v = np.array([float(row["voltage_v"]) for row in cycle_rows], dtype=float)
-    currents_a = np.array([abs(float(row["current_a"])) for row in cycle_rows], dtype=float)
-    power_w = voltages_v * currents_a
+    currents_a = np.array([float(row["current_a"]) for row in cycle_rows], dtype=float)
+    # 양수 전류(실제 충전)만 남기고 나머지는 0으로 마스킹
+    charge_currents_a = np.where(currents_a > 0.0, currents_a, 0.0)
+    power_w = voltages_v * charge_currents_a
     energy_ws = float(np.trapezoid(power_w, times_s))
     return energy_ws / 3600.0
 

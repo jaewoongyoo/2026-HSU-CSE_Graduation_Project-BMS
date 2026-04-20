@@ -24,6 +24,11 @@ MAX_START_BATTERY_LEVEL_PCT = 85.0  # 시작 잔량이 너무 높으면 제외
 MIN_USABLE_SESSIONS_FOR_PERSONALIZATION = 3
 DEFAULT_NOMINAL_POWERBANK_VOLTAGE_V = 3.7
 
+# 기울기 유의성 판정 임계값.
+# t-유사 통계량 = |slope| * sqrt(n) / std(residuals) 가 이 값 이상이어야 유의한 추세로 인정한다.
+# 2.0 ≈ 표준 양측 5% 유의수준(대략). 노이즈성 기울기로 인한 잘못된 개인화를 막기 위함.
+MIN_SLOPE_SIGNIFICANCE_T = 2.0
+
 
 @dataclass(frozen=True)
 class TelemetrySample:
@@ -142,26 +147,58 @@ class CurveFitPredictor:
         normalized_values = np.array(
             [obs.normalized_wh_per_pct for obs in usable], dtype=float
         )
-        slope_per_session, _intercept = np.polyfit(session_indices, normalized_values, 1)
-        user_slope_abs = abs(float(slope_per_session))
+        slope_per_session, intercept = np.polyfit(session_indices, normalized_values, 1)
+        slope_per_session = float(slope_per_session)
 
-        # 표준 곡선 대비 노화 속도 비율
-        standard_slope_abs = max(self._artifact.mean_slope_over_fit_range, 1e-9)
-
-        # 단위 정합을 위한 스케일링: 유저 기울기는 (Wh/pct)/session 단위,
-        # 표준 기울기는 dSOH/dx 단위 → 직접 비교 불가하므로
-        # 유저 기울기의 "상대적 감소율"을 대신 사용한다.
-        # 첫 세션 대비 감소율 = slope_per_session / (mean normalized value)
-        mean_normalized_value = float(np.mean(normalized_values))
-        if mean_normalized_value <= 1e-9:
-            relative_user_decay_rate = 0.0
+        # ── 기울기 유의성 검사 ────────────────────────────────────────────────
+        # 잔차의 표준편차 대비 기울기 크기로 유의성 판단.
+        # t_stat = |slope| * sqrt(n) / std(residuals)
+        # 값이 임계 미만이면 노이즈로 간주하고 표준 fallback으로 돌린다.
+        predicted = slope_per_session * session_indices + float(intercept)
+        residuals = normalized_values - predicted
+        residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 1 else 0.0
+        if residual_std <= 1e-12:
+            t_stat = float("inf") if abs(slope_per_session) > 0 else 0.0
         else:
-            # slope가 음수이면 감소 중. 상대 감소율을 양수로 변환.
-            relative_user_decay_rate = -float(slope_per_session) / mean_normalized_value
+            t_stat = abs(slope_per_session) * np.sqrt(len(usable)) / residual_std
 
-        # 표준 곡선의 "상대적 감소율": 중앙값 지점에서 dSOH/dx / SOH
         x_ref = self._artifact.x_median
         standard_soh_at_ref = self._artifact.params.evaluate(x_ref)
+
+        # 기울기가 유의하지 않거나, slope > 0 (노화 역행 = 의미없는 신호)인 경우 → fallback.
+        # 다만 유저에게는 "노화 감지 안 됨 = 표준 수준"으로 해석해 standard_soh_ratio를 그대로 반환.
+        if t_stat < MIN_SLOPE_SIGNIFICANCE_T or slope_per_session >= 0.0:
+            return PersonalizedPrediction(
+                soh_ratio=_clip(standard_soh_at_ref),
+                standard_soh_ratio=_clip(standard_soh_at_ref),
+                degradation_rate_ratio=1.0,
+                estimated_cumulative_x=x_ref,
+                sessions_used=len(usable),
+                sessions_total=sessions_total,
+                # 유효 세션이 많아도 신호가 노이즈면 한 단계 낮춘 등급을 부여
+                confidence=_grade_confidence_with_signal(len(usable), has_signal=False),
+            )
+
+        # ── 유의한 노화 신호가 있을 때 개인화 계산 ──────────────────────────
+        # 유저 기울기는 (Wh/pct)/session 단위, 표준 기울기는 dSOH/dx 단위 → 직접 비교 불가.
+        # 유저 기울기의 "상대적 감소율"과 표준 곡선의 "상대적 감소율"을 각각 계산해 비교.
+        mean_normalized_value = float(np.mean(normalized_values))
+        if mean_normalized_value <= 1e-9:
+            # 에너지 측정값이 0 근처면 의미 있는 비교 불가 → fallback
+            return PersonalizedPrediction(
+                soh_ratio=_clip(standard_soh_at_ref),
+                standard_soh_ratio=_clip(standard_soh_at_ref),
+                degradation_rate_ratio=1.0,
+                estimated_cumulative_x=x_ref,
+                sessions_used=len(usable),
+                sessions_total=sessions_total,
+                confidence=_grade_confidence_with_signal(len(usable), has_signal=False),
+            )
+
+        # slope가 음수이므로 -slope는 양수 감소율
+        relative_user_decay_rate = -slope_per_session / mean_normalized_value
+
+        # 표준 곡선의 상대 감소율: 중앙값 지점에서 |dSOH/dx| / SOH
         if standard_soh_at_ref <= 1e-6:
             relative_standard_decay_rate = 1.0
         else:
@@ -172,27 +209,28 @@ class CurveFitPredictor:
         if relative_standard_decay_rate <= 1e-9:
             degradation_rate_ratio = 1.0
         else:
-            degradation_rate_ratio = (
-                relative_user_decay_rate / relative_standard_decay_rate
-            )
-        # 과도한 값 방지 클립
-        degradation_rate_ratio = max(0.1, min(degradation_rate_ratio, 10.0))
+            # 유저 기울기는 (Wh/pct)/session 단위, 표준은 dSOH/dx 단위.
+            # 단위가 다르므로 직접 비율은 의미가 없고, log scale로 완화해 방향성만 보존한다.
+            # rate = exp( log(raw_ratio) / 2 ) = sqrt(raw_ratio)
+            # 결과적으로 raw=4.0→rate=2.0, raw=9.0→rate=3.0, raw=0.25→rate=0.5 처럼 극단값이 압축된다.
+            raw_ratio = relative_user_decay_rate / relative_standard_decay_rate
+            degradation_rate_ratio = float(np.sqrt(raw_ratio))
+        # 최종 클립. log 완화 이후에도 이론상 범위 초과 가능성이 있어 안전망 유지.
+        degradation_rate_ratio = max(0.3, min(float(degradation_rate_ratio), 3.0))
 
         # 개인화된 x 위치: 표준 중앙값에 노화 속도 비율을 곱해 진척 위치 조정
         estimated_x = x_ref * degradation_rate_ratio
         estimated_x = max(0.0, min(estimated_x, self._artifact.x_p95))
         personalized_soh = self._artifact.params.evaluate(estimated_x)
 
-        confidence = _grade_confidence(len(usable))
-
         return PersonalizedPrediction(
             soh_ratio=_clip(personalized_soh),
-            standard_soh_ratio=_clip(self._artifact.params.evaluate(x_ref)),
-            degradation_rate_ratio=float(degradation_rate_ratio),
+            standard_soh_ratio=_clip(standard_soh_at_ref),
+            degradation_rate_ratio=degradation_rate_ratio,
             estimated_cumulative_x=float(estimated_x),
             sessions_used=len(usable),
             sessions_total=sessions_total,
-            confidence=confidence,
+            confidence=_grade_confidence_with_signal(len(usable), has_signal=True),
         )
 
     def _observe_session(
@@ -289,3 +327,16 @@ def _grade_confidence(usable_count: int) -> str:
     if usable_count >= 5:
         return "medium"
     return "low"
+
+
+def _grade_confidence_with_signal(usable_count: int, has_signal: bool) -> str:
+    """세션 수와 기울기 유의성을 함께 반영한 신뢰도 등급.
+
+    신호가 없으면 한 단계 낮춘다 (high→medium, medium→low, low→fallback).
+    이것으로 '세션은 많지만 기울기가 노이즈'인 경우를 구분한다.
+    """
+    base = _grade_confidence(usable_count)
+    if has_signal:
+        return base
+    downgrade = {"high": "medium", "medium": "low", "low": "fallback"}
+    return downgrade.get(base, "fallback")
