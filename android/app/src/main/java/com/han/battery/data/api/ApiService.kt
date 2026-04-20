@@ -220,6 +220,39 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         result
     }
 
+    suspend fun startSession(deviceId: Int): Result<SessionResponse> = runCatching {
+        Log.d("ApiService", "세션 시작 호출: POST $baseUrl/api/v1/sessions/start (deviceId: $deviceId)")
+
+        val response = client.post("$baseUrl/api/v1/sessions/start") {
+            contentType(ContentType.Application.Json)
+            setBody(SessionRequest(deviceId))
+        }
+
+        if (!response.status.isSuccess()) {
+            throw Exception("세션 시작 실패: ${response.status.value}")
+        }
+        response.body<SessionResponse>()
+    }
+
+    /**
+     * 모니터링 종료: 서버에 해당 세션이 끝났음을 알립니다.
+     */
+    suspend fun stopSession(sessionId: Int): Result<Unit> = runCatching {
+        Log.d("ApiService", "세션 종료 호출: POST $baseUrl/api/v1/sessions/stop (sessionId: $sessionId)")
+
+        val response = client.post("$baseUrl/api/v1/sessions/stop") {
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("session_id" to sessionId))
+        }
+
+        if (!response.status.isSuccess()) {
+            throw Exception("세션 종료 실패: ${response.status.value}")
+        }
+    }
+
+
+
+
     fun close() {
         client.close()
     }
