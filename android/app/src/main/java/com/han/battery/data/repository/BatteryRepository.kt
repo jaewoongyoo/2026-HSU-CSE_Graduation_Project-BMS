@@ -12,7 +12,11 @@ class BatteryRepository(
     suspend fun markAsSent(ids: List<Int>) = batteryDao.markAsSent(ids)
 
     // AWS 전송 로직을 여기서 호출하도록 설계합니다.
-    fun sendToAWS(logs: List<BatteryLog>, onComplete: () -> Unit) {
-        awsManager.publishLogs(logs, onComplete)
+    fun sendToAWS(
+        logs: List<BatteryLog>,
+        onSuccess: () -> Unit,
+        onFailure: (Throwable?) -> Unit = {}
+    ) {
+        awsManager.publishLogs(logs, onSuccess, onFailure)
     }
 }
