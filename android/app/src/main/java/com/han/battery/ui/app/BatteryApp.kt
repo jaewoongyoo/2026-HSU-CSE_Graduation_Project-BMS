@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -70,10 +70,10 @@ fun BatteryApp() {
     val activity = context as? Activity
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
-    val appViewModel: AppViewModel = viewModel()
-    val authViewModel: AuthViewModel = viewModel()
-    val homeViewModel: HomeViewModel = viewModel()
-    val landingViewModel: LandingViewModel = viewModel()
+    val appViewModel: AppViewModel = hiltViewModel()
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
+    val landingViewModel: LandingViewModel = hiltViewModel()
 
     val devices by homeViewModel.devices.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -227,16 +227,15 @@ fun BatteryApp() {
     ) { innerPadding ->
         BatteryNavGraph(
             modifier = Modifier.padding(innerPadding),
-            navController = navController,
-            appViewModel = appViewModel,
-            authViewModel = authViewModel,
-            homeViewModel = homeViewModel,
-            landingViewModel = landingViewModel,
-            devices = devices,
-            onRequireExitDialog = { showExitDialog = true },
-            onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
-        )
-    }
+        navController = navController,
+        appViewModel = appViewModel,
+        authViewModel = authViewModel,
+        homeViewModel = homeViewModel,
+        landingViewModel = landingViewModel,
+        devices = devices,
+        onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
+    )
+}
 }
 
 @Composable
@@ -323,7 +322,6 @@ private fun BatteryNavGraph(
     homeViewModel: HomeViewModel,
     landingViewModel: LandingViewModel,
     devices: List<com.han.battery.data.model.BatteryDevice>,
-    onRequireExitDialog: () -> Unit,
     onSyncAndNavigateHome: (String) -> Unit
 ) {
     NavHost(
@@ -405,7 +403,7 @@ private fun BatteryNavGraph(
         ) { backStackEntry ->
             val nickname = backStackEntry.arguments?.getString("deviceNickname") ?: ""
             val device = homeViewModel.getDevice(nickname)
-            val dashboardViewModel: DashboardViewModel = viewModel()
+            val dashboardViewModel: DashboardViewModel = hiltViewModel()
 
             if (device != null) {
                 DashboardScreen(
