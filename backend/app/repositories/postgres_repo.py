@@ -63,21 +63,16 @@ def create_device(db: Session, request: Any) -> Device:
     return device
 
 
-def create_session(db: Session, session_id: str, device: Device, request: Any) -> BatterySession:
+def create_session(db: Session, device: Device) -> BatterySession:
     session = BatterySession(
-        session_id=session_id,
         device_id=device.id,
         user_id=device.user_id,
-        android_api_level=request.android_api_level,
-        powerbank_id=getattr(request, "powerbank_id", None),
-        powerbank_capacity_start_mah=getattr(request, "powerbank_capacity_start_mah", None),
-        session_start_ts=request.session_start_ts,
         status="in_progress",
     )
     db.add(session)
     _commit_or_raise(
         db,
-        conflict_detail=f"session already exists: {session_id}",
+        conflict_detail=f"session already exists for device: {device.id}",
         operation_detail="failed to create session",
     )
     db.refresh(session)
@@ -87,11 +82,10 @@ def create_session(db: Session, session_id: str, device: Device, request: Any) -
 def create_device_and_session(
     db: Session,
     *,
-    session_id: str,
     request: Any,
 ) -> tuple[Device, BatterySession]:
     device = create_device(db, request=request)
-    session = create_session(db, session_id=session_id, device=device, request=request)
+    session = create_session(db, device=device)
     return device, session
 
 
@@ -116,8 +110,8 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
         return False
 
     session_ids = [
-        row.session_id
-        for row in db.query(BatterySession.session_id)
+        row.id
+        for row in db.query(BatterySession.id)
         .filter(BatterySession.device_id == battery_id)
         .all()
     ]
@@ -132,7 +126,7 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
         db.query(SohAnalysis).filter(SohAnalysis.session_id.in_(session_ids)).delete(
             synchronize_session=False
         )
-        db.query(BatterySession).filter(BatterySession.session_id.in_(session_ids)).delete(
+        db.query(BatterySession).filter(BatterySession.id.in_(session_ids)).delete(
             synchronize_session=False
         )
 
@@ -168,16 +162,19 @@ def delete_device_by_device_id(db: Session, device_id: str) -> bool:
     return True
 
 
-def get_session_meta(db: Session, session_id: str) -> Optional[BatterySession]:
-    return db.query(BatterySession).filter(BatterySession.session_id == session_id).first()
+def get_session_meta(db: Session, session_id: int) -> Optional[BatterySession]:
+    return db.query(BatterySession).filter(BatterySession.id == session_id).first()
 
 
-def update_session_finish(db: Session, session_id: str, request: Any) -> Optional[BatterySession]:
+def update_session_finish(db: Session, session_id: int, request: Any) -> Optional[BatterySession]:
     session = get_session_meta(db, session_id)
     if not session:
         return None
 
     session.session_end_ts = request.session_end_ts
+    session.android_api_level = request.android_api_level
+    session.powerbank_capacity_start_mah = getattr(request, "powerbank_capacity_start_mah", None)
+    session.session_start_ts = getattr(request, "session_start_ts", None)
     session.capacity_ah = request.capacity_ah
     session.powerbank_capacity_end_mah = getattr(request, "powerbank_capacity_end_mah", None)
     session.label_capacity_ah = getattr(request, "label_capacity_ah", None)
@@ -191,7 +188,7 @@ def update_session_finish(db: Session, session_id: str, request: Any) -> Optiona
     return session
 
 
-def save_raw_points(db: Session, session_id: str, device_id: int, points: Iterable[Any]) -> int:
+def save_raw_points(db: Session, session_id: int, device_id: int, points: Iterable[Any]) -> int:
     rows = []
     for point in points:
         rows.append(
@@ -205,12 +202,6 @@ def save_raw_points(db: Session, session_id: str, device_id: int, points: Iterab
                 temperature_c=point.temperature_c,
                 elapsed_ms=point.elapsed_ms,
                 battery_status=point.battery_status,
-                screen_state=point.screen_state,
-                power_w=(
-                    (point.voltage_mv / 1000.0) * (point.current_ma / 1000.0)
-                    if point.voltage_mv is not None and point.current_ma is not None
-                    else None
-                ),
             )
         )
 
@@ -223,7 +214,7 @@ def save_raw_points(db: Session, session_id: str, device_id: int, points: Iterab
     return len(rows)
 
 
-def get_session_raw_points(db: Session, session_id: str) -> list[BatteryTelemetry]:
+def get_session_raw_points(db: Session, session_id: int) -> list[BatteryTelemetry]:
     return (
         db.query(BatteryTelemetry)
         .filter(BatteryTelemetry.session_id == session_id)
@@ -236,7 +227,7 @@ def get_session_raw_points(db: Session, session_id: str) -> list[BatteryTelemetr
     )
 
 
-def save_ai_result(db: Session, session_id: str, device_id: int, result: dict) -> BatteryAiResult:
+def save_ai_result(db: Session, session_id: int, device_id: int, result: dict) -> BatteryAiResult:
     row = BatteryAiResult(
         session_id=session_id,
         soh_percentage=result.get("soh_percentage"),
@@ -266,7 +257,7 @@ def save_ai_result(db: Session, session_id: str, device_id: int, result: dict) -
     return row
 
 
-def get_latest_ai_result(db: Session, session_id: str) -> Optional[BatteryAiResult]:
+def get_latest_ai_result(db: Session, session_id: int) -> Optional[BatteryAiResult]:
     return (
         db.query(BatteryAiResult)
         .filter(BatteryAiResult.session_id == session_id)
@@ -287,8 +278,8 @@ def delete_user_by_id(db: Session, user_id: int) -> bool:
         .all()
     ]
     session_ids = [
-        row.session_id
-        for row in db.query(BatterySession.session_id)
+        row.id
+        for row in db.query(BatterySession.id)
         .filter(BatterySession.user_id == user_id)
         .all()
     ]
@@ -303,7 +294,7 @@ def delete_user_by_id(db: Session, user_id: int) -> bool:
         db.query(SohAnalysis).filter(SohAnalysis.session_id.in_(session_ids)).delete(
             synchronize_session=False
         )
-        db.query(BatterySession).filter(BatterySession.session_id.in_(session_ids)).delete(
+        db.query(BatterySession).filter(BatterySession.id.in_(session_ids)).delete(
             synchronize_session=False
         )
 
