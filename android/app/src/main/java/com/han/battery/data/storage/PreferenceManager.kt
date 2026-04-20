@@ -19,6 +19,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     companion object {
         private const val KEY_DEVICES = "all_devices"
         private const val KEY_DEVICES_EXISTS = "devices_exist"
+        private const val KEY_ACTIVE_DEVICE = "active_device"
         private const val TAG = "PreferenceManager"
     }
 
@@ -34,6 +35,11 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     private fun getUserDevicesExistsKey(): String {
         val currentUser = userManager?.getCurrentUser() ?: "default"
         return "${currentUser}_$KEY_DEVICES_EXISTS"
+    }
+
+    private fun getUserActiveDeviceKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_ACTIVE_DEVICE"
     }
 
     /**
@@ -223,13 +229,48 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     fun clearAllDevices() {
         val userDevicesKey = getUserDevicesKey()
         val userDevicesExistsKey = getUserDevicesExistsKey()
+        val activeDeviceKey = getUserActiveDeviceKey()
         prefs.edit().apply {
             remove(userDevicesKey)
+            remove(activeDeviceKey)
             putBoolean(userDevicesExistsKey, false)
             apply()  // commit() 대신 apply() 사용
         }
         val currentUser = userManager?.getCurrentUser() ?: "default"
         AppLogger.info("모든 배터리 삭제됨 [$currentUser]", TAG)
+    }
+
+    fun setActiveDevice(device: BatteryDevice) {
+        try {
+            val json = JSONObject().apply {
+                put("id", device.id)
+                put("model_name", device.model_name)
+                put("powerbank_capacity_mah", device.powerbank_capacity_mah)
+                put("manufacture_date", device.manufacture_date)
+            }
+
+            prefs.edit().putString(getUserActiveDeviceKey(), json.toString()).apply()
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("활성 배터리 저장 [$currentUser]: ${device.model_name} (ID: ${device.id})", TAG)
+        } catch (e: Exception) {
+            AppLogger.error("활성 배터리 저장 실패", e, TAG)
+        }
+    }
+
+    fun getActiveDevice(): BatteryDevice? {
+        return try {
+            val jsonString = prefs.getString(getUserActiveDeviceKey(), null) ?: return null
+            val json = JSONObject(jsonString)
+            BatteryDevice(
+                model_name = json.getString("model_name"),
+                powerbank_capacity_mah = json.getInt("powerbank_capacity_mah"),
+                manufacture_date = json.getString("manufacture_date"),
+                id = json.optInt("id", 0)
+            )
+        } catch (e: Exception) {
+            AppLogger.error("활성 배터리 로드 실패", e, TAG)
+            null
+        }
     }
 
     /**

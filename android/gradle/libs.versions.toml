@@ -1,7 +1,7 @@
 [versions]
 agp = "9.1.0"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.27" # 추가: Kotlin 2.0.21과 호환되는 KSP 버전
+kotlin = "2.2.10"
+ksp = "2.3.2" # 추가: Kotlin 2.0.21과 호환되는 KSP 버전
 core-ktx = "1.12.0"
 lifecycle = "2.7.0"
 activity-compose = "1.8.1"

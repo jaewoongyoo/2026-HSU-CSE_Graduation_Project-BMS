@@ -6,42 +6,56 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import com.han.battery.data.common.BatteryUtils
+import com.han.battery.data.model.BatteryTelemetryPayload
 import com.han.battery.data.repository.AWSIoTManager
 import com.han.battery.data.repository.BatteryRepository
+import com.han.battery.data.storage.PreferenceManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import java.util.UUID
 import javax.inject.Inject
 
-// ✅ 핵심 수정 1: @AndroidEntryPoint만 달고, 평범하게 Service()를 상속받습니다!
-@AndroidEntryPoint
-class BatteryMonitoringService : Service() {
-
+@AndroidEntryPoint(Service::class)
+class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
-
-    // ✅ 핵심 수정 2: 네이밍 경고 해결 (대문자 CHANNEL_ID -> 소문자 카멜케이스 channelId)
-    private val channelId = "battery_monitoring_channel"
-
+    private val CHANNEL_ID = "battery_monitoring_channel"
     @Inject lateinit var repository: BatteryRepository
     @Inject lateinit var awsIoTManager: AWSIoTManager
 
+    @Inject lateinit var preferenceManager: PreferenceManager
     private var collectingJob: Job? = null
     private var flushJob: Job? = null
+    private var activeDeviceId: Int = 0
+    private var sessionId: String = UUID.randomUUID().toString()
+    private var sessionStartTimestamp: Long = System.currentTimeMillis()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
+        val activeDevice = preferenceManager.getActiveDevice()
+            ?: preferenceManager.getAllDevices().firstOrNull { it.id > 0 }
 
-        // ⚠️ Settings.Secure.ANDROID_ID 사용 경고(Warning)는 무시하셔도 됩니다.
-        // (구글이 개인정보 보호차원에서 권장하지 않는다는 단순 경고이며, 우리 프로젝트에선 괜찮습니다!)
+        activeDeviceId = activeDevice?.id ?: 0
+        if (activeDevice != null) {
+            preferenceManager.setActiveDevice(activeDevice)
+        }
+
+        if (activeDeviceId <= 0) {
+            Log.w("BatteryService", "활성 배터리 ID가 없어 AWS 연결을 건너뜁니다.")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // ✅ 수정: 기기 고유 ID 사용 (재시작해도 항상 동일)
         val clientId = Settings.Secure.getString(
             contentResolver,
             Settings.Secure.ANDROID_ID
         )
         Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
-
-        awsIoTManager.initAndConnect(clientId) {
+        awsIoTManager.initAndConnect(clientId, activeDeviceId) {
             serviceScope.launch {
                 flushPendingLogs()
             }
@@ -52,16 +66,15 @@ class BatteryMonitoringService : Service() {
 
     private fun startForegroundServiceWithNotification() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // ✅ 핵심 수정 3: 불필요한 버전 체크 삭제 경고 해결 (minSdk가 이미 26 이상이므로 if문 생략 가능)
-        val channel = NotificationChannel(
-            channelId,
-            "배터리 모니터링",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        manager.createNotificationChannel(channel)
-
-        val notification = Notification.Builder(this, channelId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "배터리 모니터링",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            manager.createNotificationChannel(channel)
+        }
+        val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("배터리 수집 시스템 작동 중")
             .setContentText("AWS로 데이터를 실시간 전송하고 있습니다.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -110,8 +123,24 @@ class BatteryMonitoringService : Service() {
                 return@launch
             }
 
+            val screenState = getCurrentScreenState()
+            val telemetryPayloads = pendingLogs.map { log ->
+                BatteryTelemetryPayload(
+                    device_id = activeDeviceId,
+                    session_id = sessionId,
+                    timestamp = log.timestamp,
+                    level = log.level,
+                    voltage = log.voltage,
+                    current = log.current,
+                    temperature = log.temperature,
+                    elapsed_ms = (log.timestamp - sessionStartTimestamp).coerceAtLeast(0L),
+                    isCharging = log.isCharging,
+                    screen_state = screenState
+                )
+            }
+
             repository.sendToAWS(
-                logs = pendingLogs,
+                logs = telemetryPayloads,
                 onSuccess = {
                     serviceScope.launch {
                         repository.markAsSent(pendingLogs.map { it.id })
@@ -124,6 +153,11 @@ class BatteryMonitoringService : Service() {
             )
         }
         flushJob?.join()
+    }
+
+    private fun getCurrentScreenState(): Boolean {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        return powerManager.isInteractive
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

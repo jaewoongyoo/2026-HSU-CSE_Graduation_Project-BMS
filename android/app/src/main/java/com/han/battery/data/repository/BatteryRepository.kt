@@ -1,6 +1,7 @@
 package com.han.battery.data.repository
 
 import com.han.battery.data.model.BatteryLog
+import com.han.battery.data.model.BatteryTelemetryPayload
 import com.han.battery.data.storage.BatteryDao
 
 class BatteryRepository(
@@ -13,7 +14,7 @@ class BatteryRepository(
 
     // AWS 전송 로직을 여기서 호출하도록 설계합니다.
     fun sendToAWS(
-        logs: List<BatteryLog>,
+        logs: List<BatteryTelemetryPayload>,
         onSuccess: () -> Unit,
         onFailure: (Throwable?) -> Unit = {}
     ) {

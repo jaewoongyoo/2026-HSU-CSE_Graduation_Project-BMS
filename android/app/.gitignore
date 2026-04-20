@@ -13,6 +13,6 @@ local.properties
 .DS_Store
 Thumbs.db
 
-android/app/src/main/res/raw/*.pem
-android/app/src/main/res/raw/*.crt
-android/app/src/main/res/raw/*.key
+app/src/main/res/raw/amazon_root_ca1.pem
+app/src/main/res/raw/certificate.crt
+app/src/main/res/raw/private_key.key

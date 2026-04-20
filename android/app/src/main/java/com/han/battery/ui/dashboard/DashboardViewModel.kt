@@ -5,10 +5,13 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryStatus
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.storage.PreferenceManager
+import com.han.battery.service.BatteryMonitoringService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -23,7 +26,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
     // ── 1. 기기 정보 관리 (Member A의 코드 반영) ──
@@ -44,6 +48,32 @@ class DashboardViewModel @Inject constructor(
      */
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
+        preferenceManager.setActiveDevice(device)
+        ensureMonitoringServiceIfCharging()
+    }
+
+    private fun ensureMonitoringServiceIfCharging() {
+        val batteryStatusIntent = context.registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        ) ?: return
+
+        val status = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+
+        if (!isCharging) {
+            Log.d("DashboardViewModel", "현재 충전 중이 아니어서 모니터링 서비스를 시작하지 않습니다.")
+            return
+        }
+
+        val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+        Log.d("DashboardViewModel", "현재 충전 중이므로 모니터링 서비스를 시작합니다.")
     }
 
     /**

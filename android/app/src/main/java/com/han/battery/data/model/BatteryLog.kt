@@ -15,5 +15,5 @@ data class BatteryLog(
     @SerialName("soc") val level: Int,            // ✅ 백엔드 명칭(soc) 매핑
     val temperature: Int,
     @SerialName("is_charging") val isCharging: Boolean,
-    @Transient val isSent: Boolean = false
+    val isSent: Boolean = false
 )

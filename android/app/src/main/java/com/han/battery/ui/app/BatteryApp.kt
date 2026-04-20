@@ -1,7 +1,11 @@
 package com.han.battery.ui.app
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -80,6 +86,8 @@ fun BatteryApp() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     var showExitDialog by remember { mutableStateOf(false) }
+
+    val isCharging = rememberIsCharging()
 
     fun navigateToHome(popUpRoute: String) {
         navController.navigate("home") {
@@ -171,6 +179,33 @@ fun BatteryApp() {
                         text = "보조배터리 관리",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
+
+        // ✅ 2. 둥근 시작 버튼 추가
+        floatingActionButton = {
+            if (showBottomBar) { // 하단바가 보일 때만 버튼도 같이 보이게
+                androidx.compose.material3.FloatingActionButton(
+                    onClick = {
+                        if (isCharging) {
+                            // TODO: 여기에 세션 시작 API 및 서비스 실행 로직 연결
+                            Toast.makeText(context, "모니터링을 시작합니다!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "충전 케이블을 먼저 연결해 주세요.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    // 충전 중이면 기본 테마색, 아니면 회색으로 변경
+                    containerColor = if (isCharging) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Gray,
+                    contentColor = androidx.compose.ui.graphics.Color.White,
+                    shape = androidx.compose.foundation.shape.CircleShape
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.PlayArrow,
+                        contentDescription = "모니터링 시작",
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
@@ -431,4 +466,33 @@ private fun BatteryNavGraph(
             BoardScreen(posts = dummyPosts)
         }
     }
+}
+
+@Composable
+fun rememberIsCharging(): Boolean {
+    val context = LocalContext.current
+    var isCharging by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        val initialIntent = context.registerReceiver(null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        )
+        val initialStatus = initialIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        isCharging = initialStatus == BatteryManager.BATTERY_STATUS_CHARGING || initialStatus == BatteryManager.BATTERY_STATUS_FULL
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+                isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(receiver, filter)
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+    return isCharging
 }
