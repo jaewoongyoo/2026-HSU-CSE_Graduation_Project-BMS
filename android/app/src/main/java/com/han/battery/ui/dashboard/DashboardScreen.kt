@@ -39,6 +39,10 @@ fun DashboardScreen(
     // ── 실시간 데이터 구독 (Logic) ──
     val status by viewModel.batteryStatus.collectAsState()
 
+    LaunchedEffect(device.id, device.model_name) {
+        viewModel.setDevice(device)
+    }
+
     // ⭐ 충전 완료 예상 시간 텍스트 로직 추가
     val predictionText = when {
         !status.isCharging -> "방전 중 (충전 필요)"
