@@ -11,11 +11,12 @@ import android.util.Log
 import com.han.battery.data.common.BatteryUtils
 import com.han.battery.data.model.BatteryTelemetryPayload
 import com.han.battery.data.repository.AWSIoTManager
+import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.repository.BatteryRepository
 import com.han.battery.data.storage.PreferenceManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import java.util.UUID
+import java.time.Instant
 import javax.inject.Inject
 
 @AndroidEntryPoint(Service::class)
@@ -24,11 +25,13 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
     private val CHANNEL_ID = "battery_monitoring_channel"
     @Inject lateinit var repository: BatteryRepository
     @Inject lateinit var awsIoTManager: AWSIoTManager
+    @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var preferenceManager: PreferenceManager
     private var collectingJob: Job? = null
     private var flushJob: Job? = null
     private var activeDeviceId: Int = 0
-    private var sessionId: String = UUID.randomUUID().toString()
+    private var activeDeviceModelName: String? = null
+    private var sessionId: String? = null
     private var sessionStartTimestamp: Long = System.currentTimeMillis()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -37,6 +40,7 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
             ?: preferenceManager.getAllDevices().firstOrNull { it.id > 0 }
 
         activeDeviceId = activeDevice?.id ?: 0
+        activeDeviceModelName = activeDevice?.model_name
         if (activeDevice != null) {
             preferenceManager.setActiveDevice(activeDevice)
         }
@@ -47,19 +51,40 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
             return START_NOT_STICKY
         }
 
-        // ✅ 수정: 기기 고유 ID 사용 (재시작해도 항상 동일)
-        val clientId = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ANDROID_ID
-        )
-        Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
-        awsIoTManager.initAndConnect(clientId, activeDeviceId) {
-            serviceScope.launch {
-                flushPendingLogs()
-            }
+        serviceScope.launch {
+            startSessionAndMonitoring(activeDevice?.powerbank_capacity_mah?.toDouble())
         }
-        startCollecting()
         return START_STICKY
+    }
+
+    private suspend fun startSessionAndMonitoring(powerbankCapacityStartMah: Double?) {
+        val sessionStartedAt = Instant.now()
+        val startSessionResult = authRepository.startBatterySession(
+            deviceId = activeDeviceId,
+            powerbankId = activeDeviceModelName,
+            powerbankCapacityStartMah = powerbankCapacityStartMah,
+            sessionStartTs = sessionStartedAt
+        )
+
+        startSessionResult.onSuccess { response ->
+            sessionId = response.session_id
+            sessionStartTimestamp = sessionStartedAt.toEpochMilli()
+
+            val clientId = Settings.Secure.getString(
+                contentResolver,
+                Settings.Secure.ANDROID_ID
+            )
+            Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
+            awsIoTManager.initAndConnect(clientId, activeDeviceId) {
+                serviceScope.launch {
+                    flushPendingLogs()
+                }
+            }
+            startCollecting()
+        }.onFailure { error ->
+            Log.e("BatteryService", "세션 시작 실패로 모니터링을 중단합니다: ${error.message}", error)
+            stopSelf()
+        }
     }
 
     private fun startForegroundServiceWithNotification() {
@@ -112,11 +137,17 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
                 return@launch
             }
 
+            val currentSessionId = sessionId
+            if (currentSessionId.isNullOrBlank()) {
+                Log.w("BatteryService", "유효한 session_id가 없어 AWS 전송을 건너뜁니다.")
+                return@launch
+            }
+
             val screenState = getCurrentScreenState()
             val telemetryPayloads = pendingLogs.map { log ->
                 BatteryTelemetryPayload(
                     device_id = activeDeviceId,
-                    session_id = sessionId,
+                    session_id = currentSessionId,
                     timestamp = log.timestamp,
                     level = log.level,
                     voltage = log.voltage,
