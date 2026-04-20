@@ -13,18 +13,25 @@ def start_session_service(db: Session, request: SessionStartRequest) -> dict:
     device = get_device_by_pk(db, request.device_id)
     if not device:
         raise InvalidRawDataException(f"device not found: {request.device_id}")
-    if str(device.user_id) != request.user_id and getattr(device.user, "username", None) != request.user_id:
-        raise InvalidRawDataException("device does not belong to the given user")
 
     try:
         create_session(db, session_id=session_id, device=device, request=request)
     except ValueError as exc:
         raise InvalidRawDataException(str(exc)) from exc
 
-    return {"session_id": session_id, "status": "in_progress"}
+    return {
+        "session_id": session_id,
+        "status": "in_progress",
+        "device_id": device.id,
+        "user_id": device.user_id,
+    }
 
 
-def finish_session_service(db: Session, session_id: str, request: SessionFinishRequest) -> dict:
+def finish_session_service(
+    db: Session,
+    session_id: str,
+    request: SessionFinishRequest,
+) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
