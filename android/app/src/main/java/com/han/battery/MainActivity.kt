@@ -85,8 +85,8 @@ class MainActivity : ComponentActivity() {
                 }.getOrNull()
             }
 
-            preferenceManager.replaceAllDevices(syncedDevices)
-            syncedDevices
+            preferenceManager.mergeDevicesFromServer(syncedDevices)
+            preferenceManager.getAllDevices()
         }
     }
 

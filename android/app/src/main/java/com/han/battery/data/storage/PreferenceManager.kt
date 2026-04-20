@@ -75,17 +75,33 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     }
 
     /**
-     * 현재 로그인한 사용자의 배터리 목록을 서버 기준으로 교체합니다.
+     * 서버 배터리 목록을 우선 반영하되, 아직 서버에 올라가지 않은 로컬 임시 기기는 유지합니다.
      */
-    fun replaceAllDevices(devices: List<BatteryDevice>) {
+    fun mergeDevicesFromServer(serverDevices: List<BatteryDevice>) {
         try {
-            if (devices.isEmpty()) {
+            val localDevices = getAllDevices()
+            val mergedDevices = LinkedHashMap<String, BatteryDevice>()
+
+            // 서버 데이터가 있으면 같은 모델명의 로컬 임시 데이터를 덮어씁니다.
+            for (device in serverDevices.distinctBy { it.model_name }) {
+                mergedDevices[device.model_name] = device
+            }
+
+            // 서버에 아직 없는 로컬 임시 등록분(ID 없음)은 유지합니다.
+            for (device in localDevices) {
+                val isLocalOnlyDraft = device.id <= 0 && !mergedDevices.containsKey(device.model_name)
+                if (isLocalOnlyDraft) {
+                    mergedDevices[device.model_name] = device
+                }
+            }
+
+            if (mergedDevices.isEmpty()) {
                 clearAllDevices()
                 return
             }
 
             val jsonArray = JSONArray()
-            for (device in devices.distinctBy { it.model_name }) {
+            for (device in mergedDevices.values) {
                 val json = JSONObject().apply {
                     put("id", device.id)
                     put("model_name", device.model_name)
@@ -104,9 +120,9 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             }
 
             val currentUser = userManager?.getCurrentUser() ?: "default"
-            AppLogger.info("배터리 목록 동기화 완료 [$currentUser]: ${devices.size}개", TAG)
+            AppLogger.info("배터리 목록 병합 동기화 완료 [$currentUser]: 서버 ${serverDevices.size}개, 최종 ${mergedDevices.size}개", TAG)
         } catch (e: Exception) {
-            AppLogger.error("배터리 목록 동기화 실패", e, TAG)
+            AppLogger.error("배터리 목록 병합 동기화 실패", e, TAG)
         }
     }
 
