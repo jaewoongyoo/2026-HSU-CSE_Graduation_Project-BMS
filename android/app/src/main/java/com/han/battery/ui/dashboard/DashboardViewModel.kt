@@ -1,25 +1,30 @@
 package com.han.battery.ui.dashboard
 
-import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryStatus
 import com.han.battery.data.model.BatteryDevice
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * 배터리 실시간 데이터 수집(Logic)과 기기 정보 관리(UI State)를 모두 담당하는 통합 ViewModel
  */
-class DashboardViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    @ApplicationContext private val context: Context
+) : ViewModel() {
 
     // ── 1. 기기 정보 관리 (Member A의 코드 반영) ──
     private val _currentDevice = MutableStateFlow<BatteryDevice?>(null)
@@ -57,7 +62,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * BatteryManager를 통해 하드웨어 센서 데이터를 직접 수집합니다.
      */
     private fun getRealBatteryInfo(): BatteryStatus {
-        val context = getApplication<Application>().applicationContext
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
 
         // 현재 배터리 상태 스냅샷 가져오기
