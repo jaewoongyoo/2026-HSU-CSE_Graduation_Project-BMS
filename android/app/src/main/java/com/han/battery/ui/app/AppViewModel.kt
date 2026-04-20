@@ -18,7 +18,7 @@ class AppViewModel @Inject constructor(
     fun isLoggedIn(): Boolean = userManager.isLoggedIn()
 
     suspend fun syncDevicesFromServer(): Result<List<BatteryDevice>> {
-        return authRepository.getBatteries().mapCatching { batteries ->
+        return authRepository.getCurrentUserBatteries().mapCatching { batteries ->
             val syncedDevices = batteries.mapNotNull { battery ->
                 runCatching {
                     BatteryDevice(

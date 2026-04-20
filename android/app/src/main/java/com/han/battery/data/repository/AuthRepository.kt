@@ -345,6 +345,26 @@ class AuthRepository(
     }
 
     /**
+     * 현재 로그인한 사용자 소유의 배터리만 조회합니다.
+     * 서버가 전체 목록을 반환하더라도 앱에서 한 번 더 필터링합니다.
+     */
+    suspend fun getCurrentUserBatteries(): Result<List<BatteryResponse>> {
+        return getBatteries().mapCatching { batteries ->
+            val currentUserId = userManager.getCurrentUserId()
+            if (currentUserId <= 0) {
+                throw IllegalStateException("로그인된 사용자가 없습니다.")
+            }
+
+            val filteredBatteries = batteries.filter { it.user_id == currentUserId }
+            AppLogger.info(
+                "현재 사용자 배터리 필터링 완료: userId=$currentUserId, 전체 ${batteries.size}개, 사용자 ${filteredBatteries.size}개",
+                TAG
+            )
+            filteredBatteries
+        }
+    }
+
+    /**
      * 배터리 수정 (서버에서 수정)
      * @param batteryId 수정할 배터리 ID
      * @param modelName 배터리 모델명 (선택)
