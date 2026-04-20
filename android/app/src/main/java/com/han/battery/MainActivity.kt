@@ -1,7 +1,6 @@
 package com.han.battery
 
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
@@ -62,7 +61,6 @@ import com.han.battery.ui.home.HomeScreen
 import com.han.battery.ui.landing.LandingScreen
 import com.han.battery.ui.splash.SplashScreen
 import com.han.battery.ui.theme.BatteryTheme
-import com.han.battery.service.ChargingReceiver
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -73,7 +71,24 @@ class MainActivity : ComponentActivity() {
     private lateinit var authRepository: AuthRepository
     private lateinit var advancedBatteryRepository: AdvancedBatteryRepository
     private lateinit var advancedUserRepository: AdvancedUserRepository
-    private lateinit var chargingReceiver: ChargingReceiver
+
+    private suspend fun syncDevicesFromServer(): Result<List<BatteryDevice>> {
+        return authRepository.getBatteries().mapCatching { batteries ->
+            val syncedDevices = batteries.mapNotNull { battery ->
+                runCatching {
+                    BatteryDevice(
+                        model_name = battery.model_name,
+                        powerbank_capacity_mah = battery.powerbank_capacity_mah ?: 0,
+                        manufacture_date = battery.manufacture_date.orEmpty(),
+                        id = battery.id
+                    )
+                }.getOrNull()
+            }
+
+            preferenceManager.replaceAllDevices(syncedDevices)
+            syncedDevices
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,14 +101,6 @@ class MainActivity : ComponentActivity() {
         advancedUserRepository = AdvancedUserRepository(apiService, userManager, this, authRepository)
         preferenceManager = PreferenceManager(this, userManager)
 
-        // 충전 감지 리시버 동적 등록
-        chargingReceiver = ChargingReceiver()
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
-        }
-        registerReceiver(chargingReceiver, filter)
-
         setContent {
             BatteryTheme {
                 val navController = rememberNavController()
@@ -105,6 +112,27 @@ class MainActivity : ComponentActivity() {
                 var deviceRefreshKey by remember { mutableIntStateOf(0) }
                 var showExitDialog by remember { mutableStateOf(false) }
                 var devicesList by remember { mutableStateOf(preferenceManager.getAllDevices()) }
+
+                fun refreshLocalDevices() {
+                    devicesList = preferenceManager.getAllDevices()
+                    deviceRefreshKey++
+                }
+
+                fun syncDevicesAndNavigateHome(popUpRoute: String) {
+                    coroutineScope.launch {
+                        val syncResult = syncDevicesFromServer()
+                        if (syncResult.isFailure) {
+                            android.util.Log.w(
+                                "MainActivity",
+                                "서버 배터리 동기화 실패: ${syncResult.exceptionOrNull()?.message}"
+                            )
+                        }
+                        refreshLocalDevices()
+                        navController.navigate("home") {
+                            popUpTo(popUpRoute) { inclusive = true }
+                        }
+                    }
+                }
 
                 val showBottomBar = currentRoute in listOf(
                     "home",
@@ -219,9 +247,7 @@ class MainActivity : ComponentActivity() {
                                 userManager = userManager,
                                 onSplashFinished = {
                                     if (userManager.isLoggedIn()) {
-                                        navController.navigate("home") {
-                                            popUpTo("splash") { inclusive = true }
-                                        }
+                                        syncDevicesAndNavigateHome("splash")
                                     } else {
                                         navController.navigate("login") {
                                             popUpTo("splash") { inclusive = true }
@@ -238,11 +264,7 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("signup")
                                 },
                                 onLoginSuccess = {
-                                    preferenceManager.clearAllDevices()
-                                    deviceRefreshKey++
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                                    syncDevicesAndNavigateHome("login")
                                 }
                             )
                         }
@@ -254,11 +276,7 @@ class MainActivity : ComponentActivity() {
                                     navController.popBackStack()
                                 },
                                 onSignupSuccess = {
-                                    preferenceManager.clearAllDevices()
-                                    deviceRefreshKey++
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                                    syncDevicesAndNavigateHome("login")
                                 }
                             )
                         }
@@ -320,7 +338,6 @@ class MainActivity : ComponentActivity() {
                                     userManager = userManager,
                                     onLogout = {
                                         authRepository.logout()
-                                        preferenceManager.clearAllDevices()
                                         devicesList = emptyList()
                                         deviceRefreshKey++
                                         navController.navigate("login") {
@@ -530,11 +547,6 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(chargingReceiver)
     }
 }
 
