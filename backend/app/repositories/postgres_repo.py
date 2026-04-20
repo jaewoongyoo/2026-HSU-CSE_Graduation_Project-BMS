@@ -70,9 +70,7 @@ def create_session(db: Session, session_id: str, device: Device, request: Any) -
         user_id=device.user_id,
         android_api_level=request.android_api_level,
         powerbank_id=getattr(request, "powerbank_id", None),
-        powerbank_capacity_mah=getattr(request, "powerbank_capacity_mah", None)
-        or device.powerbank_capacity_mah
-        or 10000,
+        powerbank_capacity_start_mah=getattr(request, "powerbank_capacity_start_mah", None),
         session_start_ts=request.session_start_ts,
         status="in_progress",
     )
@@ -181,6 +179,8 @@ def update_session_finish(db: Session, session_id: str, request: Any) -> Optiona
 
     session.session_end_ts = request.session_end_ts
     session.capacity_ah = request.capacity_ah
+    session.powerbank_capacity_end_mah = getattr(request, "powerbank_capacity_end_mah", None)
+    session.label_capacity_ah = getattr(request, "label_capacity_ah", None)
     session.status = "finished"
     _commit_or_raise(
         db,
