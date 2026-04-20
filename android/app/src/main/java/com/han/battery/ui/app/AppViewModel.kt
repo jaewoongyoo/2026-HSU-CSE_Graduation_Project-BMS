@@ -1,17 +1,24 @@
 package com.han.battery.ui.app
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import com.han.battery.BatteryApplication
+import androidx.lifecycle.ViewModel
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.repository.AuthRepository
+import com.han.battery.data.storage.PreferenceManager
+import com.han.battery.data.storage.UserManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class AppViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as BatteryApplication
+@HiltViewModel
+class AppViewModel @Inject constructor(
+    private val userManager: UserManager,
+    private val authRepository: AuthRepository,
+    private val preferenceManager: PreferenceManager
+) : ViewModel() {
 
-    fun isLoggedIn(): Boolean = app.userManager.isLoggedIn()
+    fun isLoggedIn(): Boolean = userManager.isLoggedIn()
 
     suspend fun syncDevicesFromServer(): Result<List<BatteryDevice>> {
-        return app.authRepository.getBatteries().mapCatching { batteries ->
+        return authRepository.getBatteries().mapCatching { batteries ->
             val syncedDevices = batteries.mapNotNull { battery ->
                 runCatching {
                     BatteryDevice(
@@ -23,8 +30,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }.getOrNull()
             }
 
-            app.preferenceManager.mergeDevicesFromServer(syncedDevices)
-            app.preferenceManager.getAllDevices()
+            preferenceManager.mergeDevicesFromServer(syncedDevices)
+            preferenceManager.getAllDevices()
         }
     }
 }
