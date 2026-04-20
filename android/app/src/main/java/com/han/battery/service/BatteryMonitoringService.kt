@@ -7,26 +7,21 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
-import com.han.battery.BatteryApplication
 import com.han.battery.data.common.BatteryUtils
 import com.han.battery.data.repository.AWSIoTManager
 import com.han.battery.data.repository.BatteryRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import javax.inject.Inject
 
-class BatteryMonitoringService : Service() {
+@AndroidEntryPoint(Service::class)
+class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private val CHANNEL_ID = "battery_monitoring_channel"
-    private lateinit var repository: BatteryRepository
-    private lateinit var awsIoTManager: AWSIoTManager
+    @Inject lateinit var repository: BatteryRepository
+    @Inject lateinit var awsIoTManager: AWSIoTManager
     private var collectingJob: Job? = null
     private var flushJob: Job? = null
-
-    override fun onCreate() {
-        super.onCreate()
-        val app = application as BatteryApplication
-        repository = app.repository
-        awsIoTManager = app.awsIoTManager
-    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
