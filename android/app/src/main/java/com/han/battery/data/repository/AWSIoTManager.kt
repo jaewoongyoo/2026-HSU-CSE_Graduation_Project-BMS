@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.han.battery.R
 import com.han.battery.data.common.KeyStoreHelper
 import com.han.battery.data.model.BatteryLog
+import com.han.battery.data.storage.UserManager
 
 class AWSIoTManager(private val context: Context) {
     private val endpoint = "adp3srf4gjqs5-ats.iot.ap-northeast-2.amazonaws.com"
@@ -16,8 +17,15 @@ class AWSIoTManager(private val context: Context) {
     private lateinit var mqttManager: AWSIotMqttManager
     private var isConnected = false
 
-    fun initAndConnect(clientId: String) {
-        topic = "battery/{user_id}/telemetry"
+    fun initAndConnect(clientId: String, onConnected: () -> Unit = {}) {
+        val userId = UserManager(context).getCurrentUserId()
+        if (userId <= 0) {
+            isConnected = false
+            Log.w("AWSIoTManager", "로그인된 사용자 ID가 없어 MQTT 연결을 건너뜁니다.")
+            return
+        }
+
+        topic = "battery/$userId/telemetry"
 
         if (::mqttManager.isInitialized && isConnected) {
             Log.d("AWSIoTManager", "이미 연결되어 있음, 스킵")
@@ -38,6 +46,7 @@ class AWSIoTManager(private val context: Context) {
                     AWSIotMqttClientStatusCallback.AWSIotMqttClientStatus.Connected -> {
                         isConnected = true
                         Log.d("AWSIoTManager", "AWS 연결 성공! 🚀")
+                        onConnected()
                     }
                     AWSIotMqttClientStatusCallback.AWSIotMqttClientStatus.Reconnecting -> {
                         isConnected = false
@@ -55,9 +64,14 @@ class AWSIoTManager(private val context: Context) {
         }
     }
 
-    fun publishLogs(logs: List<BatteryLog>, onComplete: () -> Unit) {
+    fun publishLogs(
+        logs: List<BatteryLog>,
+        onSuccess: () -> Unit,
+        onFailure: (Throwable?) -> Unit = {}
+    ) {
         if (!isConnected) {
             Log.w("AWSIoTManager", "MQTT 미연결 상태 - 전송 스킵")
+            onFailure(null)
             return
         }
         val payload = Gson().toJson(logs)
@@ -67,12 +81,13 @@ class AWSIoTManager(private val context: Context) {
                 topic,
                 AWSIotMqttQos.QOS1,
                 { _, _ ->
-                    onComplete()
+                    onSuccess()
                 },
                 null
             )
         } catch (e: Exception) {
             Log.e("AWSIoTManager", "전송 실패", e)
+            onFailure(e)
         }
     }
 }
