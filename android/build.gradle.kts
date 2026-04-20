@@ -4,4 +4,5 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false  // ✅ 반드시 포함!
     alias(libs.plugins.kotlin.compose) apply false  // ✅ 반드시 포함!
     alias(libs.plugins.ksp) apply false
+    id("com.google.dagger.hilt.android") version "2.52" apply false
 }
