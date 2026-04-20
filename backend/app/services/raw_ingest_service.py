@@ -5,7 +5,7 @@ from app.repositories.postgres_repo import get_session_meta, save_raw_points
 from app.schemas.raw import RawUploadRequest
 
 
-def upload_raw_service(db: Session, session_id: str, request: RawUploadRequest) -> dict:
+def upload_raw_service(db: Session, session_id: int, request: RawUploadRequest) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
@@ -16,7 +16,7 @@ def upload_raw_service(db: Session, session_id: str, request: RawUploadRequest) 
 
     count = save_raw_points(db, session_id, session.device_id, request.data_points)
     return {
-        "session_id": session_id,
+        "id": session_id,
         "received_count": count,
         "status": "received",
     }
