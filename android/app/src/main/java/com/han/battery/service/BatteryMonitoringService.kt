@@ -18,6 +18,8 @@ class BatteryMonitoringService : Service() {
     private val CHANNEL_ID = "battery_monitoring_channel"
     private lateinit var repository: BatteryRepository
     private lateinit var awsIoTManager: AWSIoTManager
+    private var collectingJob: Job? = null
+    private var flushJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -34,7 +36,11 @@ class BatteryMonitoringService : Service() {
             Settings.Secure.ANDROID_ID
         )
         Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
-        awsIoTManager.initAndConnect(clientId)
+        awsIoTManager.initAndConnect(clientId) {
+            serviceScope.launch {
+                flushPendingLogs()
+            }
+        }
         startCollecting()
         return START_STICKY
     }
@@ -63,23 +69,54 @@ class BatteryMonitoringService : Service() {
     }
 
     private fun startCollecting() {
-        serviceScope.launch {
+        if (collectingJob?.isActive == true) {
+            return
+        }
+
+        collectingJob = serviceScope.launch {
             while (isActive) {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
                 Log.d("BatteryService", "수집 완료: ${log.level}%")
                 repository.insertLog(log)
-                awsIoTManager.publishLogs(listOf(log)) {
-                    Log.d("BatteryService", "AWS 전송 성공! ✅")
-                }
+                flushPendingLogs()
                 delay(60000)
             }
         }
+    }
+
+    private suspend fun flushPendingLogs() {
+        if (flushJob?.isActive == true) {
+            return
+        }
+
+        flushJob = serviceScope.launch {
+        val pendingLogs = repository.getUnsentLogs()
+        if (pendingLogs.isEmpty()) {
+            return@launch
+        }
+
+        repository.sendToAWS(
+            logs = pendingLogs,
+            onSuccess = {
+                serviceScope.launch {
+                    repository.markAsSent(pendingLogs.map { it.id })
+                    Log.d("BatteryService", "AWS 전송 성공 및 sent 처리 완료: ${pendingLogs.size}건")
+                }
+            },
+            onFailure = { error ->
+                Log.w("BatteryService", "AWS 전송 보류: ${error?.message ?: "연결 안 됨"}")
+            }
+        )
+        }
+        flushJob?.join()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
+        collectingJob?.cancel()
+        flushJob?.cancel()
         serviceScope.cancel()
     }
 }
