@@ -50,24 +50,18 @@ import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
-import com.han.battery.data.storage.UserManager
 
 @Composable
 fun HomeScreen(
-    key: Int = 0,
     devices: List<BatteryDevice>,
     onDeviceSelected: (BatteryDevice) -> Unit,
     onAddNewDevice: () -> Unit,
     onDeleteDevice: (BatteryDevice) -> Unit = {},
-    userManager: UserManager? = null,
-    onLogout: (() -> Unit)? = null,
+    onLogout: () -> Unit,
     onNavigateToBoard: () -> Unit
 ) {
     var deviceToDelete by remember { mutableStateOf<BatteryDevice?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-
-    // 로그아웃 시 현재 사용자의 배터리 데이터를 리프레시하기 위한 상태
-    var currentUser by remember { mutableStateOf(userManager?.getCurrentUser()) }
 
     // 로그아웃 확인 다이얼로그
     if (showLogoutDialog) {
@@ -79,9 +73,7 @@ fun HomeScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        currentUser = null // 사용자 정보 초기화
-                        userManager?.logout()
-                        onLogout?.invoke()
+                        onLogout()
                     }
                 ) {
                     Text("로그아웃", color = Color.Red)
