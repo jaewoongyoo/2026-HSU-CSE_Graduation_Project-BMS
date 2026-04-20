@@ -319,13 +319,21 @@ def _normalize_sample_frame(
         for column in selected.columns:
             selected[column] = selected[column].map(_parse_optional_complex)
     else:
+        # NASA 원본 데이터는 일부 행에 결측 또는 비숫자 값이 섞여 있을 수 있다.
+        # 필수 컬럼이 존재하는지는 위에서 검증했으므로, 여기서는 비숫자 행만
+        # 안전하게 제거하고 유효 행만 반환한다. 유효 행이 전혀 없으면 오류로 처리한다.
+        numeric_columns: dict[str, pd.Series] = {}
         for source_column, target_column in column_map.items():
-            numeric_series = pd.to_numeric(frame[source_column], errors="coerce")
-            if numeric_series.isna().any():
-                raise NasaDatasetError(
-                    f"Missing required numeric field: {source_column}"
-                )
-            selected[target_column] = numeric_series.astype(float)
+            numeric_columns[target_column] = pd.to_numeric(
+                frame[source_column], errors="coerce"
+            )
+        numeric_frame = pd.DataFrame(numeric_columns)
+        valid_mask = numeric_frame.notna().all(axis=1)
+        if not valid_mask.any():
+            raise NasaDatasetError(
+                f"NASA {cycle_type} cycle has no rows with valid numeric data"
+            )
+        selected = numeric_frame.loc[valid_mask].astype(float).reset_index(drop=True)
 
     return _dataframe_to_records(selected)
 
