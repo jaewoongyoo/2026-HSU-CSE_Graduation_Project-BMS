@@ -75,6 +75,42 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     }
 
     /**
+     * 현재 로그인한 사용자의 배터리 목록을 서버 기준으로 교체합니다.
+     */
+    fun replaceAllDevices(devices: List<BatteryDevice>) {
+        try {
+            if (devices.isEmpty()) {
+                clearAllDevices()
+                return
+            }
+
+            val jsonArray = JSONArray()
+            for (device in devices.distinctBy { it.model_name }) {
+                val json = JSONObject().apply {
+                    put("id", device.id)
+                    put("model_name", device.model_name)
+                    put("powerbank_capacity_mah", device.powerbank_capacity_mah)
+                    put("manufacture_date", device.manufacture_date)
+                }
+                jsonArray.put(json)
+            }
+
+            val userDevicesKey = getUserDevicesKey()
+            val userDevicesExistsKey = getUserDevicesExistsKey()
+            prefs.edit().apply {
+                putString(userDevicesKey, jsonArray.toString())
+                putBoolean(userDevicesExistsKey, true)
+                apply()
+            }
+
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("배터리 목록 동기화 완료 [$currentUser]: ${devices.size}개", TAG)
+        } catch (e: Exception) {
+            AppLogger.error("배터리 목록 동기화 실패", e, TAG)
+        }
+    }
+
+    /**
      * 저장된 모든 배터리 기기 정보를 로드합니다. (ERD devices 테이블 기준)
      * 현재 로그인한 사용자의 데이터만 반환됩니다.
      */
