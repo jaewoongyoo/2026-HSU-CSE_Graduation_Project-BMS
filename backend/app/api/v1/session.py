@@ -23,7 +23,7 @@ def start_session(
 
 @router.post("/{session_id}/finish", response_model=SessionFinishResponse)
 def finish_session(
-    session_id: str,
+    session_id: int,
     request: SessionFinishRequest,
     db: Session = Depends(get_db),
 ):

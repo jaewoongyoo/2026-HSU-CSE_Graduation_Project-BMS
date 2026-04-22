@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class SessionResultResponse(BaseModel):
-    session_id: str
+    id: int
     status: str
     soh_percentage: Optional[float] = None
     condition: Optional[str] = None

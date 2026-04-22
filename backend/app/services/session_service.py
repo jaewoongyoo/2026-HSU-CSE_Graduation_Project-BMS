@@ -1,5 +1,3 @@
-import uuid
-
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidRawDataException, SessionNotFoundException
@@ -8,28 +6,24 @@ from app.schemas.session import SessionFinishRequest, SessionStartRequest
 
 
 def start_session_service(db: Session, request: SessionStartRequest) -> dict:
-    session_id = f"sess_{uuid.uuid4().hex[:12]}"
-
     device = get_device_by_pk(db, request.device_id)
     if not device:
         raise InvalidRawDataException(f"device not found: {request.device_id}")
 
     try:
-        create_session(db, session_id=session_id, device=device, request=request)
+        session = create_session(db, device=device)
     except ValueError as exc:
         raise InvalidRawDataException(str(exc)) from exc
 
     return {
-        "session_id": session_id,
+        "id": session.id,
         "status": "in_progress",
-        "device_id": device.id,
-        "user_id": device.user_id,
     }
 
 
 def finish_session_service(
     db: Session,
-    session_id: str,
+    session_id: int,
     request: SessionFinishRequest,
 ) -> dict:
     session = get_session_meta(db, session_id)
@@ -39,4 +33,4 @@ def finish_session_service(
         raise InvalidRawDataException("session is not in progress")
 
     update_session_finish(db, session_id, request)
-    return {"session_id": session_id, "status": "finished"}
+    return {"id": session_id, "status": "finished"}

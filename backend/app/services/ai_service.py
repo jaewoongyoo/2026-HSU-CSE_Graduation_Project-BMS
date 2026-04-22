@@ -44,7 +44,7 @@ def aggregate_by_10min(raw_points):
     return result
 
 
-def predict_soh_for_session(db: Session, session_id: str) -> dict:
+def predict_soh_for_session(db: Session, session_id: int) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
