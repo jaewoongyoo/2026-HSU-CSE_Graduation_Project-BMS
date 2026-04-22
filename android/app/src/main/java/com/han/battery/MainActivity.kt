@@ -5,10 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.han.battery.ui.app.BatteryApp
 import com.han.battery.ui.theme.BatteryTheme
-import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint(ComponentActivity::class)
-class MainActivity : Hilt_MainActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

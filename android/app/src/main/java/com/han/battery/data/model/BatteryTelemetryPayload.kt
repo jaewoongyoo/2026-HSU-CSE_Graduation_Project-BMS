@@ -2,7 +2,7 @@ package com.han.battery.data.model
 
 data class BatteryTelemetryPayload(
     val device_id: Int,
-    val session_id: String,
+    val session_id: Int,
     val timestamp: Long,
     val level: Int,
     val voltage: Int,

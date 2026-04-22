@@ -268,21 +268,17 @@ class AuthRepository(
             require(deviceId > 0) { "유효한 배터리 ID가 필요합니다." }
 
             val request = SessionStartRequest(
-                device_id = deviceId,
-                android_api_level = Build.VERSION.SDK_INT,
-                powerbank_id = powerbankId,
-                powerbank_capacity_start_mah = powerbankCapacityStartMah,
-                session_start_ts = sessionStartTs.toString()
+                device_id = deviceId
             )
 
             AppLogger.info(
-                "세션 시작 요청: device_id=$deviceId, android_api_level=${request.android_api_level}, session_start_ts=${request.session_start_ts}",
+                "세션 시작 요청: device_id=$deviceId, android_api_level=${Build.VERSION.SDK_INT}, session_start_ts=${sessionStartTs}",
                 TAG
             )
 
             val response = apiService.startSession(request).getOrThrow()
             AppLogger.info(
-                "세션 시작 성공: session_id=${response.session_id}, device_id=${response.device_id}, user_id=${response.user_id}",
+                "세션 시작 성공: id=${response.id}, status=${response.status}",
                 TAG
             )
             Result.success(response)

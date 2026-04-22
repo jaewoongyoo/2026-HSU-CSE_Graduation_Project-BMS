@@ -85,18 +85,12 @@ data class BatteryUpdateRequest(
 
 @Serializable
 data class SessionStartRequest(
-    val device_id: Int,
-    val android_api_level: Int,
-    val powerbank_id: String? = null,
-    val powerbank_capacity_start_mah: Double? = null,
-    val session_start_ts: String
+    val device_id: Int
 )
 
 @Serializable
 data class SessionStartResponse(
-    val session_id: String,
-    val status: String,
-    val device_id: Int,
-    val user_id: Int
+    val id: Int,
+    val status: String
 )
 

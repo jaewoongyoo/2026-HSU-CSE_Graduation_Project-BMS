@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.storage.PreferenceManager
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 sealed interface HomeUiEvent {
     data class ShowMessage(val message: String, val isError: Boolean = false) : HomeUiEvent
@@ -21,8 +19,7 @@ sealed interface HomeUiEvent {
     data object NavigateToHome : HomeUiEvent
 }
 
-@HiltViewModel
-class HomeViewModel @Inject constructor(
+class HomeViewModel(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
