@@ -4,14 +4,14 @@ from app.core.exceptions import SessionNotFoundException
 from app.repositories.postgres_repo import get_latest_ai_result, get_session_meta
 
 
-def get_session_result_service(db: Session, session_id: str) -> dict:
+def get_session_result_service(db: Session, session_id: int) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
 
     result = get_latest_ai_result(db, session_id)
     return {
-        "session_id": session_id,
+        "id": session_id,
         "status": session.status,
         "soh_percentage": result.soh_percentage if result else None,
         "condition": result.condition if result else None,

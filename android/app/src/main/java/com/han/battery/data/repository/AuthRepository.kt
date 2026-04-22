@@ -3,6 +3,7 @@ package com.han.battery.data.repository
 import android.os.Build
 import android.provider.Settings
 import android.content.Context
+import java.time.Instant
 import com.han.battery.data.api.ApiService
 import com.han.battery.data.model.*
 import com.han.battery.data.storage.UserManager
@@ -257,6 +258,51 @@ class AuthRepository(
         return userManager.getCurrentUser()
     }
 
+    suspend fun startBatterySession(
+        deviceId: Int,
+        powerbankId: String? = null,
+        powerbankCapacityStartMah: Double? = null,
+        sessionStartTs: Instant = Instant.now()
+    ): Result<SessionStartResponse> {
+        return try {
+            require(deviceId > 0) { "유효한 배터리 ID가 필요합니다." }
+
+            val request = SessionStartRequest(
+                device_id = deviceId,
+                android_api_level = Build.VERSION.SDK_INT,
+                powerbank_id = powerbankId,
+                powerbank_capacity_start_mah = powerbankCapacityStartMah,
+                session_start_ts = sessionStartTs.toString()
+            )
+
+            AppLogger.info(
+                "세션 시작 요청: device_id=$deviceId, android_api_level=${request.android_api_level}, session_start_ts=${request.session_start_ts}",
+                TAG
+            )
+
+            val response = apiService.startSession(request).getOrThrow()
+            AppLogger.info(
+                "세션 시작 성공: session_id=${response.session_id}, device_id=${response.device_id}, user_id=${response.user_id}",
+                TAG
+            )
+            Result.success(response)
+        } catch (e: IllegalArgumentException) {
+            AppLogger.error("세션 시작 검증 실패: ${e.message}", e, TAG)
+            Result.failure(e)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true -> "세션 시작 권한이 없습니다. 다시 로그인하세요."
+                e.message?.contains("404", ignoreCase = true) == true -> "세션 시작 API를 찾을 수 없습니다."
+                e.message?.contains("422", ignoreCase = true) == true -> "세션 시작 요청 형식이 올바르지 않습니다."
+                e.message?.contains("failed to connect", ignoreCase = true) == true -> "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true -> "세션 시작 요청 시간이 초과되었습니다."
+                else -> e.message ?: "세션 시작 실패"
+            }
+            AppLogger.error("세션 시작 실패: $errorMessage", e, TAG)
+            Result.failure(Exception(errorMessage))
+        }
+    }
+
     /**
      * 배터리 등록 (서버에 저장 - ERD devices 테이블)
      * @param modelName 배터리 모델명 (필수)
@@ -341,6 +387,26 @@ class AuthRepository(
         } catch (e: Exception) {
             AppLogger.error("배터리 목록 조회 실패", e, TAG)
             Result.failure(e)
+        }
+    }
+
+    /**
+     * 현재 로그인한 사용자 소유의 배터리만 조회합니다.
+     * 서버가 전체 목록을 반환하더라도 앱에서 한 번 더 필터링합니다.
+     */
+    suspend fun getCurrentUserBatteries(): Result<List<BatteryResponse>> {
+        return getBatteries().mapCatching { batteries ->
+            val currentUserId = userManager.getCurrentUserId()
+            if (currentUserId <= 0) {
+                throw IllegalStateException("로그인된 사용자가 없습니다.")
+            }
+
+            val filteredBatteries = batteries.filter { it.user_id == currentUserId }
+            AppLogger.info(
+                "현재 사용자 배터리 필터링 완료: userId=$currentUserId, 전체 ${batteries.size}개, 사용자 ${filteredBatteries.size}개",
+                TAG
+            )
+            filteredBatteries
         }
     }
 
