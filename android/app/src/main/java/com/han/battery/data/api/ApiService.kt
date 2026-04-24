@@ -121,7 +121,7 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         Log.d("ApiService", "세션 시작 API 호출: POST $baseUrl/api/v1/sessions/start")
         Log.d(
             "ApiService",
-            "요청 데이터: device_id=${request.device_id}, android_api_level=${request.android_api_level}, powerbank_id=${request.powerbank_id}, session_start_ts=${request.session_start_ts}"
+            "요청 데이터: device_id=${request.device_id}"
         )
 
         val response = client.post("$baseUrl/api/v1/sessions/start") {

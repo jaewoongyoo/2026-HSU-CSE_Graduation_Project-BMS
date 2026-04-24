@@ -12,21 +12,17 @@ import com.han.battery.data.model.BatteryStatus
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.service.BatteryMonitoringService
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * 배터리 실시간 데이터 수집(Logic)과 기기 정보 관리(UI State)를 모두 담당하는 통합 ViewModel
  */
-@HiltViewModel
-class DashboardViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+class DashboardViewModel(
+    private val context: Context,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 

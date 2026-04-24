@@ -5,11 +5,8 @@ import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.data.storage.UserManager
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 
-@HiltViewModel
-class AppViewModel @Inject constructor(
+class AppViewModel(
     private val userManager: UserManager,
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager

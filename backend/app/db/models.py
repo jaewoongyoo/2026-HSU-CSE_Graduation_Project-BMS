@@ -1,13 +1,4 @@
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-)
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -57,12 +48,10 @@ class BatterySession(Base):
     __tablename__ = "battery_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(100), unique=True, nullable=False, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    android_api_level = Column(Integer, nullable=False)
-    powerbank_id = Column(String(100), nullable=True)
-    session_start_ts = Column(DateTime, nullable=False)
+    android_api_level = Column(Integer, nullable=True)
+    session_start_ts = Column(DateTime, nullable=True)
     session_end_ts = Column(DateTime, nullable=True)
     capacity_ah = Column(Float, nullable=True)
     powerbank_capacity_start_mah = Column(Float, nullable=True)
@@ -92,7 +81,7 @@ class BatteryTelemetry(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
-    session_id = Column(String(100), ForeignKey("battery_sessions.session_id", ondelete="CASCADE"), nullable=True)
+    session_id = Column(Integer, ForeignKey("battery_sessions.id", ondelete="CASCADE"), nullable=True)
     timestamp = Column(DateTime, nullable=False)
     soc = Column(Float, nullable=True)
     voltage = Column(Float, nullable=True)
@@ -100,8 +89,6 @@ class BatteryTelemetry(Base):
     temperature_c = Column(Float, nullable=True)
     elapsed_ms = Column(Float, nullable=True)
     battery_status = Column(String(50), nullable=True)
-    screen_state = Column(Boolean, nullable=True)
-    power_w = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
 
     device = relationship("Device", back_populates="telemetry_points")
@@ -113,8 +100,8 @@ class BatteryAiResult(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(
-        String(100),
-        ForeignKey("battery_sessions.session_id", ondelete="CASCADE"),
+        Integer,
+        ForeignKey("battery_sessions.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
         index=True,
@@ -137,7 +124,7 @@ class SohAnalysis(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True)
-    session_id = Column(String(100), ForeignKey("battery_sessions.session_id", ondelete="CASCADE"), nullable=True)
+    session_id = Column(Integer, ForeignKey("battery_sessions.id", ondelete="CASCADE"), nullable=True)
     analyzed_at = Column(DateTime, server_default=func.now(), nullable=True)
     current_soh = Column(Float, nullable=True)
     grade = Column(String(5), nullable=True)

@@ -1,5 +1,4 @@
 package com.han.battery.service
-
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -9,31 +8,25 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import com.han.battery.BatteryApplication
 import com.han.battery.data.common.BatteryUtils
 import com.han.battery.data.model.BatteryTelemetryPayload
-import com.han.battery.data.repository.AWSIoTManager
-import com.han.battery.data.repository.AuthRepository
-import com.han.battery.data.repository.BatteryRepository
-import com.han.battery.data.storage.PreferenceManager
-import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import java.time.Instant
-import javax.inject.Inject
 
-@AndroidEntryPoint(Service::class)
-class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
+class BatteryMonitoringService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private val CHANNEL_ID = "battery_monitoring_channel"
-    @Inject lateinit var repository: BatteryRepository
-    @Inject lateinit var awsIoTManager: AWSIoTManager
-    @Inject lateinit var authRepository: AuthRepository
-
-    @Inject lateinit var preferenceManager: PreferenceManager
+    private val batteryApplication by lazy { application as BatteryApplication }
+    private val repository by lazy { batteryApplication.batteryRepository }
+    private val awsIoTManager by lazy { batteryApplication.awsIoTManager }
+    private val authRepository by lazy { batteryApplication.authRepository }
+    private val preferenceManager by lazy { batteryApplication.preferenceManager }
     private var collectingJob: Job? = null
     private var flushJob: Job? = null
     private var activeDeviceId: Int = 0
     private var activeDeviceModelName: String? = null
-    private var sessionId: String? = null
+    private var sessionId: Int? = null
     private var sessionStartTimestamp: Long = System.currentTimeMillis()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,7 +62,7 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
         )
 
         startSessionResult.onSuccess { response ->
-            sessionId = response.session_id
+            sessionId = response.id
             sessionStartTimestamp = sessionStartedAt.toEpochMilli()
 
             val clientId = Settings.Secure.getString(
@@ -105,7 +98,6 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .build()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(1001, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -114,25 +106,17 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
     }
 
     private fun startCollecting() {
-        // 1. 2초마다 수집해서 DB에 넣는 일꾼
-        serviceScope.launch {
-            while (isActive) {
-                val log = BatteryUtils.getCurrentBatteryState(applicationContext, "my_device")
-                repository.insertLog(log) // DB에 차곡차곡 저장
-                Log.d("BatteryService", "2초 주기 수집 완료")
-                delay(2000) // 2초 대기
-            }
+        if (collectingJob?.isActive == true) {
+            return
         }
 
-        // 2. 1분마다 DB를 뒤져서 AWS로 쏘는 일꾼
-        serviceScope.launch {
+        collectingJob = serviceScope.launch {
             while (isActive) {
-                delay(60000) // 1분 대기
-                val pendingLogs = repository.getUnsentLogs() // DB에서 안 보낸 거 싹 가져오기
-                if (pendingLogs.isNotEmpty()) {
-                    flushPendingLogs() // AWS로 전송 실행
-                    Log.d("BatteryService", "1분 주기 묶음 전송 완료: ${pendingLogs.size}건")
-                }
+                val log = BatteryUtils.getCurrentBatteryState(applicationContext)
+                Log.d("BatteryService", "수집 완료: ${log.level}%")
+                repository.insertLog(log)
+                flushPendingLogs()
+                delay(60000)
             }
         }
     }
@@ -149,7 +133,7 @@ class BatteryMonitoringService : Hilt_BatteryMonitoringService() {
             }
 
             val currentSessionId = sessionId
-            if (currentSessionId.isNullOrBlank()) {
+            if (currentSessionId == null || currentSessionId <= 0) {
                 Log.w("BatteryService", "유효한 session_id가 없어 AWS 전송을 건너뜁니다.")
                 return@launch
             }

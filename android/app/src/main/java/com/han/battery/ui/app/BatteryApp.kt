@@ -1,11 +1,7 @@
 package com.han.battery.ui.app
 
 import android.app.Activity
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -21,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +26,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +39,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -53,6 +46,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.han.battery.BatteryApplication
 import com.han.battery.ui.auth.AuthUiEvent
 import com.han.battery.ui.auth.AuthViewModel
 import com.han.battery.ui.auth.LoginScreen
@@ -74,20 +71,53 @@ import kotlinx.coroutines.launch
 fun BatteryApp() {
     val context = LocalContext.current
     val activity = context as? Activity
+    val batteryApplication = context.applicationContext as BatteryApplication
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
-    val appViewModel: AppViewModel = hiltViewModel()
-    val authViewModel: AuthViewModel = hiltViewModel()
-    val homeViewModel: HomeViewModel = hiltViewModel()
-    val landingViewModel: LandingViewModel = hiltViewModel()
+    val appViewModel: AppViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                AppViewModel(
+                    batteryApplication.userManager,
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
+    val authViewModel: AuthViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                AuthViewModel(batteryApplication.authRepository)
+            }
+        }
+    )
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                HomeViewModel(
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
+    val landingViewModel: LandingViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                LandingViewModel(
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
 
     val devices by homeViewModel.devices.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     var showExitDialog by remember { mutableStateOf(false) }
-
-    val isCharging = rememberIsCharging()
 
     fun navigateToHome(popUpRoute: String) {
         navController.navigate("home") {
@@ -183,33 +213,6 @@ fun BatteryApp() {
                 }
             }
         },
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
-
-        // ✅ 2. 둥근 시작 버튼 추가
-        floatingActionButton = {
-            if (showBottomBar) { // 하단바가 보일 때만 버튼도 같이 보이게
-                androidx.compose.material3.FloatingActionButton(
-                    onClick = {
-                        if (isCharging) {
-                            // TODO: 여기에 세션 시작 API 및 서비스 실행 로직 연결
-                            Toast.makeText(context, "모니터링을 시작합니다!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "충전 케이블을 먼저 연결해 주세요.", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    // 충전 중이면 기본 테마색, 아니면 회색으로 변경
-                    containerColor = if (isCharging) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Gray,
-                    contentColor = androidx.compose.ui.graphics.Color.White,
-                    shape = androidx.compose.foundation.shape.CircleShape
-                ) {
-                    Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.PlayArrow,
-                        contentDescription = "모니터링 시작",
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-        },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
@@ -262,15 +265,16 @@ fun BatteryApp() {
     ) { innerPadding ->
         BatteryNavGraph(
             modifier = Modifier.padding(innerPadding),
-        navController = navController,
-        appViewModel = appViewModel,
-        authViewModel = authViewModel,
-        homeViewModel = homeViewModel,
-        landingViewModel = landingViewModel,
-        devices = devices,
-        onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
-    )
-}
+            navController = navController,
+            batteryApplication = batteryApplication,
+            appViewModel = appViewModel,
+            authViewModel = authViewModel,
+            homeViewModel = homeViewModel,
+            landingViewModel = landingViewModel,
+            devices = devices,
+            onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
+        )
+    }
 }
 
 @Composable
@@ -352,6 +356,7 @@ private fun LandingEventHandler(
 private fun BatteryNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
+    batteryApplication: BatteryApplication,
     appViewModel: AppViewModel,
     authViewModel: AuthViewModel,
     homeViewModel: HomeViewModel,
@@ -438,7 +443,16 @@ private fun BatteryNavGraph(
         ) { backStackEntry ->
             val nickname = backStackEntry.arguments?.getString("deviceNickname") ?: ""
             val device = homeViewModel.getDevice(nickname)
-            val dashboardViewModel: DashboardViewModel = hiltViewModel()
+            val dashboardViewModel: DashboardViewModel = viewModel(
+                factory = remember(batteryApplication) {
+                    simpleViewModelFactory {
+                        DashboardViewModel(
+                            batteryApplication.applicationContext,
+                            batteryApplication.preferenceManager
+                        )
+                    }
+                }
+            )
 
             if (device != null) {
                 DashboardScreen(
@@ -468,31 +482,16 @@ private fun BatteryNavGraph(
     }
 }
 
-@Composable
-fun rememberIsCharging(): Boolean {
-    val context = LocalContext.current
-    var isCharging by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        val initialIntent = context.registerReceiver(null,
-            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        )
-        val initialStatus = initialIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        isCharging = initialStatus == BatteryManager.BATTERY_STATUS_CHARGING || initialStatus == BatteryManager.BATTERY_STATUS_FULL
-
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-                isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
+private inline fun <reified VM : ViewModel> simpleViewModelFactory(
+    crossinline creator: () -> VM
+): ViewModelProvider.Factory {
+    return object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(VM::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return creator() as T
             }
-        }
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        context.registerReceiver(receiver, filter)
-
-        onDispose {
-            context.unregisterReceiver(receiver)
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
-    return isCharging
 }
