@@ -39,6 +39,9 @@ fun DashboardScreen(
     // ── 실시간 데이터 구독 (Logic) ──
     val status by viewModel.batteryStatus.collectAsState()
 
+    // ⭐ [추가] 모니터링 실행 상태 구독
+    val isMonitoring by viewModel.isMonitoring.collectAsState()
+
     LaunchedEffect(device.id, device.model_name) {
         viewModel.setDevice(device)
     }
@@ -58,6 +61,8 @@ fun DashboardScreen(
         }
         else -> "계산 중..."
     }
+
+    val monitoringTitle = if (isMonitoring) "실시간 모니터링" else "모니터링 대기중"
 
     // 기기 삭제 확인 다이얼로그
     if (showDeleteDialog.value) {
@@ -101,8 +106,6 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    LiveStatusBadge() // 실시간 연결 표시
-
                     IconButton(onClick = { menuExpanded.value = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
                     }
@@ -148,31 +151,73 @@ fun DashboardScreen(
         ) {
             // ── 1. 실시간 모니터링 섹션 ──
             MonitoringSection(
+                isMonitoring = isMonitoring,
                 soc = status.soc,
                 soh = 92,
                 power = String.format("%.1f", (status.voltage * status.current / 1000f)).toDouble(),
                 voltage = String.format("%.2f", status.voltage).toDouble(),
                 current = status.current.toInt(),
-                predictionText = predictionText // ⭐ AiAnalysisSection에 있던 걸 여기로 옮깁니다!
+                predictionText = predictionText
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                enabled = status.isCharging || isMonitoring,
+                onClick = {
+                    if (isMonitoring) {
+                        viewModel.stopMonitoring()
+                    } else {
+                        viewModel.startMonitoring()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp), // 버튼 높이를 살짝 줄여 공간 확보 (56 -> 52)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
 
-            // ── 2. AI 분석 섹션 (예측된 텍스트 전달) ──
-            // ⭐ AiAnalysisSection에 값을 넘겨주도록 변경했습니다.
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = if (isMonitoring) "진단 종료" else "AI 진단 시작",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+            }
+
+            // ⭐ [추가] 비활성화 시 사용자에게 이유를 알려주는 보조 텍스트
+            if (!status.isCharging && !isMonitoring) {
+                Text(
+                    text = "보조배터리가 충전 중일 때만 진단이 가능합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .align(Alignment.CenterHorizontally)
+                )
+            }
+
+            // 💡 기존 12.dp -> 4.dp로 줄임 (구분선 주변 간격 최소화)
+            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ── 2. AI 분석 섹션 ──
             AiAnalysisSection(
                 predictedTimeText = predictionText
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // 💡 기존 8.dp -> 0.dp 또는 아주 작은 값으로 변경
+            Spacer(modifier = Modifier.height(2.dp))
 
             // ── 3. 예측 차트 섹션 ──
             PredictionSection()
 
             // ── 4. 온도 정보 ──
-            Spacer(modifier = Modifier.height(12.dp))
+            // 💡 기존 12.dp -> 4.dp
+            Spacer(modifier = Modifier.height(4.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(12.dp),
@@ -185,6 +230,8 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp)) // 하단 여백 최소화
         }
     }
 }

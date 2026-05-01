@@ -34,6 +34,10 @@ class DashboardViewModel(
     private val _batteryStatus = MutableStateFlow(BatteryStatus())
     val batteryStatus: StateFlow<BatteryStatus> = _batteryStatus.asStateFlow()
 
+    // ── 3. 모니터링 서비스 실행 상태 관리 ──
+    private val _isMonitoring = MutableStateFlow(false)
+    val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
+
     init {
         // 앱 시작 시 실제 배터리 모니터링 루프 가동
         monitorBattery()
@@ -48,6 +52,32 @@ class DashboardViewModel(
         ensureMonitoringServiceIfCharging()
     }
 
+    // ── [추가됨] 수동으로 모니터링 시작 (버튼 클릭 시 호출) ──
+    fun startMonitoring() {
+        val activeDevice = preferenceManager.getActiveDevice()
+        if (activeDevice == null) {
+            Log.w("DashboardViewModel", "등록된 기기가 없어 시작할 수 없습니다.")
+            return
+        }
+
+        val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+        _isMonitoring.value = true
+        Log.d("DashboardViewModel", "사용자 요청으로 모니터링 서비스를 시작합니다.")
+    }
+
+    // ── [추가됨] 수동으로 모니터링 종료 (버튼 클릭 시 호출) ──
+    fun stopMonitoring() {
+        val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
+        context.stopService(serviceIntent)
+        _isMonitoring.value = false
+        Log.d("DashboardViewModel", "사용자 요청으로 모니터링 서비스를 종료합니다.")
+    }
+
     private fun ensureMonitoringServiceIfCharging() {
         val batteryStatusIntent = context.registerReceiver(
             null,
@@ -56,7 +86,7 @@ class DashboardViewModel(
 
         val status = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-            status == BatteryManager.BATTERY_STATUS_FULL
+                status == BatteryManager.BATTERY_STATUS_FULL
 
         if (!isCharging) {
             Log.d("DashboardViewModel", "현재 충전 중이 아니어서 모니터링 서비스를 시작하지 않습니다.")
@@ -69,6 +99,8 @@ class DashboardViewModel(
         } else {
             context.startService(serviceIntent)
         }
+
+        _isMonitoring.value = true // 상태 업데이트 추가
         Log.d("DashboardViewModel", "현재 충전 중이므로 모니터링 서비스를 시작합니다.")
     }
 

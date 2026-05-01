@@ -1,4 +1,5 @@
 package com.han.battery.service
+
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -10,7 +11,9 @@ import android.provider.Settings
 import android.util.Log
 import com.han.battery.BatteryApplication
 import com.han.battery.data.common.BatteryUtils
-import com.han.battery.data.model.BatteryTelemetryPayload
+// ⭐ [확인] 새로 만든 옵션 B 데이터 클래스 두 개를 임포트합니다.
+import com.han.battery.data.model.BatteryTelemetryBatchPayload
+import com.han.battery.data.model.BatteryTelemetryLog
 import kotlinx.coroutines.*
 import java.time.Instant
 
@@ -22,8 +25,10 @@ class BatteryMonitoringService : Service() {
     private val awsIoTManager by lazy { batteryApplication.awsIoTManager }
     private val authRepository by lazy { batteryApplication.authRepository }
     private val preferenceManager by lazy { batteryApplication.preferenceManager }
+
     private var collectingJob: Job? = null
-    private var flushJob: Job? = null
+    private var flushLoopJob: Job? = null
+
     private var activeDeviceId: Int = 0
     private var activeDeviceModelName: String? = null
     private var sessionId: Int? = null
@@ -54,6 +59,7 @@ class BatteryMonitoringService : Service() {
 
     private suspend fun startSessionAndMonitoring(powerbankCapacityStartMah: Double?) {
         val sessionStartedAt = Instant.now()
+
         val startSessionResult = authRepository.startBatterySession(
             deviceId = activeDeviceId,
             powerbankId = activeDeviceModelName,
@@ -70,12 +76,15 @@ class BatteryMonitoringService : Service() {
                 Settings.Secure.ANDROID_ID
             )
             Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
+
             awsIoTManager.initAndConnect(clientId, activeDeviceId) {
                 serviceScope.launch {
                     flushPendingLogs()
+                    startFlushingLoop()
                 }
             }
             startCollecting()
+
         }.onFailure { error ->
             Log.e("BatteryService", "세션 시작 실패로 모니터링을 중단합니다: ${error.message}", error)
             stopSelf()
@@ -106,68 +115,67 @@ class BatteryMonitoringService : Service() {
     }
 
     private fun startCollecting() {
-        if (collectingJob?.isActive == true) {
-            return
-        }
+        if (collectingJob?.isActive == true) return
 
         collectingJob = serviceScope.launch {
             while (isActive) {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
-                Log.d("BatteryService", "수집 완료: ${log.level}%")
                 repository.insertLog(log)
-                flushPendingLogs()
-                delay(60000)
+                delay(2000)
             }
         }
     }
 
-    private suspend fun flushPendingLogs() {
-        if (flushJob?.isActive == true) {
-            return
+    private fun startFlushingLoop() {
+        if (flushLoopJob?.isActive == true) return
+
+        flushLoopJob = serviceScope.launch {
+            while (isActive) {
+                delay(60000)
+                flushPendingLogs()
+            }
         }
+    }
 
-        flushJob = serviceScope.launch {
-            val pendingLogs = repository.getUnsentLogs()
-            if (pendingLogs.isEmpty()) {
-                return@launch
-            }
+    // ⭐ [완전 수정됨] 옵션 B (배치 전송) 방식에 맞게 데이터 맵핑 구조 변경
+    private suspend fun flushPendingLogs() {
+        val pendingLogs = repository.getUnsentLogs() // 1. DB에서 미전송 로그(BatteryLog) 가져오기
+        if (pendingLogs.isEmpty()) return
 
-            val currentSessionId = sessionId
-            if (currentSessionId == null || currentSessionId <= 0) {
-                Log.w("BatteryService", "유효한 session_id가 없어 AWS 전송을 건너뜁니다.")
-                return@launch
-            }
+        val currentSessionId = sessionId ?: return
+        val screenState = getCurrentScreenState()
 
-            val screenState = getCurrentScreenState()
-            val telemetryPayloads = pendingLogs.map { log ->
-                BatteryTelemetryPayload(
-                    device_id = activeDeviceId,
-                    session_id = currentSessionId,
-                    timestamp = log.timestamp,
-                    level = log.level,
-                    voltage = log.voltage,
-                    current = log.current,
-                    temperature = log.temperature,
-                    elapsed_ms = (log.timestamp - sessionStartTimestamp).coerceAtLeast(0L),
-                    isCharging = log.isCharging,
-                    screen_state = screenState
-                )
-            }
-
-            repository.sendToAWS(
-                logs = telemetryPayloads,
-                onSuccess = {
-                    serviceScope.launch {
-                        repository.markAsSent(pendingLogs.map { it.id })
-                        Log.d("BatteryService", "AWS 전송 성공 및 sent 처리 완료: ${pendingLogs.size}건")
-                    }
-                },
-                onFailure = { error ->
-                    Log.w("BatteryService", "AWS 전송 보류: ${error?.message ?: "연결 안 됨"}")
-                }
+        // 2. [Mapping] BatteryLog(DB용) -> BatteryTelemetryLog(서버용) 변환
+        val mappedLogs = pendingLogs.map { dbLog ->
+            BatteryTelemetryLog(
+                timestamp = dbLog.timestamp,
+                level = dbLog.level,
+                voltage = dbLog.voltage,
+                current = dbLog.current,
+                temperature = dbLog.temperature,
+                elapsedMs = (dbLog.timestamp - sessionStartTimestamp).coerceAtLeast(0L),
+                isCharging = dbLog.isCharging,
+                screenState = screenState
             )
         }
-        flushJob?.join()
+
+        // 3. [Batch] 택배 박스(BatteryTelemetryBatchPayload)에 담기
+        val batchPayload = BatteryTelemetryBatchPayload(
+            deviceId = activeDeviceId,
+            sessionId = currentSessionId,
+            logs = mappedLogs
+        )
+
+        // 4. 전송
+        repository.sendToAWS(
+            payload = batchPayload, // 📦 이제 리스트가 아닌 '객체 하나'를 보냅니다.
+            onSuccess = {
+                serviceScope.launch {
+                    repository.markAsSent(pendingLogs.map { it.id })
+                    Log.d("BatteryService", "AWS 배치 전송 완료: ${pendingLogs.size}건")
+                }
+            }
+        )
     }
 
     private fun getCurrentScreenState(): Boolean {
@@ -180,7 +188,10 @@ class BatteryMonitoringService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         collectingJob?.cancel()
-        flushJob?.cancel()
+        flushLoopJob?.cancel()
+
+        awsIoTManager.disconnect()
+
         serviceScope.cancel()
     }
 }

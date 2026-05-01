@@ -8,7 +8,6 @@ import com.amazonaws.mobileconnectors.iot.AWSIotMqttQos
 import com.google.gson.Gson
 import com.han.battery.R
 import com.han.battery.data.common.KeyStoreHelper
-import com.han.battery.data.model.BatteryTelemetryPayload
 
 class AWSIoTManager(private val context: Context) {
     private val endpoint = "adp3srf4gjqs5-ats.iot.ap-northeast-2.amazonaws.com"
@@ -27,7 +26,8 @@ class AWSIoTManager(private val context: Context) {
         topic = "battery/$deviceId/telemetry"
 
         if (::mqttManager.isInitialized && isConnected && connectedDeviceId == deviceId) {
-            Log.d("AWSIoTManager", "이미 연결되어 있음, 스킵")
+            Log.d("AWSIoTManager", "이미 연결되어 있음, 스킵 (콜백은 실행합니다)")
+            onConnected() // ⭐ [수정 1] 콜백 누락 버그 해결! 타이머 루프 정상 가동
             return
         }
 
@@ -45,8 +45,8 @@ class AWSIoTManager(private val context: Context) {
                 R.raw.private_key,
                 R.raw.amazon_root_ca1
             )
-            // ✅ KeyStore 로드 확인 로그 추가
             Log.d("AWSIoTManager", "KeyStore 로드 성공 ✅ 타입: ${keyStore.type}, 크기: ${keyStore.size()}")
+
             mqttManager.connect(keyStore) { status, throwable ->
                 when (status) {
                     AWSIotMqttClientStatusCallback.AWSIotMqttClientStatus.Connected -> {
@@ -72,8 +72,19 @@ class AWSIoTManager(private val context: Context) {
         }
     }
 
+    // ⭐ [수정 2] 서비스 종료(onDestroy) 시 호출할 연결 해제 함수 추가
+    fun disconnect() {
+        if (::mqttManager.isInitialized && isConnected) {
+            runCatching { mqttManager.disconnect() }
+            isConnected = false
+            connectedDeviceId = null
+            Log.d("AWSIoTManager", "AWS MQTT 연결 강제 종료 완료")
+        }
+    }
+
+    // ⭐ [수정 3] forEach를 제거하고 배치(Batch) 단일 전송으로 로직 최적화
     fun publishLogs(
-        logs: List<BatteryTelemetryPayload>,
+        payload: Any, // 어떤 데이터 클래스 형태가 오든 하나로 묶어서 전송합니다.
         onSuccess: () -> Unit,
         onFailure: (Throwable?) -> Unit = {}
     ) {
@@ -83,31 +94,21 @@ class AWSIoTManager(private val context: Context) {
             return
         }
 
-        if (logs.isEmpty()) {
-            onSuccess()
-            return
-        }
-
         try {
-            var acknowledgedCount = 0
-            logs.forEach { log ->
-                val payload = Gson().toJson(log)
-                mqttManager.publishString(
-                    payload,
-                    topic,
-                    AWSIotMqttQos.QOS1,
-                    { _, _ ->
-                        synchronized(this) {
-                            acknowledgedCount += 1
-                            if (acknowledgedCount == logs.size) {
-                                onSuccess()
-                            }
-                        }
-                    },
-                    null
-                )
-            }
-            Log.d("AWSIoTManager", "Telemetry 발행 요청 완료: topic=$topic, count=${logs.size}")
+            // 여러 개의 데이터가 담긴 BatchPayload 객체를 통째로 1개의 JSON String으로 변환합니다.
+            val jsonPayload = Gson().toJson(payload)
+
+            mqttManager.publishString(
+                jsonPayload,
+                topic,
+                AWSIotMqttQos.QOS1,
+                { _, _ ->
+                    // 단 한 번의 MQTT 전송만 수행하므로 곧바로 onSuccess 호출!
+                    onSuccess()
+                },
+                null
+            )
+            Log.d("AWSIoTManager", "Telemetry 1분 단위 배치 전송 완료! 🚀")
         } catch (e: Exception) {
             Log.e("AWSIoTManager", "전송 실패", e)
             onFailure(e)
