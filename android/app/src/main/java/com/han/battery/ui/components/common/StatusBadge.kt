@@ -1,5 +1,4 @@
 package com.han.battery.ui.components.common
-// 배터리 상태를 시각적으로 표시하는 배지 컴포넌트 (정상, 주의, 위험 등)
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -21,10 +20,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LiveStatusBadge(modifier: Modifier = Modifier) {
+fun LiveStatusBadge(
+    isLive: Boolean, // ⭐ [추가] 상태를 전달받을 파라미터
+    modifier: Modifier = Modifier
+) {
+    // ⭐ [추가] 상태에 따라 색상과 텍스트 결정
+    val badgeColor = if (isLive) Color(0xFF10b981) else Color(0xFF64748B) // Green vs Slate Gray
+    val badgeText = if (isLive) "실시간 모니터링" else "모니터링 대기중"
+
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = Color(0xFF10b981).copy(alpha = 0.12f),
+        color = badgeColor.copy(alpha = 0.12f), // 동적 색상 적용
         modifier = modifier
     ) {
         Row(
@@ -34,14 +40,14 @@ fun LiveStatusBadge(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(6.dp)
-                    .background(Color(0xFF10b981), CircleShape)
+                    .background(badgeColor, CircleShape) // 동적 색상 적용
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "실시간 모니터링",
+                text = badgeText, // 동적 텍스트 적용
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF10b981)
+                color = badgeColor // 동적 색상 적용
             )
         }
     }
@@ -68,4 +74,3 @@ fun StatusPill(
         )
     }
 }
-
