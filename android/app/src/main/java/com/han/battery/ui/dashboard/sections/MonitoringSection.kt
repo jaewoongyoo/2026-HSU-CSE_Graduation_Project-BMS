@@ -29,9 +29,10 @@ fun MonitoringSection(
     isMonitoring: Boolean, // ⭐ [수정됨] title 파라미터 대신 상태값을 직접 받습니다.
     soc: Int,
     soh: Int,
-    power: Double,
+    power: String,
+    powerUnit: String,
     voltage: Double,
-    current: Int,
+    current: String,
     predictionText: String = ""
 ) {
     Column {
@@ -80,8 +81,8 @@ fun MonitoringSection(
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "충전 속도",
-                value = power.toString(),
-                unit = "W",
+                value = power,
+                unit = powerUnit,
                 accent = Blue600
             )
             SmallMetricCard(
@@ -94,7 +95,7 @@ fun MonitoringSection(
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "전류",
-                value = current.toString(),
+                value = current,
                 unit = "mA",
                 accent = Emerald500
             )

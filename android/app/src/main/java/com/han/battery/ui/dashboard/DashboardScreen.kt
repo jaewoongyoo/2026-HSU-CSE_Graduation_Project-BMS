@@ -22,6 +22,7 @@ import com.han.battery.ui.components.common.LiveStatusBadge
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
 import com.han.battery.ui.dashboard.sections.MonitoringSection
 import com.han.battery.ui.dashboard.sections.PredictionSection
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +64,14 @@ fun DashboardScreen(
     }
 
     val monitoringTitle = if (isMonitoring) "실시간 모니터링" else "모니터링 대기중"
+    val powerW = status.voltage * status.current / 1000f
+    val powerDisplayValue = if (abs(powerW) < 1f) {
+        String.format("%.2f", powerW * 1000f)
+    } else {
+        String.format("%.2f", powerW)
+    }
+    val powerDisplayUnit = if (abs(powerW) < 1f) "mW" else "W"
+    val currentDisplayValue = String.format("%.2f", status.current)
 
     // 기기 삭제 확인 다이얼로그
     if (showDeleteDialog.value) {
@@ -94,7 +103,10 @@ fun DashboardScreen(
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "${device.powerbank_capacity_mah} mAh",
+                            text = listOfNotNull(
+                                device.manufacturer.takeIf { it.isNotBlank() },
+                                "${device.powerbank_capacity_mah} mAh"
+                            ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -154,9 +166,10 @@ fun DashboardScreen(
                 isMonitoring = isMonitoring,
                 soc = status.soc,
                 soh = 92,
-                power = String.format("%.1f", (status.voltage * status.current / 1000f)).toDouble(),
+                power = powerDisplayValue,
+                powerUnit = powerDisplayUnit,
                 voltage = String.format("%.2f", status.voltage).toDouble(),
-                current = status.current.toInt(),
+                current = currentDisplayValue,
                 predictionText = predictionText
             )
 
