@@ -143,7 +143,7 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
     // 배터리 관련 API
     suspend fun registerBattery(request: BatteryRegistrationRequest): Result<BatteryResponse> = runCatching {
         Log.d("ApiService", "배터리 등록 API 호출: POST $baseUrl/api/v1/devices")
-        Log.d("ApiService", "요청 데이터: model_name=${request.model_name}, powerbank_capacity_mah=${request.powerbank_capacity_mah}")
+        Log.d("ApiService", "요청 데이터: manufacturer=${request.manufacturer}, model_name=${request.model_name}, powerbank_capacity_mah=${request.powerbank_capacity_mah}")
 
         // API 엔드포인트 검증
         if (!baseUrl.startsWith("http")) {

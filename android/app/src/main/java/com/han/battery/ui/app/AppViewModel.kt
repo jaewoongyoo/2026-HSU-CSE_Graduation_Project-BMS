@@ -19,6 +19,7 @@ class AppViewModel(
             val syncedDevices = batteries.mapNotNull { battery ->
                 runCatching {
                     BatteryDevice(
+                        manufacturer = battery.manufacturer.orEmpty(),
                         model_name = battery.model_name,
                         powerbank_capacity_mah = battery.powerbank_capacity_mah ?: 0,
                         manufacture_date = battery.manufacture_date.orEmpty(),

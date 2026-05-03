@@ -309,7 +309,8 @@ class AuthRepository(
     suspend fun registerBattery(
         modelName: String,
         powerbankCapacityMah: Int,
-        manufactureDate: String? = null
+        manufactureDate: String? = null,
+        manufacturer: String? = null
     ): Result<BatteryResponse> {
         return try {
             // 입력값 검증
@@ -332,12 +333,13 @@ class AuthRepository(
 
             val request = BatteryRegistrationRequest(
                 user_id = userId.toString(),    // ✅ String으로 변환
+                manufacturer = manufacturer?.trim()?.ifBlank { null },
                 model_name = modelName.trim(),
                 powerbank_capacity_mah = powerbankCapacityMah,
                 manufacture_date = manufactureDate?.ifBlank { null }
             )
 
-            AppLogger.info("API 요청: user_id=$userId, model_name=$modelName, powerbank_capacity_mah=$powerbankCapacityMah, date=$manufactureDate", TAG)
+            AppLogger.info("API 요청: user_id=$userId, manufacturer=$manufacturer, model_name=$modelName, powerbank_capacity_mah=$powerbankCapacityMah, date=$manufactureDate", TAG)
 
             val response = apiService.registerBattery(request).getOrThrow()
 

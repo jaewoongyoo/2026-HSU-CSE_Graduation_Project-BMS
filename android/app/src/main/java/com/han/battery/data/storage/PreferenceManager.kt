@@ -57,6 +57,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             for (d in devices) {
                 val json = JSONObject().apply {
                     put("id", d.id)
+                    put("manufacturer", d.manufacturer)
                     put("model_name", d.model_name)
                     put("powerbank_capacity_mah", d.powerbank_capacity_mah)
                     put("manufacture_date", d.manufacture_date)
@@ -110,6 +111,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             for (device in mergedDevices.values) {
                 val json = JSONObject().apply {
                     put("id", device.id)
+                    put("manufacturer", device.manufacturer)
                     put("model_name", device.model_name)
                     put("powerbank_capacity_mah", device.powerbank_capacity_mah)
                     put("manufacture_date", device.manufacture_date)
@@ -151,6 +153,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             for (i in 0 until jsonArray.length()) {
                 val json = jsonArray.getJSONObject(i)
                 val device = BatteryDevice(
+                    manufacturer = json.optString("manufacturer", ""),
                     model_name = json.getString("model_name"),
                     powerbank_capacity_mah = json.getInt("powerbank_capacity_mah"),
                     manufacture_date = json.getString("manufacture_date"),
@@ -200,6 +203,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
                 for (d in devices) {
                     val json = JSONObject().apply {
                         put("id", d.id)
+                        put("manufacturer", d.manufacturer)
                         put("model_name", d.model_name)
                         put("powerbank_capacity_mah", d.powerbank_capacity_mah)
                         put("manufacture_date", d.manufacture_date)
@@ -244,6 +248,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         try {
             val json = JSONObject().apply {
                 put("id", device.id)
+                put("manufacturer", device.manufacturer)
                 put("model_name", device.model_name)
                 put("powerbank_capacity_mah", device.powerbank_capacity_mah)
                 put("manufacture_date", device.manufacture_date)
@@ -262,6 +267,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             val jsonString = prefs.getString(getUserActiveDeviceKey(), null) ?: return null
             val json = JSONObject(jsonString)
             BatteryDevice(
+                manufacturer = json.optString("manufacturer", ""),
                 model_name = json.getString("model_name"),
                 powerbank_capacity_mah = json.getInt("powerbank_capacity_mah"),
                 manufacture_date = json.getString("manufacture_date"),

@@ -2,12 +2,14 @@ package com.han.battery.data.model
 
 // ERD의 devices 테이블 기준
 data class BatteryDevice(
+    val manufacturer: String = "",
     val model_name: String,
     val powerbank_capacity_mah: Int = 0,
     val manufacture_date: String = "",
     val id: Int = 0  // ✅ 서버 DB의 device ID (삭제할 때 필요)
 ) {
     init {
+        require(manufacturer.length <= 100) { "manufacturer must be 100 characters or fewer" }
         require(model_name.isNotBlank()) { "model_name is required" }
         require(model_name.length <= 100) { "model_name must be 100 characters or fewer" }
         if (powerbank_capacity_mah > 0) {
@@ -22,6 +24,7 @@ data class BatteryDevice(
     fun toRegistrationRequest(userId: Int): BatteryRegistrationRequest {
         return BatteryRegistrationRequest(
             user_id = userId.toString(),    // ✅ String으로 변환
+            manufacturer = manufacturer.takeIf { it.isNotBlank() },
             model_name = model_name,
             powerbank_capacity_mah = powerbank_capacity_mah,
             manufacture_date = manufacture_date.takeIf { it.isNotBlank() }

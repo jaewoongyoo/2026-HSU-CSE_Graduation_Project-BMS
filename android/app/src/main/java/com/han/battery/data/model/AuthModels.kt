@@ -61,6 +61,7 @@ data class ErrorDetail(
 @Serializable
 data class BatteryRegistrationRequest(
     val user_id: String,           // ✅ API 명세: user_id는 String
+    val manufacturer: String? = null,
     val model_name: String,
     val powerbank_capacity_mah: Int,
     val manufacture_date: String? = null
@@ -70,6 +71,7 @@ data class BatteryRegistrationRequest(
 data class BatteryResponse(
     val id: Int,
     val user_id: Int,
+    val manufacturer: String? = null,
     val model_name: String,
     val powerbank_capacity_mah: Int? = null,   // ✅ nullable로 변경
     val manufacture_date: String? = null,       // ✅ nullable로 변경
