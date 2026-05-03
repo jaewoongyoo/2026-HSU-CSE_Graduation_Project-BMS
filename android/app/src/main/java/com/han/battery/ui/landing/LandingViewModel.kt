@@ -41,7 +41,8 @@ class LandingViewModel(
             val result = authRepository.registerBattery(
                 modelName = deviceInfo.model_name,
                 powerbankCapacityMah = deviceInfo.powerbank_capacity_mah,
-                manufactureDate = deviceInfo.manufacture_date.ifBlank { null }
+                manufactureDate = deviceInfo.manufacture_date.ifBlank { null },
+                manufacturer = deviceInfo.manufacturer.ifBlank { null }
             )
 
             result.onSuccess { batteryResponse ->

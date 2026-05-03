@@ -276,6 +276,14 @@ fun DeviceCard(
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(6.dp))
+                if (device.manufacturer.isNotBlank()) {
+                    Text(
+                        text = "제조사: ${device.manufacturer}",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Text(
                     text = "제조: ${device.manufacture_date}",
                     fontSize = 12.sp,

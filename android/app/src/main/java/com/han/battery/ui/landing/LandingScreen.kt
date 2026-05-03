@@ -36,16 +36,19 @@ fun LandingScreen(
     onBackClick: () -> Unit
 ) {
     // ── 상태 관리 ──
-    var currentStep by remember { mutableIntStateOf(0) } // 0: 초기, 1: 모델명, 2: 용량, 3: 제조년월
+    var currentStep by remember { mutableIntStateOf(0) } // 0: 초기, 1: 제조사, 2: 모델명, 3: 용량, 4: 제조년월
+    var manufacturer by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
     var capacity by remember { mutableStateOf("") }
     var manufactureDate by remember { mutableStateOf("") }
 
     // ── 입력 필드 포커스 ──
+    val manufacturerFocusRequester = remember { FocusRequester() }
     val nicknameFocusRequester = remember { FocusRequester() }
     val capacityFocusRequester = remember { FocusRequester() }
 
     // ── 유효성 검사 ──
+    var manufacturerError by remember { mutableStateOf("") }
     var nicknameError by remember { mutableStateOf("") }
     var capacityError by remember { mutableStateOf("") }
 
@@ -67,8 +70,9 @@ fun LandingScreen(
     // 첫 렌더링 시 첫 번째 필드에 포커스
     LaunchedEffect(currentStep) {
         when (currentStep) {
-            1 -> nicknameFocusRequester.requestFocus()
-            2 -> capacityFocusRequester.requestFocus()
+            1 -> manufacturerFocusRequester.requestFocus()
+            2 -> nicknameFocusRequester.requestFocus()
+            3 -> capacityFocusRequester.requestFocus()
         }
     }
 
@@ -234,6 +238,15 @@ fun LandingScreen(
     } else {
         StepInputScreen(
             currentStep = currentStep,
+            manufacturer = manufacturer,
+            onManufacturerChange = {
+                manufacturer = it
+                manufacturerError = when {
+                    it.isBlank() -> "제조사를 입력하세요"
+                    it.length > 100 -> "제조사는 100자 이하여야 합니다"
+                    else -> ""
+                }
+            },
             nickname = nickname,
             onNicknameChange = {
                 nickname = it
@@ -256,8 +269,10 @@ fun LandingScreen(
             onManufactureDateChange = { date ->
                 manufactureDate = date
             },
+            manufacturerError = manufacturerError,
             nicknameError = nicknameError,
             capacityError = capacityError,
+            manufacturerFocusRequester = manufacturerFocusRequester,
             nicknameFocusRequester = nicknameFocusRequester,
             capacityFocusRequester = capacityFocusRequester,
             onNextClick = {
@@ -268,9 +283,10 @@ fun LandingScreen(
             },
             onCompleteClick = {
                 val capacityInt = capacity.toIntOrNull() ?: 0
-                if (capacityInt > 0 && capacityInt <= 100000 && nickname.isNotBlank() && manufactureDate.isNotBlank()) {
+                if (capacityInt > 0 && capacityInt <= 100000 && manufacturer.isNotBlank() && nickname.isNotBlank() && manufactureDate.isNotBlank()) {
                     onStartClick(
                         DeviceInfo(
+                            manufacturer = manufacturer.trim(),
                             model_name = nickname.trim(),
                             powerbank_capacity_mah = capacityInt,
                             manufacture_date = manufactureDate.trim()
@@ -285,14 +301,18 @@ fun LandingScreen(
 @Composable
 fun StepInputScreen(
     currentStep: Int,
+    manufacturer: String,
+    onManufacturerChange: (String) -> Unit,
     nickname: String,
     onNicknameChange: (String) -> Unit,
     capacity: String,
     onCapacityChange: (String) -> Unit,
     manufactureDate: String,
     onManufactureDateChange: (String) -> Unit,
+    manufacturerError: String,
     nicknameError: String,
     capacityError: String,
+    manufacturerFocusRequester: FocusRequester,
     nicknameFocusRequester: FocusRequester,
     capacityFocusRequester: FocusRequester,
     onNextClick: () -> Unit,
@@ -340,7 +360,48 @@ fun StepInputScreen(
                 Column(modifier = Modifier.padding(24.dp)) {
                     when (currentStep) {
                         1 -> {
-                            // ── Step 1: 모델명 ──
+                            // ── Step 1: 제조사 ──
+                            Icon(
+                                Icons.Default.Business,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(48.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+
+                            Text(
+                                "배터리 제조사",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "보조배터리 제조사를 입력해주세요",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+
+                            Spacer(Modifier.height(24.dp))
+
+                            BatteryFormField(
+                                label = "제조사 *",
+                                value = manufacturer,
+                                onValueChange = onManufacturerChange,
+                                placeholder = "예: Anker, Samsung",
+                                focusRequester = manufacturerFocusRequester,
+                                maxLength = 100,
+                                isError = manufacturerError.isNotEmpty(),
+                                helperText = "배터리 제조사를 입력하세요 (${manufacturer.length}/100)",
+                                errorText = manufacturerError
+                            )
+                        }
+
+                        2 -> {
+                            // ── Step 2: 모델명 ──
                             Icon(
                                 Icons.Default.Devices,
                                 contentDescription = null,
@@ -380,8 +441,8 @@ fun StepInputScreen(
                             )
                         }
 
-                        2 -> {
-                            // ── Step 2: 용량 ──
+                        3 -> {
+                            // ── Step 3: 용량 ──
                             Icon(
                                 Icons.Default.Battery6Bar,
                                 contentDescription = null,
@@ -422,8 +483,8 @@ fun StepInputScreen(
                             )
                         }
 
-                        3 -> {
-                            // ── Step 3: 제조년월 ──
+                        4 -> {
+                            // ── Step 4: 제조년월 ──
                             Icon(
                                 Icons.Default.DateRange,
                                 contentDescription = null,
@@ -515,15 +576,16 @@ fun StepInputScreen(
                         }
 
                         val isCurrentStepValid = when (currentStep) {
-                            1 -> nickname.isNotBlank() && nicknameError.isEmpty()
-                            2 -> capacity.isNotBlank() && capacityError.isEmpty()
-                            3 -> manufactureDate.isNotBlank()
+                            1 -> manufacturer.isNotBlank() && manufacturerError.isEmpty()
+                            2 -> nickname.isNotBlank() && nicknameError.isEmpty()
+                            3 -> capacity.isNotBlank() && capacityError.isEmpty()
+                            4 -> manufactureDate.isNotBlank()
                             else -> false
                         }
 
                         Button(
                             onClick = {
-                                if (currentStep < 3) {
+                                if (currentStep < 4) {
                                     onNextClick()
                                 } else {
                                     onCompleteClick()
@@ -540,7 +602,7 @@ fun StepInputScreen(
                             )
                         ) {
                             Text(
-                                if (currentStep == 3) "등록" else "다음",
+                                if (currentStep == 4) "등록" else "다음",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -554,7 +616,7 @@ fun StepInputScreen(
     }
 
     // 캘린더 다이얼로그
-    if (showDatePicker && currentStep == 3) {
+    if (showDatePicker && currentStep == 4) {
         DatePickerDialog(
             selectedDate = manufactureDate,
             onDateSelected = { date ->
@@ -573,7 +635,7 @@ fun StepProgressBar(currentStep: Int) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        repeat(3) { index ->
+        repeat(4) { index ->
             val stepNum = index + 1
 
             Box(
@@ -591,7 +653,7 @@ fun StepProgressBar(currentStep: Int) {
     Spacer(Modifier.height(12.dp))
 
     Text(
-        "Step $currentStep / 3",
+        "Step $currentStep / 4",
         fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     )
