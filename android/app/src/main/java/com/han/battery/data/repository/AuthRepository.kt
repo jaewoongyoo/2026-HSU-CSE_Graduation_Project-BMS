@@ -299,6 +299,57 @@ class AuthRepository(
         }
     }
 
+    suspend fun finishBatterySession(
+        sessionId: Int,
+        powerbankCapacityStartMah: Double? = null,
+        sessionStartTs: Instant? = null,
+        sessionEndTs: Instant = Instant.now(),
+        capacityAh: Double,
+        powerbankCapacityEndMah: Double? = null,
+        labelCapacityAh: Double? = null
+    ): Result<SessionFinishResponse> {
+        return try {
+            require(sessionId > 0) { "유효한 세션 ID가 필요합니다." }
+            require(capacityAh >= 0.0) { "capacity_ah는 0 이상이어야 합니다." }
+
+            val request = SessionFinishRequest(
+                android_api_level = Build.VERSION.SDK_INT,
+                powerbank_capacity_start_mah = powerbankCapacityStartMah,
+                session_start_ts = sessionStartTs?.toString(),
+                session_end_ts = sessionEndTs.toString(),
+                capacity_ah = capacityAh,
+                powerbank_capacity_end_mah = powerbankCapacityEndMah,
+                label_capacity_ah = labelCapacityAh
+            )
+
+            AppLogger.info(
+                "세션 종료 요청: session_id=$sessionId, capacity_ah=$capacityAh, session_end_ts=$sessionEndTs",
+                TAG
+            )
+
+            val response = apiService.finishSession(sessionId, request).getOrThrow()
+            AppLogger.info(
+                "세션 종료 성공: id=${response.id}, status=${response.status}",
+                TAG
+            )
+            Result.success(response)
+        } catch (e: IllegalArgumentException) {
+            AppLogger.error("세션 종료 검증 실패: ${e.message}", e, TAG)
+            Result.failure(e)
+        } catch (e: Exception) {
+            val errorMessage = when {
+                e.message?.contains("401", ignoreCase = true) == true -> "세션 종료 권한이 없습니다. 다시 로그인하세요."
+                e.message?.contains("404", ignoreCase = true) == true -> "세션 종료 API 또는 세션을 찾을 수 없습니다."
+                e.message?.contains("422", ignoreCase = true) == true -> "세션 종료 요청 형식이 올바르지 않습니다."
+                e.message?.contains("failed to connect", ignoreCase = true) == true -> "서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요."
+                e.message?.contains("timeout", ignoreCase = true) == true -> "세션 종료 요청 시간이 초과되었습니다."
+                else -> e.message ?: "세션 종료 실패"
+            }
+            AppLogger.error("세션 종료 실패: $errorMessage", e, TAG)
+            Result.failure(Exception(errorMessage))
+        }
+    }
+
     /**
      * 배터리 등록 (서버에 저장 - ERD devices 테이블)
      * @param modelName 배터리 모델명 (필수)

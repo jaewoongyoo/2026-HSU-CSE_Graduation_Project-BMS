@@ -140,6 +140,32 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         response.body()
     }
 
+    suspend fun finishSession(
+        sessionId: Int,
+        request: SessionFinishRequest
+    ): Result<SessionFinishResponse> = runCatching {
+        Log.d("ApiService", "세션 종료 API 호출: POST $baseUrl/api/v1/sessions/$sessionId/finish")
+        Log.d(
+            "ApiService",
+            "요청 데이터: android_api_level=${request.android_api_level}, capacity_ah=${request.capacity_ah}, session_end_ts=${request.session_end_ts}"
+        )
+
+        val response = client.post("$baseUrl/api/v1/sessions/$sessionId/finish") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+
+        Log.d("ApiService", "응답 상태: ${response.status} (${response.status.value})")
+
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "세션 종료 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+
+        response.body()
+    }
+
     // 배터리 관련 API
     suspend fun registerBattery(request: BatteryRegistrationRequest): Result<BatteryResponse> = runCatching {
         Log.d("ApiService", "배터리 등록 API 호출: POST $baseUrl/api/v1/devices")

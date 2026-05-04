@@ -16,6 +16,7 @@ import com.han.battery.data.model.BatteryTelemetryBatchPayload
 import com.han.battery.data.model.BatteryTelemetryLog
 import kotlinx.coroutines.*
 import java.time.Instant
+import kotlin.math.abs
 
 class BatteryMonitoringService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
@@ -32,7 +33,12 @@ class BatteryMonitoringService : Service() {
     private var activeDeviceId: Int = 0
     private var activeDeviceModelName: String? = null
     private var sessionId: Int? = null
+    private var sessionStartInstant: Instant? = null
     private var sessionStartTimestamp: Long = System.currentTimeMillis()
+    private var powerbankCapacityStartMah: Double? = null
+    private var labelCapacityAh: Double? = null
+    @Volatile
+    private var isFinishingSession = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
@@ -41,6 +47,7 @@ class BatteryMonitoringService : Service() {
 
         activeDeviceId = activeDevice?.id ?: 0
         activeDeviceModelName = activeDevice?.model_name
+        labelCapacityAh = activeDevice?.powerbank_capacity_mah?.toDouble()?.div(1000.0)
         if (activeDevice != null) {
             preferenceManager.setActiveDevice(activeDevice)
         }
@@ -59,6 +66,7 @@ class BatteryMonitoringService : Service() {
 
     private suspend fun startSessionAndMonitoring(powerbankCapacityStartMah: Double?) {
         val sessionStartedAt = Instant.now()
+        this.powerbankCapacityStartMah = powerbankCapacityStartMah
 
         val startSessionResult = authRepository.startBatterySession(
             deviceId = activeDeviceId,
@@ -69,6 +77,7 @@ class BatteryMonitoringService : Service() {
 
         startSessionResult.onSuccess { response ->
             sessionId = response.id
+            sessionStartInstant = sessionStartedAt
             sessionStartTimestamp = sessionStartedAt.toEpochMilli()
 
             val clientId = Settings.Secure.getString(
@@ -121,6 +130,11 @@ class BatteryMonitoringService : Service() {
             while (isActive) {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
                 repository.insertLog(log)
+                if (!log.isCharging) {
+                    Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
+                    stopSelf()
+                    break
+                }
                 delay(2000)
             }
         }
@@ -190,8 +204,47 @@ class BatteryMonitoringService : Service() {
         collectingJob?.cancel()
         flushLoopJob?.cancel()
 
+        finishSessionBlocking()
+
         awsIoTManager.disconnect()
 
         serviceScope.cancel()
+    }
+
+    private fun finishSessionBlocking() {
+        val currentSessionId = sessionId ?: return
+        if (isFinishingSession) return
+
+        isFinishingSession = true
+        runBlocking(Dispatchers.IO) {
+            runCatching {
+                flushPendingLogs()
+                val sessionLogs = repository.getLogsSince(sessionStartTimestamp)
+                val capacityAh = calculateCapacityAh(sessionLogs)
+                authRepository.finishBatterySession(
+                    sessionId = currentSessionId,
+                    powerbankCapacityStartMah = powerbankCapacityStartMah,
+                    sessionStartTs = sessionStartInstant,
+                    sessionEndTs = Instant.now(),
+                    capacityAh = capacityAh,
+                    powerbankCapacityEndMah = null,
+                    labelCapacityAh = labelCapacityAh
+                ).getOrThrow()
+                Log.d("BatteryService", "세션 종료 처리 완료: session_id=$currentSessionId, capacity_ah=$capacityAh")
+            }.onFailure { error ->
+                Log.e("BatteryService", "세션 종료 처리 실패: ${error.message}", error)
+            }
+        }
+    }
+
+    private fun calculateCapacityAh(logs: List<com.han.battery.data.model.BatteryLog>): Double {
+        if (logs.size < 2) return 0.0
+
+        val totalMah = logs.zipWithNext().sumOf { (previous, next) ->
+            val deltaHours = (next.timestamp - previous.timestamp).coerceAtLeast(0L) / 3_600_000.0
+            abs(previous.current) * deltaHours
+        }
+
+        return totalMah / 1000.0
     }
 }

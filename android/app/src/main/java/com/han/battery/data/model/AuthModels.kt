@@ -96,3 +96,19 @@ data class SessionStartResponse(
     val status: String
 )
 
+@Serializable
+data class SessionFinishRequest(
+    val android_api_level: Int,
+    val powerbank_capacity_start_mah: Double? = null,
+    val session_start_ts: String? = null,
+    val session_end_ts: String,
+    val capacity_ah: Double,
+    val powerbank_capacity_end_mah: Double? = null,
+    val label_capacity_ah: Double? = null
+)
+
+@Serializable
+data class SessionFinishResponse(
+    val id: Int,
+    val status: String
+)
