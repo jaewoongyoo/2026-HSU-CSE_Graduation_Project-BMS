@@ -37,6 +37,7 @@ class DashboardViewModel(
     // ── 3. 모니터링 서비스 실행 상태 관리 ──
     private val _isMonitoring = MutableStateFlow(false)
     val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
+    private var manuallyStoppedMonitoring = false
 
     init {
         // 앱 시작 시 실제 배터리 모니터링 루프 가동
@@ -49,7 +50,9 @@ class DashboardViewModel(
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
         preferenceManager.setActiveDevice(device)
-        ensureMonitoringServiceIfCharging()
+        if (!manuallyStoppedMonitoring) {
+            ensureMonitoringServiceIfCharging()
+        }
     }
 
     // ── [추가됨] 수동으로 모니터링 시작 (버튼 클릭 시 호출) ──
@@ -60,6 +63,7 @@ class DashboardViewModel(
             return
         }
 
+        manuallyStoppedMonitoring = false
         val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
@@ -72,6 +76,7 @@ class DashboardViewModel(
 
     // ── [추가됨] 수동으로 모니터링 종료 (버튼 클릭 시 호출) ──
     fun stopMonitoring() {
+        manuallyStoppedMonitoring = true
         val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
         context.stopService(serviceIntent)
         _isMonitoring.value = false
@@ -89,6 +94,7 @@ class DashboardViewModel(
                 status == BatteryManager.BATTERY_STATUS_FULL
 
         if (!isCharging) {
+            manuallyStoppedMonitoring = false
             Log.d("DashboardViewModel", "현재 충전 중이 아니어서 모니터링 서비스를 시작하지 않습니다.")
             return
         }
