@@ -13,7 +13,7 @@ data class BatteryTelemetryLog(
     val timestamp: Long,
     val level: Int,
     val voltage: Int,
-    val current: Int,
+    val current: Double,
     val temperature: Int,
     @SerializedName("elapsed_ms") val elapsedMs: Long,
     @SerializedName("is_charging") val isCharging: Boolean, // ⭐ 백엔드와 맞춘 스네이크 케이스
