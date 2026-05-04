@@ -35,7 +35,7 @@ class BatteryApplication : Application() {
         Room.databaseBuilder(
             applicationContext,
             BatteryDatabase::class.java,
-            "battery_db"
+            BatteryDatabase.DATABASE_NAME
         ).build()
     }
 
