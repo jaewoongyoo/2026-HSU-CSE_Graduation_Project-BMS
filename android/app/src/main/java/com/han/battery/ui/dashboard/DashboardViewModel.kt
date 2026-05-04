@@ -18,35 +18,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * 배터리 실시간 데이터 수집(Logic)과 기기 정보 관리(UI State)를 모두 담당하는 통합 ViewModel
- */
 class DashboardViewModel(
     private val context: Context,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
-    // ── 1. 기기 정보 관리 (Member A의 코드 반영) ──
     private val _currentDevice = MutableStateFlow<BatteryDevice?>(null)
     val currentDevice: StateFlow<BatteryDevice?> = _currentDevice.asStateFlow()
 
-    // ── 2. 실시간 배터리 상태 (Member B의 로직 반영) ──
     private val _batteryStatus = MutableStateFlow(BatteryStatus())
     val batteryStatus: StateFlow<BatteryStatus> = _batteryStatus.asStateFlow()
 
-    // ── 3. 모니터링 서비스 실행 상태 관리 ──
+    // 초기값은 항상 false (진입 시 "AI 진단 시작" 보장)
     private val _isMonitoring = MutableStateFlow(false)
     val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
     private var manuallyStoppedMonitoring = false
 
     init {
-        // 앱 시작 시 실제 배터리 모니터링 루프 가동
         monitorBattery()
     }
 
-    /**
-     * 배터리 기기 정보를 설정합니다.
-     */
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
         preferenceManager.setActiveDevice(device)
@@ -55,7 +46,6 @@ class DashboardViewModel(
         }
     }
 
-    // ── [추가됨] 수동으로 모니터링 시작 (버튼 클릭 시 호출) ──
     fun startMonitoring() {
         val activeDevice = preferenceManager.getActiveDevice()
         if (activeDevice == null) {
@@ -71,10 +61,9 @@ class DashboardViewModel(
             context.startService(serviceIntent)
         }
         _isMonitoring.value = true
-        Log.d("DashboardViewModel", "사용자 요청으로 모니터링 서비스를 시작합니다.")
+        Log.d("DashboardViewModel", "진단 시작")
     }
 
-    // ── [추가됨] 수동으로 모니터링 종료 (버튼 클릭 시 호출) ──
     fun stopMonitoring() {
         manuallyStoppedMonitoring = true
         val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
@@ -110,63 +99,48 @@ class DashboardViewModel(
         Log.d("DashboardViewModel", "현재 충전 중이므로 모니터링 서비스를 시작합니다.")
     }
 
-    /**
-     * 2초마다 안드로이드 시스템으로부터 실제 배터리 정보를 갱신합니다.
-     */
     private fun monitorBattery() {
         viewModelScope.launch {
             while (true) {
-                _batteryStatus.value = getRealBatteryInfo()
-                delay(2000) // 갱신 주기
+                val newStatus = getRealBatteryInfo()
+                _batteryStatus.value = newStatus
+
+                // ✅ 핵심: 진단 중인데 충전선이 뽑히면 즉시 중단 및 UI 업데이트
+                if (!newStatus.isCharging && _isMonitoring.value) {
+                    stopMonitoring()
+                }
+                delay(2000)
             }
         }
     }
 
-    /**
-     * BatteryManager를 통해 하드웨어 센서 데이터를 직접 수집합니다.
-     */
     private fun getRealBatteryInfo(): BatteryStatus {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-
-        // 현재 배터리 상태 스냅샷 가져오기
         val batteryStatusIntent = context.registerReceiver(null, intentFilter)
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
 
         return batteryStatusIntent?.let { intent ->
-            // 1. 잔량(SOC) 계산
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             val soc = if (level != -1 && scale != -1) (level / scale.toFloat() * 100).toInt() else 0
-
-            // 2. 전압(V) 및 온도(°C)
             val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / 1000f
             val temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
-
-            // 3. 전류(mA) - 기기에 따라 음수(방전)/양수(충전) 확인 필요
-            val currentNow = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) / 1000f
-
-            // 4. 충전 상태 확인
+            val rawCurrent = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            val currentNow = Math.abs(rawCurrent) / 1000f
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                     status == BatteryManager.BATTERY_STATUS_FULL
 
-            // 5. 완충 예상 시간 계산 (자체 계산 없이 시스템 API만 사용)
             var remainingMinutes = -1L
             if (isCharging && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val ms = batteryManager.computeChargeTimeRemaining()
-                // 시스템이 계산 중이거나 알 수 없을 때는 ms가 -1로 옵니다.
-                if (ms > 0) {
-                    remainingMinutes = ms / 1000 / 60
-                }
+                if (ms > 0) remainingMinutes = ms / 1000 / 60
             }
 
             BatteryStatus(
-                soc = soc,
-                voltage = voltage,
-                current = currentNow,
-                temperature = temperature,
-                isCharging = isCharging,
-                remainingTime = remainingMinutes // 이 값이 -1이면 UI에서 "계산 중..." 표시
+                soc = soc, voltage = voltage, current = currentNow,
+                temperature = temperature, isCharging = isCharging,
+                remainingTime = remainingMinutes
             )
         } ?: BatteryStatus()
     }
