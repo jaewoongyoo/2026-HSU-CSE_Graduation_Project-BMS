@@ -166,6 +166,27 @@ def get_session_meta(db: Session, session_id: int) -> Optional[BatterySession]:
     return db.query(BatterySession).filter(BatterySession.id == session_id).first()
 
 
+def get_recent_finished_sessions_for_device(
+    db: Session,
+    device_id: int,
+    limit: int = 20,
+) -> list[BatterySession]:
+    return (
+        db.query(BatterySession)
+        .filter(
+            BatterySession.device_id == device_id,
+            BatterySession.status == "finished",
+        )
+        .order_by(
+            BatterySession.session_end_ts.desc().nullslast(),
+            BatterySession.created_at.desc().nullslast(),
+            BatterySession.id.desc(),
+        )
+        .limit(limit)
+        .all()
+    )
+
+
 def update_session_finish(db: Session, session_id: int, request: Any) -> Optional[BatterySession]:
     session = get_session_meta(db, session_id)
     if not session:
