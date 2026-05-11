@@ -16,11 +16,11 @@ from app.repositories.postgres_repo import (
 RECENT_SESSION_LIMIT = 20
 MIN_VALID_SESSION_COUNT = 3
 MIN_SESSION_DURATION_MS = 10 * 60 * 1000
-MIN_PERSONALIZATION_DURATION_MS = 20 * 60 * 1000
 MIN_DELIVERED_WH = 2.0
 MAX_START_BATTERY_LEVEL_PCT = 85.0
 MIN_FILLABLE_GAP_PCT = 15.0
-AGGREGATION_WINDOW_MS = 10 * 60 * 1000
+AGGREGATION_WINDOW_MS = 60 * 1000
+MIN_SINGLE_SESSION_CYCLE_RECORDS = 10
 DEFAULT_POWERBANK_CAPACITY_MAH = 10000
 DEFAULT_PHONE_CAPACITY_MAH = 4000
 
@@ -91,7 +91,7 @@ def _calculate_delivered_wh(raw_points) -> float:
 
 
 def aggregate_by_10min(raw_points) -> list[dict]:
-    """Aggregate raw telemetry into 10-minute windows for SOH inference."""
+    """Aggregate one measurement session into minute windows for SOH inference."""
     sorted_points = [
         point for point in _sorted_points(raw_points) if point.elapsed_ms is not None
     ]
@@ -133,8 +133,6 @@ def _get_session_reject_reason(raw_points, cycle_records: list[dict]) -> str | N
     duration_ms = _calculate_duration_ms(raw_points)
     if duration_ms < MIN_SESSION_DURATION_MS:
         return "duration_too_short"
-    if duration_ms < MIN_PERSONALIZATION_DURATION_MS:
-        return "duration_too_short_for_personalization"
 
     delivered_wh = _calculate_delivered_wh(raw_points)
     if delivered_wh < MIN_DELIVERED_WH:
@@ -197,6 +195,38 @@ def _build_multi_session_payload(db: Session, session) -> tuple[dict, int]:
     return payload, len(recent_sessions)
 
 
+def _build_single_session_payload(session, raw_points) -> dict:
+    cycle_records = aggregate_by_10min(raw_points)
+    if len(cycle_records) < MIN_SINGLE_SESSION_CYCLE_RECORDS:
+        raise InvalidRawDataException(
+            "cycle_records must contain at least "
+            f"{MIN_SINGLE_SESSION_CYCLE_RECORDS} points after aggregation"
+        )
+
+    return {
+        "cycle_records": cycle_records,
+        "powerbank_capacity_mah": (
+            session.device.powerbank_capacity_mah
+            if session.device and session.device.powerbank_capacity_mah is not None
+            else DEFAULT_POWERBANK_CAPACITY_MAH
+        ),
+        "phone_capacity_mah": DEFAULT_PHONE_CAPACITY_MAH,
+    }
+
+
+def _request_ai_single_prediction(payload: dict) -> dict:
+    try:
+        response = requests.post(
+            f"{settings.AI_SERVER_BASE_URL}/soh/predict",
+            json=payload,
+            timeout=settings.REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        raise AIServiceException(str(exc)) from exc
+
+
 def _request_ai_multi_prediction(payload: dict) -> dict:
     try:
         response = requests.post(
@@ -210,7 +240,7 @@ def _request_ai_multi_prediction(payload: dict) -> dict:
         raise AIServiceException(str(exc)) from exc
 
 
-def predict_soh_for_session(db: Session, session_id: int) -> dict:
+def predict_soh_for_session(db: Session, session_id: int, *, prefer_multi: bool = True) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
@@ -218,9 +248,22 @@ def predict_soh_for_session(db: Session, session_id: int) -> dict:
     if session.status != "finished":
         raise InvalidRawDataException("session must be finished before prediction")
 
-    payload, sessions_total = _build_multi_session_payload(db, session)
-    result = _request_ai_multi_prediction(payload)
-    result.setdefault("sessions_total", sessions_total)
-    result.setdefault("sessions_used", len(payload["sessions"]))
+    raw_points = get_session_raw_points(db, session_id)
+    result = None
+    if prefer_multi:
+        try:
+            payload, sessions_total = _build_multi_session_payload(db, session)
+            result = _request_ai_multi_prediction(payload)
+            result.setdefault("sessions_total", sessions_total)
+            result.setdefault("sessions_used", len(payload["sessions"]))
+        except InvalidRawDataException:
+            result = None
+
+    if result is None:
+        payload = _build_single_session_payload(session, raw_points)
+        result = _request_ai_single_prediction(payload)
+        result.setdefault("sessions_total", 1)
+        result.setdefault("sessions_used", 1)
+
     save_ai_result(db, session_id, session.device_id, result)
     return result

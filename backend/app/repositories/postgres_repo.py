@@ -149,21 +149,20 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
 
 
 def delete_device_by_device_id(db: Session, device_id: str) -> bool:
-    device = get_device(db, device_id)
-    if not device:
+    try:
+        battery_id = int(device_id)
+    except (TypeError, ValueError):
         return False
 
-    db.delete(device)
-    _commit_or_raise(
-        db,
-        conflict_detail=f"device delete conflict: {device_id}",
-        operation_detail="failed to delete device",
-    )
-    return True
+    return delete_device_by_pk(db, battery_id)
 
 
 def get_session_meta(db: Session, session_id: int) -> Optional[BatterySession]:
     return db.query(BatterySession).filter(BatterySession.id == session_id).first()
+
+
+def count_session_raw_points(db: Session, session_id: int) -> int:
+    return db.query(BatteryTelemetry).filter(BatteryTelemetry.session_id == session_id).count()
 
 
 def get_recent_finished_sessions_for_device(
@@ -209,6 +208,35 @@ def update_session_finish(db: Session, session_id: int, request: Any) -> Optiona
     return session
 
 
+def finish_session_with_summary(
+    db: Session,
+    session_id: int,
+    *,
+    session_start_ts: Any,
+    session_end_ts: Any,
+    capacity_ah: float,
+    powerbank_capacity_start_mah: Optional[float],
+    powerbank_capacity_end_mah: Optional[float],
+) -> Optional[BatterySession]:
+    session = get_session_meta(db, session_id)
+    if not session:
+        return None
+
+    session.session_start_ts = session_start_ts
+    session.session_end_ts = session_end_ts
+    session.capacity_ah = capacity_ah
+    session.powerbank_capacity_start_mah = powerbank_capacity_start_mah
+    session.powerbank_capacity_end_mah = powerbank_capacity_end_mah
+    session.status = "finished"
+    _commit_or_raise(
+        db,
+        conflict_detail=f"session update conflict: {session_id}",
+        operation_detail="failed to auto-finish session",
+    )
+    db.refresh(session)
+    return session
+
+
 def save_raw_points(db: Session, session_id: int, device_id: int, points: Iterable[Any]) -> int:
     rows = []
     for point in points:
@@ -249,26 +277,40 @@ def get_session_raw_points(db: Session, session_id: int) -> list[BatteryTelemetr
 
 
 def save_ai_result(db: Session, session_id: int, device_id: int, result: dict) -> BatteryAiResult:
-    row = BatteryAiResult(
-        session_id=session_id,
-        soh_percentage=result.get("soh_percentage"),
-        condition=result.get("condition"),
-        estimated_full_charges=result.get("estimated_full_charges"),
-        powerbank_usable_mah=result.get("powerbank_usable_mah"),
-        smartphone_received_mah=result.get("smartphone_received_mah"),
-        mean_temperature_c=result.get("mean_temperature_c"),
-        raw_response_json=json.dumps(result, ensure_ascii=False),
+    raw_response_json = json.dumps(result, ensure_ascii=False)
+    row = (
+        db.query(BatteryAiResult)
+        .filter(BatteryAiResult.session_id == session_id)
+        .first()
     )
-    db.add(row)
-    db.add(
-        SohAnalysis(
+    if not row:
+        row = BatteryAiResult(session_id=session_id)
+        db.add(row)
+
+    row.soh_percentage = result.get("soh_percentage")
+    row.condition = result.get("condition")
+    row.estimated_full_charges = result.get("estimated_full_charges")
+    row.powerbank_usable_mah = result.get("powerbank_usable_mah")
+    row.smartphone_received_mah = result.get("smartphone_received_mah")
+    row.mean_temperature_c = result.get("mean_temperature_c")
+    row.raw_response_json = raw_response_json
+
+    analysis = (
+        db.query(SohAnalysis)
+        .filter(SohAnalysis.session_id == session_id)
+        .first()
+    )
+    if not analysis:
+        analysis = SohAnalysis(
             device_id=device_id,
             session_id=session_id,
-            current_soh=result.get("soh_percentage"),
-            grade=result.get("condition"),
-            recommendation=json.dumps(result, ensure_ascii=False),
         )
-    )
+        db.add(analysis)
+
+    analysis.current_soh = result.get("soh_percentage")
+    analysis.grade = result.get("condition")
+    analysis.recommendation = raw_response_json
+
     _commit_or_raise(
         db,
         conflict_detail=f"ai result conflict for session: {session_id}",
