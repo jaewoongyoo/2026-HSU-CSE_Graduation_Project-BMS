@@ -11,14 +11,18 @@ fun convertFormStateToBatteryDevice(
     manufacture_date: String
 ): BatteryDevice {
     val trimmedModelName = model_name.trim()
+    val trimmedManufacturer = manufacturer.trim()
     val capacityInt = powerbank_capacity_mah.trim().toIntOrNull()
 
+    require(trimmedManufacturer.isNotBlank()) { "manufacturer is required" }
+    require(trimmedManufacturer.length <= 100) { "manufacturer must be 100 characters or fewer" }
     require(trimmedModelName.isNotBlank()) { "model_name is required" }
     require(trimmedModelName.length <= 100) { "model_name must be 100 characters or fewer" }
     require(capacityInt != null) { "powerbank_capacity_mah must be numeric" }
     require(capacityInt in 100..100000) { "powerbank_capacity_mah must be between 100 and 100000 mAh" }
 
     return BatteryDevice(
+        manufacturer = trimmedManufacturer,
         model_name = trimmedModelName,
         powerbank_capacity_mah = capacityInt,
         manufacture_date = manufacture_date.trim()

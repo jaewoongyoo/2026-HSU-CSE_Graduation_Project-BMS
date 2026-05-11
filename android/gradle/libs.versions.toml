@@ -1,7 +1,7 @@
 [versions]
-agp = "9.1.0"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.27" # 추가: Kotlin 2.0.21과 호환되는 KSP 버전
+agp = "9.1.1"
+kotlin = "2.2.10"
+ksp = "2.3.2" # 추가: Kotlin 2.0.21과 호환되는 KSP 버전
 core-ktx = "1.12.0"
 lifecycle = "2.7.0"
 activity-compose = "1.8.1"
@@ -11,8 +11,6 @@ navigation-compose = "2.9.7"
 aws-android-sdk = "2.75.0"
 room = "2.7.0-alpha01"
 ktor = "2.3.8"
-hilt = "2.52"
-hilt-navigation-compose = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -38,9 +36,6 @@ gson = { group = "com.google.code.gson", name = "gson", version = "2.10.1" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -48,4 +43,3 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" } # 추가
-hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

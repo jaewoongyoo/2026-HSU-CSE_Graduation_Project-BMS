@@ -39,7 +39,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -47,6 +46,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.han.battery.BatteryApplication
 import com.han.battery.ui.auth.AuthUiEvent
 import com.han.battery.ui.auth.AuthViewModel
 import com.han.battery.ui.auth.LoginScreen
@@ -68,12 +71,47 @@ import kotlinx.coroutines.launch
 fun BatteryApp() {
     val context = LocalContext.current
     val activity = context as? Activity
+    val batteryApplication = context.applicationContext as BatteryApplication
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
-    val appViewModel: AppViewModel = hiltViewModel()
-    val authViewModel: AuthViewModel = hiltViewModel()
-    val homeViewModel: HomeViewModel = hiltViewModel()
-    val landingViewModel: LandingViewModel = hiltViewModel()
+    val appViewModel: AppViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                AppViewModel(
+                    batteryApplication.userManager,
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
+    val authViewModel: AuthViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                AuthViewModel(batteryApplication.authRepository)
+            }
+        }
+    )
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                HomeViewModel(
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
+    val landingViewModel: LandingViewModel = viewModel(
+        factory = remember(batteryApplication) {
+            simpleViewModelFactory {
+                LandingViewModel(
+                    batteryApplication.authRepository,
+                    batteryApplication.preferenceManager
+                )
+            }
+        }
+    )
 
     val devices by homeViewModel.devices.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -227,15 +265,16 @@ fun BatteryApp() {
     ) { innerPadding ->
         BatteryNavGraph(
             modifier = Modifier.padding(innerPadding),
-        navController = navController,
-        appViewModel = appViewModel,
-        authViewModel = authViewModel,
-        homeViewModel = homeViewModel,
-        landingViewModel = landingViewModel,
-        devices = devices,
-        onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
-    )
-}
+            navController = navController,
+            batteryApplication = batteryApplication,
+            appViewModel = appViewModel,
+            authViewModel = authViewModel,
+            homeViewModel = homeViewModel,
+            landingViewModel = landingViewModel,
+            devices = devices,
+            onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
+        )
+    }
 }
 
 @Composable
@@ -317,6 +356,7 @@ private fun LandingEventHandler(
 private fun BatteryNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
+    batteryApplication: BatteryApplication,
     appViewModel: AppViewModel,
     authViewModel: AuthViewModel,
     homeViewModel: HomeViewModel,
@@ -403,7 +443,16 @@ private fun BatteryNavGraph(
         ) { backStackEntry ->
             val nickname = backStackEntry.arguments?.getString("deviceNickname") ?: ""
             val device = homeViewModel.getDevice(nickname)
-            val dashboardViewModel: DashboardViewModel = hiltViewModel()
+            val dashboardViewModel: DashboardViewModel = viewModel(
+                factory = remember(batteryApplication) {
+                    simpleViewModelFactory {
+                        DashboardViewModel(
+                            batteryApplication.applicationContext,
+                            batteryApplication.preferenceManager
+                        )
+                    }
+                }
+            )
 
             if (device != null) {
                 DashboardScreen(
@@ -429,6 +478,20 @@ private fun BatteryNavGraph(
             )
 
             BoardScreen(posts = dummyPosts)
+        }
+    }
+}
+
+private inline fun <reified VM : ViewModel> simpleViewModelFactory(
+    crossinline creator: () -> VM
+): ViewModelProvider.Factory {
+    return object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(VM::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return creator() as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }

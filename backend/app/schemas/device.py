@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class DeviceCreateRequest(BaseModel):
     user_id: str = Field(..., description="User ID or username")
+    manufacturer: Optional[str] = Field(default=None, max_length=100, description="Device manufacturer")
     model_name: str = Field(..., min_length=1, max_length=100, description="Device model name")
     manufacture_date: Optional[str] = Field(default=None, max_length=20, description="Manufacture date")
     powerbank_capacity_mah: Optional[int] = Field(
@@ -23,7 +24,7 @@ class DeviceCreateRequest(BaseModel):
             raise ValueError("must not be blank")
         return value
 
-    @field_validator("manufacture_date")
+    @field_validator("manufacturer", "manufacture_date")
     @classmethod
     def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -35,6 +36,7 @@ class DeviceCreateRequest(BaseModel):
 class DeviceResponse(BaseModel):
     id: int
     user_id: int
+    manufacturer: Optional[str]
     model_name: str
     powerbank_capacity_mah: Optional[int]
     manufacture_date: Optional[str]

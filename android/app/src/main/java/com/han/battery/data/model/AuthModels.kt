@@ -61,6 +61,7 @@ data class ErrorDetail(
 @Serializable
 data class BatteryRegistrationRequest(
     val user_id: String,           // ✅ API 명세: user_id는 String
+    val manufacturer: String? = null,
     val model_name: String,
     val powerbank_capacity_mah: Int,
     val manufacture_date: String? = null
@@ -70,6 +71,7 @@ data class BatteryRegistrationRequest(
 data class BatteryResponse(
     val id: Int,
     val user_id: Int,
+    val manufacturer: String? = null,
     val model_name: String,
     val powerbank_capacity_mah: Int? = null,   // ✅ nullable로 변경
     val manufacture_date: String? = null,       // ✅ nullable로 변경
@@ -85,18 +87,28 @@ data class BatteryUpdateRequest(
 
 @Serializable
 data class SessionStartRequest(
-    val device_id: Int,
-    val android_api_level: Int,
-    val powerbank_id: String? = null,
-    val powerbank_capacity_start_mah: Double? = null,
-    val session_start_ts: String
+    val device_id: Int
 )
 
 @Serializable
 data class SessionStartResponse(
-    val session_id: String,
-    val status: String,
-    val device_id: Int,
-    val user_id: Int
+    val id: Int,
+    val status: String
 )
 
+@Serializable
+data class SessionFinishRequest(
+    val android_api_level: Int,
+    val powerbank_capacity_start_mah: Double? = null,
+    val session_start_ts: String? = null,
+    val session_end_ts: String,
+    val capacity_ah: Double,
+    val powerbank_capacity_end_mah: Double? = null,
+    val label_capacity_ah: Double? = null
+)
+
+@Serializable
+data class SessionFinishResponse(
+    val id: Int,
+    val status: String
+)

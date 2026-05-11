@@ -16,50 +16,58 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.han.battery.DeviceInfo
+import com.han.battery.data.model.BatteryDevice // BatteryDevice로 타입 일치 확인
 import com.han.battery.ui.theme.Slate50
-import com.han.battery.ui.components.common.LiveStatusBadge
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
 import com.han.battery.ui.dashboard.sections.MonitoringSection
 import com.han.battery.ui.dashboard.sections.PredictionSection
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    viewModel: DashboardViewModel, // 실시간 데이터 주입
-    device: DeviceInfo,            // 기기 정보 주입
+    viewModel: DashboardViewModel,
+    device: com.han.battery.data.model.BatteryDevice, // 타입 맞춰서 수정
     onBack: () -> Unit,
     onChangeDevice: () -> Unit,
     onDeleteDevice: () -> Unit
 ) {
-    // ── 상태 관리 (UI) ──
     val menuExpanded = remember { mutableStateOf(false) }
     val showDeleteDialog = remember { mutableStateOf(false) }
 
-    // ── 실시간 데이터 구독 (Logic) ──
+    // 데이터 구독
     val status by viewModel.batteryStatus.collectAsState()
+    val isMonitoring by viewModel.isMonitoring.collectAsState()
 
     LaunchedEffect(device.id, device.model_name) {
         viewModel.setDevice(device)
     }
 
-    // ⭐ 충전 완료 예상 시간 텍스트 로직 추가
+    // UI 로직 계산
     val predictionText = when {
         !status.isCharging -> "방전 중 (충전 필요)"
         status.remainingTime > 0 -> {
             val hours = status.remainingTime / 60
             val mins = status.remainingTime % 60
-
-            if (hours > 0) {
-                "${hours}시간 ${mins}분"
-            } else {
-                "${mins}분"
-            }
+            if (hours > 0) "${hours}시간 ${mins}분" else "${mins}분"
         }
         else -> "계산 중..."
     }
 
-    // 기기 삭제 확인 다이얼로그
+    val monitoringTitle = if (isMonitoring) "실시간 모니터링" else "모니터링 대기중"
+    val powerW = status.voltage * status.current / 1000f
+    val powerDisplayValue = if (abs(powerW) < 1f) {
+        String.format("%.2f", powerW * 1000f)
+    } else {
+        String.format("%.2f", powerW)
+    }
+    val powerDisplayUnit = if (abs(powerW) < 1f) "mW" else "W"
+    val currentDisplayValue = String.format("%.2f", status.current)
+    // 버튼 상태 결정
+    val isButtonEnabled = isMonitoring || status.isCharging
+    val buttonText = if (isMonitoring) "진단 종료" else "AI 진단 시작"
+
+    // 삭제 다이얼로그 로직 (기존 유지)
     if (showDeleteDialog.value) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog.value = false },
@@ -84,10 +92,7 @@ fun DashboardScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = device.model_name.ifBlank { "보조배터리" },
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Text(text = device.model_name.ifBlank { "보조배터리" }, fontWeight = FontWeight.ExtraBold)
                         Text(
                             text = "${device.powerbank_capacity_mah} mAh",
                             style = MaterialTheme.typography.bodySmall,
@@ -101,78 +106,75 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    LiveStatusBadge() // 실시간 연결 표시
-
                     IconButton(onClick = { menuExpanded.value = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
                     }
-
-                    DropdownMenu(
-                        expanded = menuExpanded.value,
-                        onDismissRequest = { menuExpanded.value = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("기기 변경") },
-                            onClick = {
-                                menuExpanded.value = false
-                                onChangeDevice()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("기기 삭제") },
-                            onClick = {
-                                menuExpanded.value = false
-                                showDeleteDialog.value = true
-                            }
-                        )
+                    DropdownMenu(expanded = menuExpanded.value, onDismissRequest = { menuExpanded.value = false }) {
+                        DropdownMenuItem(text = { Text("기기 변경") }, onClick = { menuExpanded.value = false; onChangeDevice() })
+                        DropdownMenuItem(text = { Text("기기 삭제") }, onClick = { menuExpanded.value = false; showDeleteDialog.value = true })
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFFF6F8FC)
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFFF6F8FC))
             )
-        },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
-                    )
-                )
+                .background(Brush.verticalGradient(listOf(Slate50, Color(0xFFF6F8FC), Slate50)))
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 0.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            // ── 1. 실시간 모니터링 섹션 ──
             MonitoringSection(
+                isMonitoring = isMonitoring,
                 soc = status.soc,
                 soh = 92,
-                power = String.format("%.1f", (status.voltage * status.current / 1000f)).toDouble(),
+                power = powerDisplayValue,
+                powerUnit = powerDisplayUnit,
                 voltage = String.format("%.2f", status.voltage).toDouble(),
-                current = status.current.toInt(),
-                predictionText = predictionText // ⭐ AiAnalysisSection에 있던 걸 여기로 옮깁니다!
+                current = currentDisplayValue,
+                predictionText = predictionText
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(12.dp))
+            // 핵심 버튼 영역
+            Button(
+                enabled = isButtonEnabled,
+                onClick = {
+                    if (isMonitoring) viewModel.stopMonitoring() else viewModel.startMonitoring()
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFD1D5DB), // 충전 안 될 때 회색 비활성화
+                    disabledContentColor = Color.White.copy(alpha = 0.6f)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(text = buttonText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
 
-            // ── 2. AI 분석 섹션 (예측된 텍스트 전달) ──
-            // ⭐ AiAnalysisSection에 값을 넘겨주도록 변경했습니다.
-            AiAnalysisSection(
-                predictedTimeText = predictionText
-            )
+            // 비활성화 안내 텍스트
+            if (!status.isCharging && !isMonitoring) {
+                Text(
+                    text = "보조배터리가 충전 중일 때만 진단이 가능합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // ── 3. 예측 차트 섹션 ──
+            AiAnalysisSection(predictedTimeText = predictionText)
+            Spacer(modifier = Modifier.height(4.dp))
             PredictionSection()
 
-            // ── 4. 온도 정보 ──
-            Spacer(modifier = Modifier.height(12.dp))
+            // 온도 정보 표기
+            Spacer(modifier = Modifier.height(8.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(12.dp),
@@ -185,6 +187,7 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

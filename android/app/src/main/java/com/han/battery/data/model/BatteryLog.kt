@@ -8,7 +8,7 @@ data class BatteryLog(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val timestamp: Long,
     val voltage: Int,     // 전압 (mV)
-    val current: Int,     // 전류 (mA)
+    val current: Double,  // 전류 (mA)
     val level: Int,       // 배터리 잔량 (%)
     val temperature: Int, // 온도 (Celsius)
     val isCharging: Boolean,

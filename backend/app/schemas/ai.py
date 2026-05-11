@@ -23,7 +23,11 @@ class SohPredictResponse(BaseModel):
     powerbank_usable_mah: float
     smartphone_received_mah: Optional[float] = None
     mean_temperature_c: Optional[float] = None
+    standard_soh_percentage: Optional[float] = None
+    degradation_rate_ratio: Optional[float] = None
     sessions_used: Optional[int] = None
+    sessions_total: Optional[int] = None
+    confidence: Optional[str] = None
 
 
 class SohHealthResponse(BaseModel):

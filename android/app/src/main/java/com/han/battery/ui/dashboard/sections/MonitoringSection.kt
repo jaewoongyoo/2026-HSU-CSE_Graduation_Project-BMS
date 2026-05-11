@@ -7,11 +7,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.han.battery.ui.components.common.SectionHeader
+// ⭐ SectionHeader 대신 LiveStatusBadge를 import 합니다.
+import com.han.battery.ui.components.common.LiveStatusBadge
 import com.han.battery.ui.components.monitoring.SmallMetricCard
 import com.han.battery.ui.components.monitoring.SocMonitorCard
 import com.han.battery.ui.components.monitoring.SohMonitorCard
@@ -20,15 +26,33 @@ import com.han.battery.ui.theme.Emerald500
 
 @Composable
 fun MonitoringSection(
+    isMonitoring: Boolean, // ⭐ [수정됨] title 파라미터 대신 상태값을 직접 받습니다.
     soc: Int,
     soh: Int,
-    power: Double,
+    power: String,
+    powerUnit: String,
     voltage: Double,
-    current: Int,
+    current: String,
     predictionText: String = ""
 ) {
     Column {
-        SectionHeader(title = "실시간 모니터링")
+        // ⭐ [수정됨] 기존 SectionHeader를 지우고, 상단바 디자인이었던 배지를 포함한 새로운 헤더를 구성합니다.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween // 텍스트는 왼쪽, 배지는 오른쪽에 배치
+        ) {
+            Text(
+                text = "배터리 상태",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            // 상단바에 있던 배지가 이곳에서 상태값(isMonitoring)에 따라 바뀌게 됩니다.
+            LiveStatusBadge(isLive = isMonitoring)
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -40,7 +64,6 @@ fun MonitoringSection(
                 modifier = Modifier.weight(1f),
                 soc = soc,
                 predictionText = predictionText
-
             )
 
             SohMonitorCard(
@@ -58,8 +81,8 @@ fun MonitoringSection(
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "충전 속도",
-                value = power.toString(),
-                unit = "W",
+                value = power,
+                unit = powerUnit,
                 accent = Blue600
             )
             SmallMetricCard(
@@ -72,7 +95,7 @@ fun MonitoringSection(
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "전류",
-                value = current.toString(),
+                value = current,
                 unit = "mA",
                 accent = Emerald500
             )
@@ -81,4 +104,3 @@ fun MonitoringSection(
         Spacer(modifier = Modifier.height(18.dp))
     }
 }
-

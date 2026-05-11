@@ -5,11 +5,8 @@ import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.data.storage.UserManager
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 
-@HiltViewModel
-class AppViewModel @Inject constructor(
+class AppViewModel(
     private val userManager: UserManager,
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager
@@ -22,6 +19,7 @@ class AppViewModel @Inject constructor(
             val syncedDevices = batteries.mapNotNull { battery ->
                 runCatching {
                     BatteryDevice(
+                        manufacturer = battery.manufacturer.orEmpty(),
                         model_name = battery.model_name,
                         powerbank_capacity_mah = battery.powerbank_capacity_mah ?: 0,
                         manufacture_date = battery.manufacture_date.orEmpty(),

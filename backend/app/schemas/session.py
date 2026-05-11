@@ -21,7 +21,7 @@ class SessionFinishRequest(BaseModel):
     )
     session_start_ts: datetime | None = Field(default=None, description="Session start timestamp")
     session_end_ts: datetime = Field(..., description="Session end timestamp")
-    capacity_ah: float = Field(..., gt=0, description="Measured delivered capacity in Ah")
+    capacity_ah: float = Field(..., ge=0, description="Measured delivered capacity in Ah")
     powerbank_capacity_end_mah: float | None = Field(
         default=None,
         ge=0,

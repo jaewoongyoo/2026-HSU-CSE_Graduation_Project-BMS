@@ -6,20 +6,17 @@ import com.han.battery.DeviceInfo
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.storage.PreferenceManager
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 sealed interface LandingUiEvent {
     data class ShowMessage(val message: String, val isError: Boolean = false) : LandingUiEvent
     data class NavigateToDashboard(val modelName: String) : LandingUiEvent
 }
 
-@HiltViewModel
-class LandingViewModel @Inject constructor(
+class LandingViewModel(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
@@ -44,7 +41,8 @@ class LandingViewModel @Inject constructor(
             val result = authRepository.registerBattery(
                 modelName = deviceInfo.model_name,
                 powerbankCapacityMah = deviceInfo.powerbank_capacity_mah,
-                manufactureDate = deviceInfo.manufacture_date.ifBlank { null }
+                manufactureDate = deviceInfo.manufacture_date.ifBlank { null },
+                manufacturer = deviceInfo.manufacturer.ifBlank { null }
             )
 
             result.onSuccess { batteryResponse ->

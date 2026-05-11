@@ -57,6 +57,7 @@ import com.han.battery.ui.theme.Slate300
 import com.han.battery.ui.theme.Slate500
 
 data class FormState(
+    val manufacturer: String = "",
     val model_name: String = "",
     val powerbank_capacity_mah: String = "",
     val manufacture_date: String = ""
@@ -68,6 +69,8 @@ data class FormState(
  */
 fun validateFormState(formState: FormState): String? {
     return when {
+        formState.manufacturer.isBlank() -> "제조사를 입력해주세요"
+        formState.manufacturer.length > 100 -> "제조사는 100자 이하여야 합니다"
         formState.model_name.isBlank() -> "모델명을 입력해주세요"
         formState.powerbank_capacity_mah.isBlank() -> "용량을 입력해주세요"
         formState.powerbank_capacity_mah.toIntOrNull() == null -> "용량은 숫자로 입력해주세요"
@@ -88,7 +91,7 @@ fun InputSection(
     
     // 폼 유효성 검사
     val validationError = validateFormState(formState)
-    val isFormValid = validationError == null && formState.model_name.isNotBlank() && formState.powerbank_capacity_mah.isNotBlank()
+    val isFormValid = validationError == null && formState.manufacturer.isNotBlank() && formState.model_name.isNotBlank() && formState.powerbank_capacity_mah.isNotBlank()
 
     // 첫 번째 필드에 자동 포커스
     LaunchedEffect(Unit) {
@@ -140,13 +143,24 @@ fun InputSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             LandingField(
+                label = "제조사",
+                value = formState.manufacturer,
+                onValueChange = { onFormChange(formState.copy(manufacturer = it)) },
+                placeholder = "예: Anker, Samsung",
+                keyboardType = KeyboardType.Text,
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                modifier = Modifier.focusRequester(firstFieldFocus)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LandingField(
                 label = "모델명",
                 value = formState.model_name,
                 onValueChange = { onFormChange(formState.copy(model_name = it)) },
                 placeholder = "예: PowerBank Pro, 나의 맥세이프",
                 keyboardType = KeyboardType.Text,
                 onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                modifier = Modifier.focusRequester(firstFieldFocus)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -188,7 +202,7 @@ fun InputSection(
                     
                     // FormState를 BatteryDevice로 변환하여 전달
                     val batteryDevice = convertFormStateToBatteryDevice(
-                        manufacturer = "", // manufacturer는 더 이상 사용되지 않음
+                        manufacturer = formState.manufacturer,
                         model_name = formState.model_name,
                         powerbank_capacity_mah = formState.powerbank_capacity_mah,
                         manufacture_date = formState.manufacture_date
