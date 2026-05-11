@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 
 
 class SessionNotFoundException(HTTPException):
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: int | str):
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session not found: {session_id}",

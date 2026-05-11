@@ -44,7 +44,7 @@ def aggregate_by_10min(raw_points):
     return result
 
 
-def predict_soh_for_session(db: Session, session_id: str) -> dict:
+def predict_soh_for_session(db: Session, session_id: int) -> dict:
     session = get_session_meta(db, session_id)
     if not session:
         raise SessionNotFoundException(session_id)
@@ -62,7 +62,11 @@ def predict_soh_for_session(db: Session, session_id: str) -> dict:
 
     payload = {
         "cycle_records": cycle_records,
-        "powerbank_capacity_mah": session.powerbank_capacity_mah or 10000,
+        "powerbank_capacity_mah": (
+            session.device.powerbank_capacity_mah
+            if session.device and session.device.powerbank_capacity_mah is not None
+            else 10000
+        ),
         "phone_capacity_mah": 4000,
     }
 

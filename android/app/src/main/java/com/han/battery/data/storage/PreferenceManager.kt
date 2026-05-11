@@ -19,6 +19,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     companion object {
         private const val KEY_DEVICES = "all_devices"
         private const val KEY_DEVICES_EXISTS = "devices_exist"
+        private const val KEY_ACTIVE_DEVICE = "active_device"
         private const val TAG = "PreferenceManager"
     }
 
@@ -34,6 +35,11 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     private fun getUserDevicesExistsKey(): String {
         val currentUser = userManager?.getCurrentUser() ?: "default"
         return "${currentUser}_$KEY_DEVICES_EXISTS"
+    }
+
+    private fun getUserActiveDeviceKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_ACTIVE_DEVICE"
     }
 
     /**
@@ -71,6 +77,58 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             AppLogger.info("배터리 저장 성공 [$currentUser]: ${device.model_name}, 총 ${devices.size}개", TAG)
         } catch (e: Exception) {
             AppLogger.error("배터리 저장 실패", e, TAG)
+        }
+    }
+
+    /**
+     * 서버 배터리 목록을 우선 반영하되, 아직 서버에 올라가지 않은 로컬 임시 기기는 유지합니다.
+     */
+    fun mergeDevicesFromServer(serverDevices: List<BatteryDevice>) {
+        try {
+            val localDevices = getAllDevices()
+            val mergedDevices = LinkedHashMap<String, BatteryDevice>()
+
+            // 서버 데이터가 있으면 같은 모델명의 로컬 임시 데이터를 덮어씁니다.
+            for (device in serverDevices.distinctBy { it.model_name }) {
+                mergedDevices[device.model_name] = device
+            }
+
+            // 서버에 아직 없는 로컬 임시 등록분(ID 없음)은 유지합니다.
+            for (device in localDevices) {
+                val isLocalOnlyDraft = device.id <= 0 && !mergedDevices.containsKey(device.model_name)
+                if (isLocalOnlyDraft) {
+                    mergedDevices[device.model_name] = device
+                }
+            }
+
+            if (mergedDevices.isEmpty()) {
+                clearAllDevices()
+                return
+            }
+
+            val jsonArray = JSONArray()
+            for (device in mergedDevices.values) {
+                val json = JSONObject().apply {
+                    put("id", device.id)
+                    put("model_name", device.model_name)
+                    put("powerbank_capacity_mah", device.powerbank_capacity_mah)
+                    put("manufacture_date", device.manufacture_date)
+                }
+                jsonArray.put(json)
+            }
+
+            val userDevicesKey = getUserDevicesKey()
+            val userDevicesExistsKey = getUserDevicesExistsKey()
+            prefs.edit().apply {
+                putString(userDevicesKey, jsonArray.toString())
+                putBoolean(userDevicesExistsKey, true)
+                apply()
+            }
+
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("배터리 목록 병합 동기화 완료 [$currentUser]: 서버 ${serverDevices.size}개, 최종 ${mergedDevices.size}개", TAG)
+        } catch (e: Exception) {
+            AppLogger.error("배터리 목록 병합 동기화 실패", e, TAG)
         }
     }
 
@@ -171,13 +229,48 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     fun clearAllDevices() {
         val userDevicesKey = getUserDevicesKey()
         val userDevicesExistsKey = getUserDevicesExistsKey()
+        val activeDeviceKey = getUserActiveDeviceKey()
         prefs.edit().apply {
             remove(userDevicesKey)
+            remove(activeDeviceKey)
             putBoolean(userDevicesExistsKey, false)
             apply()  // commit() 대신 apply() 사용
         }
         val currentUser = userManager?.getCurrentUser() ?: "default"
         AppLogger.info("모든 배터리 삭제됨 [$currentUser]", TAG)
+    }
+
+    fun setActiveDevice(device: BatteryDevice) {
+        try {
+            val json = JSONObject().apply {
+                put("id", device.id)
+                put("model_name", device.model_name)
+                put("powerbank_capacity_mah", device.powerbank_capacity_mah)
+                put("manufacture_date", device.manufacture_date)
+            }
+
+            prefs.edit().putString(getUserActiveDeviceKey(), json.toString()).apply()
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("활성 배터리 저장 [$currentUser]: ${device.model_name} (ID: ${device.id})", TAG)
+        } catch (e: Exception) {
+            AppLogger.error("활성 배터리 저장 실패", e, TAG)
+        }
+    }
+
+    fun getActiveDevice(): BatteryDevice? {
+        return try {
+            val jsonString = prefs.getString(getUserActiveDeviceKey(), null) ?: return null
+            val json = JSONObject(jsonString)
+            BatteryDevice(
+                model_name = json.getString("model_name"),
+                powerbank_capacity_mah = json.getInt("powerbank_capacity_mah"),
+                manufacture_date = json.getString("manufacture_date"),
+                id = json.optInt("id", 0)
+            )
+        } catch (e: Exception) {
+            AppLogger.error("활성 배터리 로드 실패", e, TAG)
+            null
+        }
     }
 
     /**

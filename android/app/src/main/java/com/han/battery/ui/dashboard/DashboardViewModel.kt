@@ -1,25 +1,34 @@
 package com.han.battery.ui.dashboard
 
-import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
-import androidx.lifecycle.AndroidViewModel
+import android.util.Log
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.han.battery.data.model.BatteryStatus
 import com.han.battery.data.model.BatteryDevice
+import com.han.battery.data.storage.PreferenceManager
+import com.han.battery.service.BatteryMonitoringService
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * 배터리 실시간 데이터 수집(Logic)과 기기 정보 관리(UI State)를 모두 담당하는 통합 ViewModel
  */
-class DashboardViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val preferenceManager: PreferenceManager
+) : ViewModel() {
 
     // ── 1. 기기 정보 관리 (Member A의 코드 반영) ──
     private val _currentDevice = MutableStateFlow<BatteryDevice?>(null)
@@ -39,6 +48,32 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      */
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
+        preferenceManager.setActiveDevice(device)
+        ensureMonitoringServiceIfCharging()
+    }
+
+    private fun ensureMonitoringServiceIfCharging() {
+        val batteryStatusIntent = context.registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        ) ?: return
+
+        val status = batteryStatusIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+
+        if (!isCharging) {
+            Log.d("DashboardViewModel", "현재 충전 중이 아니어서 모니터링 서비스를 시작하지 않습니다.")
+            return
+        }
+
+        val serviceIntent = Intent(context, BatteryMonitoringService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+        Log.d("DashboardViewModel", "현재 충전 중이므로 모니터링 서비스를 시작합니다.")
     }
 
     /**
@@ -57,7 +92,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * BatteryManager를 통해 하드웨어 센서 데이터를 직접 수집합니다.
      */
     private fun getRealBatteryInfo(): BatteryStatus {
-        val context = getApplication<Application>().applicationContext
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
 
         // 현재 배터리 상태 스냅샷 가져오기

@@ -15,11 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,20 +34,16 @@ import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.theme.Slate950
-import com.han.battery.data.repository.AuthRepository
-import kotlinx.coroutines.launch
 
 
 @Composable
 fun LoginScreen(
-    authRepository: AuthRepository,
-    onNavigateToSignup: () -> Unit,
-    onLoginSuccess: () -> Unit
+    viewModel: AuthViewModel,
+    onNavigateToSignup: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var uiState by remember { mutableStateOf<AuthUiState>(AuthUiState.Idle) }
-    val coroutineScope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
 
     Box(
@@ -118,36 +115,7 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    // 입력 검증
-                    if (username.isBlank()) {
-                        uiState = AuthUiState.Error("사용자명을 입력하세요")
-                        return@Button
-                    }
-                    if (password.isBlank()) {
-                        uiState = AuthUiState.Error("비밀번호를 입력하세요")
-                        return@Button
-                    }
-                    if (username.length < 1) {
-                         uiState = AuthUiState.Error("사용자명은 1자 이상이어야 합니다")
-                         return@Button
-                     }
-                    if (password.length < 4) {
-                        uiState = AuthUiState.Error("비밀번호는 4자 이상이어야 합니다")
-                        return@Button
-                    }
-
-                    uiState = AuthUiState.Loading
-                    coroutineScope.launch {
-                        val result = authRepository.login(username, password)
-                        uiState = if (result.isSuccess) {
-                            AuthUiState.Success("로그인 성공")
-                            onLoginSuccess()
-                            AuthUiState.Idle
-                        } else {
-                            val errorMessage = result.exceptionOrNull()?.message ?: "로그인 실패"
-                            AuthUiState.Error(errorMessage)
-                        }
-                    }
+                    viewModel.login(username, password)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

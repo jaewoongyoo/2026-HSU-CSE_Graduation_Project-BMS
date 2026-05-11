@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android) // ✅ 1번 순서: 베이스 코틀린
     alias(libs.plugins.kotlin.compose) // ✅ 2번 순서: 컴포즈 전용 코틀린
     alias(libs.plugins.ksp)// ✅ KAPT 대신 KSP 플러그인 장착
+    id("com.google.dagger.hilt.android")
     kotlin("plugin.serialization") version "2.0.21"
 }
 
@@ -50,6 +51,10 @@ ksp {
     arg("room.generateKotlin", "true")
 }
 
+hilt {
+    enableAggregatingTask = true
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -61,6 +66,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.hilt.navigation.compose)
 
 
     // Room DB
@@ -71,6 +77,8 @@ dependencies {
     implementation(libs.aws.android.sdk.iot)
     implementation(libs.aws.android.sdk.mobile.client)
     implementation(libs.gson) // 데이터 객체를 JSON 문자열로 변환할 때 편리합니다.
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
