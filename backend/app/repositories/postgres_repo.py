@@ -32,83 +32,23 @@ def _commit_or_raise(
         raise DatabaseOperationException(operation_detail) from exc
 
 
-def get_user_by_identifier(db: Session, user_identifier: str) -> Optional[User]:
-    if user_identifier.isdigit():
-        user = db.query(User).filter(User.id == int(user_identifier)).first()
-        if user:
-            return user
-
-    return db.query(User).filter(User.username == user_identifier).first()
-
-
-def create_device(db: Session, request: Any) -> Device:
-    user = get_user_by_identifier(db, request.user_id)
-    if not user:
-        raise ValueError(f"user not found: {request.user_id}")
-
-    device = Device(
-        user_id=user.id,
-        manufacturer=getattr(request, "manufacturer", None),
-        model_name=request.model_name,
-        powerbank_capacity_mah=request.powerbank_capacity_mah,
-        manufacture_date=getattr(request, "manufacture_date", None),
-    )
-    db.add(device)
-    _commit_or_raise(
-        db,
-        conflict_detail="device already exists",
-        operation_detail="failed to create device",
-    )
-    db.refresh(device)
-    return device
-
-
-def create_session(db: Session, device: Device) -> BatterySession:
-    session = BatterySession(
-        device_id=device.id,
-        user_id=device.user_id,
-        status="in_progress",
-    )
-    db.add(session)
-    _commit_or_raise(
-        db,
-        conflict_detail=f"session already exists for device: {device.id}",
-        operation_detail="failed to create session",
-    )
-    db.refresh(session)
-    return session
-
-
-def create_device_and_session(
+def _flush_or_raise(
     db: Session,
     *,
-    request: Any,
-) -> tuple[Device, BatterySession]:
-    device = create_device(db, request=request)
-    session = create_session(db, device=device)
-    return device, session
+    conflict_detail: str,
+    operation_detail: str,
+) -> None:
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ResourceConflictException(conflict_detail) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise DatabaseOperationException(operation_detail) from exc
 
 
-def get_device_by_pk(db: Session, battery_id: int) -> Optional[Device]:
-    return db.query(Device).filter(Device.id == battery_id).first()
-
-
-def list_devices(db: Session, user_identifier: Optional[str] = None) -> list[Device]:
-    query = db.query(Device).order_by(Device.created_at.desc(), Device.id.desc())
-    if not user_identifier:
-        return query.all()
-
-    user = get_user_by_identifier(db, user_identifier)
-    if not user:
-        return []
-    return query.filter(Device.user_id == user.id).all()
-
-
-def delete_device_by_pk(db: Session, battery_id: int) -> bool:
-    device = get_device_by_pk(db, battery_id)
-    if not device:
-        return False
-
+def _delete_device_dependents(db: Session, battery_id: int) -> None:
     session_ids = [
         row.id
         for row in db.query(BatterySession.id)
@@ -139,6 +79,107 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
     db.query(SharedReport).filter(SharedReport.device_id == battery_id).delete(
         synchronize_session=False
     )
+
+
+def get_user_by_identifier(db: Session, user_identifier: str) -> Optional[User]:
+    if user_identifier.isdigit():
+        user = db.query(User).filter(User.id == int(user_identifier)).first()
+        if user:
+            return user
+
+    return db.query(User).filter(User.username == user_identifier).first()
+
+
+def create_device(db: Session, request: Any, *, commit: bool = True) -> Device:
+    user = get_user_by_identifier(db, request.user_id)
+    if not user:
+        raise ValueError(f"user not found: {request.user_id}")
+
+    device = Device(
+        user_id=user.id,
+        manufacturer=getattr(request, "manufacturer", None),
+        model_name=request.model_name,
+        powerbank_capacity_mah=request.powerbank_capacity_mah,
+        manufacture_date=getattr(request, "manufacture_date", None),
+    )
+    db.add(device)
+    if commit:
+        _commit_or_raise(
+            db,
+            conflict_detail="device already exists",
+            operation_detail="failed to create device",
+        )
+        db.refresh(device)
+    else:
+        _flush_or_raise(
+            db,
+            conflict_detail="device already exists",
+            operation_detail="failed to create device",
+        )
+    return device
+
+
+def create_session(db: Session, device: Device, *, commit: bool = True) -> BatterySession:
+    session = BatterySession(
+        device_id=device.id,
+        user_id=device.user_id,
+        status="in_progress",
+    )
+    db.add(session)
+    if commit:
+        _commit_or_raise(
+            db,
+            conflict_detail=f"session already exists for device: {device.id}",
+            operation_detail="failed to create session",
+        )
+        db.refresh(session)
+    else:
+        _flush_or_raise(
+            db,
+            conflict_detail=f"session already exists for device: {device.id}",
+            operation_detail="failed to create session",
+        )
+    return session
+
+
+def create_device_and_session(
+    db: Session,
+    *,
+    request: Any,
+) -> tuple[Device, BatterySession]:
+    device = create_device(db, request=request, commit=False)
+    session = create_session(db, device=device, commit=False)
+    _commit_or_raise(
+        db,
+        conflict_detail="device or session already exists",
+        operation_detail="failed to create device and session",
+    )
+    db.refresh(device)
+    db.refresh(session)
+    return device, session
+
+
+def get_device_by_pk(db: Session, battery_id: int) -> Optional[Device]:
+    return db.query(Device).filter(Device.id == battery_id).first()
+
+
+def list_devices(db: Session, user_identifier: Optional[str] = None) -> list[Device]:
+    query = db.query(Device).order_by(Device.created_at.desc(), Device.id.desc())
+    if not user_identifier:
+        return query.all()
+
+    user = get_user_by_identifier(db, user_identifier)
+    if not user:
+        return []
+    return query.filter(Device.user_id == user.id).all()
+
+
+def delete_device_by_pk(db: Session, battery_id: int) -> bool:
+    device = get_device_by_pk(db, battery_id)
+    if not device:
+        return False
+
+    _delete_device_dependents(db, battery_id)
     db.delete(device)
     _commit_or_raise(
         db,
@@ -149,10 +190,16 @@ def delete_device_by_pk(db: Session, battery_id: int) -> bool:
 
 
 def delete_device_by_device_id(db: Session, device_id: str) -> bool:
-    device = get_device(db, device_id)
+    try:
+        battery_id = int(device_id)
+    except (TypeError, ValueError):
+        return False
+
+    device = get_device_by_pk(db, battery_id)
     if not device:
         return False
 
+    _delete_device_dependents(db, battery_id)
     db.delete(device)
     _commit_or_raise(
         db,
