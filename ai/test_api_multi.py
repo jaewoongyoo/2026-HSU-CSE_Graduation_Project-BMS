@@ -16,11 +16,13 @@ v2는 각 세션의 delivered_wh에 **의도적 시간 경과 열화 추세**를
 """
 
 import json
+import os
 import random
 import urllib.error
 import urllib.request
 
-API_URL = "http://127.0.0.1:8000/soh/predict/multi"
+_BASE_URL = os.environ.get("SOH_API_URL", "http://127.0.0.1:8000")
+API_URL = f"{_BASE_URL}/soh/predict/multi"
 
 
 def generate_charging_session(
