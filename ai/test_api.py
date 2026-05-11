@@ -3,12 +3,14 @@
 실행: python test_api.py
 """
 
+import os
 import random
 import json
 import urllib.request
 import urllib.error
 
-API_URL = "http://127.0.0.1:8000/soh/predict"
+_BASE_URL = os.environ.get("SOH_API_URL", "http://127.0.0.1:8000")
+API_URL = f"{_BASE_URL}/soh/predict"
 
 
 def generate_discharge_cycle(

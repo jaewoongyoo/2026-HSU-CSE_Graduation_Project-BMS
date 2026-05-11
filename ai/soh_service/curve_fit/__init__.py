@@ -5,7 +5,6 @@ from soh_service.curve_fit.models import (
     StandardCurveArtifact,
     SessionObservation,
 )
-from soh_service.curve_fit.fitter import fit_standard_curve_from_artifact
 from soh_service.curve_fit.predictor import (
     CurveFitPredictor,
     PersonalizedPrediction,
@@ -16,7 +15,6 @@ __all__ = [
     "StandardCurveParams",
     "StandardCurveArtifact",
     "SessionObservation",
-    "fit_standard_curve_from_artifact",
     "CurveFitPredictor",
     "PersonalizedPrediction",
     "load_curve_fit_predictor",

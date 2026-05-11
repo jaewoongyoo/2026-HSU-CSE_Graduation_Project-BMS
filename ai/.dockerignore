@@ -1,0 +1,11 @@
+.venv/
+data/
+notebooks/
+scripts/
+tests/
+artifacts/checkpoints/
+artifacts/exports/
+artifacts/reports/
+**/__pycache__/
+**/*.pyc
+*.pem
