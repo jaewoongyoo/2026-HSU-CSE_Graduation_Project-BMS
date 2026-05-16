@@ -187,18 +187,57 @@ def get_recent_finished_sessions_for_device(
     )
 
 
-def update_session_finish(db: Session, session_id: int, request: Any) -> Optional[BatterySession]:
+def get_session_soc_bounds(db: Session, session_id: int) -> tuple[Optional[float], Optional[float]]:
+    first_point = (
+        db.query(BatteryTelemetry)
+        .filter(
+            BatteryTelemetry.session_id == session_id,
+            BatteryTelemetry.soc.isnot(None),
+        )
+        .order_by(
+            BatteryTelemetry.elapsed_ms.asc().nullslast(),
+            BatteryTelemetry.timestamp.asc(),
+            BatteryTelemetry.id.asc(),
+        )
+        .first()
+    )
+    last_point = (
+        db.query(BatteryTelemetry)
+        .filter(
+            BatteryTelemetry.session_id == session_id,
+            BatteryTelemetry.soc.isnot(None),
+        )
+        .order_by(
+            BatteryTelemetry.elapsed_ms.desc().nullslast(),
+            BatteryTelemetry.timestamp.desc(),
+            BatteryTelemetry.id.desc(),
+        )
+        .first()
+    )
+    return (
+        float(first_point.soc) if first_point and first_point.soc is not None else None,
+        float(last_point.soc) if last_point and last_point.soc is not None else None,
+    )
+
+
+def update_session_finish(
+    db: Session,
+    session_id: int,
+    request: Any,
+    *,
+    start_battery_level_pct: Optional[float] = None,
+    end_battery_level_pct: Optional[float] = None,
+) -> Optional[BatterySession]:
     session = get_session_meta(db, session_id)
     if not session:
         return None
 
     session.session_end_ts = request.session_end_ts
     session.android_api_level = request.android_api_level
-    session.powerbank_capacity_start_mah = getattr(request, "powerbank_capacity_start_mah", None)
+    session.powerbank_capacity_start_mah = start_battery_level_pct
     session.session_start_ts = getattr(request, "session_start_ts", None)
     session.capacity_ah = request.capacity_ah
-    session.powerbank_capacity_end_mah = getattr(request, "powerbank_capacity_end_mah", None)
-    session.label_capacity_ah = getattr(request, "label_capacity_ah", None)
+    session.powerbank_capacity_end_mah = end_battery_level_pct
     session.status = "finished"
     _commit_or_raise(
         db,

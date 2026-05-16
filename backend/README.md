@@ -42,8 +42,10 @@ uvicorn app.main:app --reload
 기본 AI 서버 주소:
 
 ```text
-http://127.0.0.1:8000
+http://43.203.28.250:8000
 ```
+
+로컬 AI 서버를 사용할 때는 `.env`에서 `AI_SERVER_BASE_URL=http://127.0.0.1:8000`처럼 덮어씁니다.
 
 ## API 목록
 

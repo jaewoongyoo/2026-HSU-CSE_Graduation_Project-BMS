@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
 
-    AI_SERVER_BASE_URL: str = "http://127.0.0.1:8000"
+    AI_SERVER_BASE_URL: str = "http://43.203.28.250:8000"
     REQUEST_TIMEOUT_SECONDS: int = 10
 
     @property

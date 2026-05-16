@@ -17,7 +17,11 @@ class SessionFinishRequest(BaseModel):
     powerbank_capacity_start_mah: float | None = Field(
         default=None,
         ge=0,
-        description="Stored in battery_sessions.powerbank_capacity_start_mah",
+        le=100,
+        description=(
+            "Session start battery level percent. "
+            "Stored in legacy column battery_sessions.powerbank_capacity_start_mah."
+        ),
     )
     session_start_ts: datetime | None = Field(default=None, description="Session start timestamp")
     session_end_ts: datetime = Field(..., description="Session end timestamp")
@@ -25,12 +29,11 @@ class SessionFinishRequest(BaseModel):
     powerbank_capacity_end_mah: float | None = Field(
         default=None,
         ge=0,
-        description="Stored in battery_sessions.powerbank_capacity_end_mah",
-    )
-    label_capacity_ah: float | None = Field(
-        default=None,
-        ge=0,
-        description="Stored in battery_sessions.label_capacity_ah",
+        le=100,
+        description=(
+            "Session end battery level percent. "
+            "Stored in legacy column battery_sessions.powerbank_capacity_end_mah."
+        ),
     )
 
 
