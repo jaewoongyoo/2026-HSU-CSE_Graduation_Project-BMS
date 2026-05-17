@@ -16,7 +16,7 @@ from soh_service.curve_fit.models import (
 
 # ── 필터 상수 ─────────────────────────────────────────────────────────────────
 
-MIN_SESSION_DURATION_S = 600.0   # 10분 미만 세션 제외
+MIN_SESSION_DURATION_S = 1200.0  # 20분 미만 세션 제외 (백엔드 유효 세션 기준과 동일)
 MIN_SESSION_DELIVERED_WH = 2.0   # 너무 적은 에너지 전달 세션 제외
 MIN_BATTERY_LEVEL_GAP_PCT = 15.0  # 스마트폰 배터리가 이 값 이상 남아있으면 제외 (충전 여지가 적음)
 MAX_START_BATTERY_LEVEL_PCT = 85.0  # 시작 잔량이 너무 높으면 제외
