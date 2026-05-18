@@ -93,6 +93,8 @@ def fetch_new_sessions(
         FROM battery_sessions
         WHERE created_at >= %s
           AND id NOT IN %s
+          AND capacity_ah IS NOT NULL
+          AND capacity_ah > 0
         ORDER BY created_at ASC
     """, (FETCH_SINCE, exclude_ids))
 
