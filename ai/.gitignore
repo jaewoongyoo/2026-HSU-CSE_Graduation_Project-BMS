@@ -1,3 +1,7 @@
+# 환경 변수 (절대 커밋 금지)
+.env
+.env.*
+
 # IDE / editor
 .idea/
 .vscode/
@@ -22,6 +26,7 @@ htmlcov/
 .venv/
 venv/
 env/
+requirements-dev.txt
 
 # Notebook noise
 .ipynb_checkpoints/
