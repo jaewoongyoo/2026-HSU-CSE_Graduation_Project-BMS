@@ -46,3 +46,5 @@ ai/data/
 ai/**/*.h5
 ai/**/*.pkl
 ai/**/*.ckpt
+
+ai/batteryai.pem
