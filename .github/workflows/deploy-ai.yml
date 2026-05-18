@@ -3,7 +3,7 @@ name: Deploy AI Server to AWS EC2
 on:
   push:
     branches:
-      - feature/ai
+      - develop
     paths:
       - 'ai/**'
 
