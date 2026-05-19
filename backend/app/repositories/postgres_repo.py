@@ -377,3 +377,230 @@ def delete_user_by_id(db: Session, user_id: int) -> bool:
         operation_detail="failed to delete user",
     )
     return True
+
+
+# ==================== Community Feed Functions ====================
+
+
+def get_all_public_shared_reports(
+    db: Session,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[tuple[SharedReport, Device, User]]:
+    """모든 공개 공유 보고서 조회"""
+    return (
+        db.query(SharedReport, Device, User)
+        .join(Device, SharedReport.device_id == Device.id)
+        .join(User, Device.user_id == User.id)
+        .filter(SharedReport.is_public == True)
+        .order_by(SharedReport.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+
+def get_public_shared_reports_by_filter(
+    db: Session,
+    phone_models: Optional[list[str]] = None,
+    manufacturers: Optional[list[str]] = None,
+    soh_min: Optional[float] = None,
+    soh_max: Optional[float] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[tuple[SharedReport, Device, User]]:
+    """필터링된 공개 공유 보고서 조회"""
+    query = (
+        db.query(SharedReport, Device, User)
+        .join(Device, SharedReport.device_id == Device.id)
+        .join(User, Device.user_id == User.id)
+        .filter(SharedReport.is_public == True)
+    )
+
+    # phone_model 필터
+    if phone_models:
+        query = query.filter(User.phone_model.in_(phone_models))
+
+    # manufacturer 필터
+    if manufacturers:
+        query = query.filter(Device.manufacturer.in_(manufacturers))
+
+    # SOH 범위 필터
+    if soh_min is not None or soh_max is not None:
+        query = query.outerjoin(
+            BatteryAiResult,
+            BatteryAiResult.session_id == BatterySession.id,
+        )
+        if soh_min is not None:
+            query = query.filter(BatteryAiResult.soh_percentage >= soh_min)
+        if soh_max is not None:
+            query = query.filter(BatteryAiResult.soh_percentage <= soh_max)
+
+    return (
+        query
+        .order_by(SharedReport.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+
+def get_session_stats_for_device(
+    db: Session,
+    device_id: int,
+) -> dict:
+    """디바이스의 세션 통계 계산"""
+    sessions = (
+        db.query(BatterySession)
+        .filter(
+            BatterySession.device_id == device_id,
+            BatterySession.status == "finished",
+        )
+        .all()
+    )
+
+    total_usage_seconds = 0.0
+    total_capacity_ah = 0.0
+
+    for session in sessions:
+        if session.session_start_ts and session.session_end_ts:
+            duration = (session.session_end_ts - session.session_start_ts).total_seconds()
+            total_usage_seconds += duration
+
+        if session.capacity_ah is not None:
+            total_capacity_ah += session.capacity_ah
+
+    return {
+        "total_usage_hours": round(total_usage_seconds / 3600, 2),
+        "total_capacity_ah": round(total_capacity_ah, 4),
+        "finished_session_count": len(sessions),
+    }
+
+
+def get_latest_ai_result_for_device(
+    db: Session,
+    device_id: int,
+) -> Optional[BatteryAiResult]:
+    """디바이스의 최신 AI 결과 조회"""
+    return (
+        db.query(BatteryAiResult)
+        .join(BatterySession, BatteryAiResult.session_id == BatterySession.id)
+        .filter(BatterySession.device_id == device_id)
+        .order_by(BatteryAiResult.created_at.desc())
+        .first()
+    )
+
+
+def get_latest_soh_analysis_for_device(
+    db: Session,
+    device_id: int,
+) -> Optional[SohAnalysis]:
+    """디바이스의 최신 SOH 분석 조회"""
+    return (
+        db.query(SohAnalysis)
+        .filter(SohAnalysis.device_id == device_id)
+        .order_by(SohAnalysis.analyzed_at.desc())
+        .first()
+    )
+
+
+def create_shared_report(
+    db: Session,
+    device_id: int,
+    is_public: bool = True,
+    share_token: str = None,
+) -> SharedReport:
+    """공유 보고서 생성"""
+    import uuid
+    
+    if share_token is None:
+        share_token = str(uuid.uuid4())
+
+    device = get_device_by_pk(db, device_id)
+    if not device:
+        raise ValueError(f"device not found: {device_id}")
+
+    shared_report = SharedReport(
+        device_id=device_id,
+        phone_model=device.user.phone_model if device.user else None,
+        is_public=is_public,
+        share_token=share_token,
+    )
+    db.add(shared_report)
+    _commit_or_raise(
+        db,
+        conflict_detail=f"shared report already exists for device: {device_id}",
+        operation_detail="failed to create shared report",
+    )
+    db.refresh(shared_report)
+    return shared_report
+
+
+def update_shared_report(
+    db: Session,
+    shared_report_id: int,
+    is_public: bool,
+) -> Optional[SharedReport]:
+    """공유 보고서 업데이트"""
+    shared_report = (
+        db.query(SharedReport).filter(SharedReport.id == shared_report_id).first()
+    )
+    if not shared_report:
+        return None
+
+    shared_report.is_public = is_public
+    _commit_or_raise(
+        db,
+        conflict_detail=f"shared report update conflict: {shared_report_id}",
+        operation_detail="failed to update shared report",
+    )
+    db.refresh(shared_report)
+    return shared_report
+
+
+def delete_shared_report(db: Session, shared_report_id: int) -> bool:
+    """공유 보고서 삭제"""
+    shared_report = (
+        db.query(SharedReport).filter(SharedReport.id == shared_report_id).first()
+    )
+    if not shared_report:
+        return False
+
+    db.delete(shared_report)
+    _commit_or_raise(
+        db,
+        conflict_detail=f"shared report delete conflict: {shared_report_id}",
+        operation_detail="failed to delete shared report",
+    )
+    return True
+
+
+def get_distinct_phone_models(db: Session) -> list[str]:
+    """공개 공유된 폰 모델 목록 조회"""
+    results = (
+        db.query(User.phone_model)
+        .join(Device, Device.user_id == User.id)
+        .join(SharedReport, SharedReport.device_id == Device.id)
+        .filter(
+            SharedReport.is_public == True,
+            User.phone_model.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return [r[0] for r in results if r[0]]
+
+
+def get_distinct_manufacturers(db: Session) -> list[str]:
+    """공개 공유된 배터리 제조사 목록 조회"""
+    results = (
+        db.query(Device.manufacturer)
+        .join(SharedReport, SharedReport.device_id == Device.id)
+        .filter(
+            SharedReport.is_public == True,
+            Device.manufacturer.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return [r[0] for r in results if r[0]]
