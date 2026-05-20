@@ -29,6 +29,7 @@ backend/**/*.class
 backend/**/*.log
 backend/**/.factorypath
 backend/env
+backend/venv
 
 # =================================================================
 # [AI Part]
