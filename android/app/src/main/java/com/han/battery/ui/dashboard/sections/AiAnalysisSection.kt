@@ -1,8 +1,5 @@
 package com.han.battery.ui.dashboard.sections
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +10,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.han.battery.data.model.SessionResultResponse
 import com.han.battery.ui.components.ai.AiSummaryCard
-import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue100
 import com.han.battery.ui.theme.Blue600
 
@@ -86,33 +81,15 @@ fun AiAnalysisSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            AiSummaryCard(
-                modifier = Modifier.width(208.dp),
-                tag = "종합 진단",
-                title = "보조배터리 성능 평가",
-                value = conditionValue,
-                desc = dynamicAnalysisDesc,
-                accent = Blue600,
-                bg = Color(0xFFF5F8FF),
-                icon = Icons.Default.AutoAwesome
-            )
-
-            AiSummaryCard(
-                modifier = Modifier.width(208.dp),
-                tag = "케이블 진단",
-                title = "케이블 전력 손실",
-                value = if (analysisResult != null) "7%" else "15%",
-                desc = if (analysisResult != null) "안정적인 충전 전류가 감지되어 전력 효율이 정상 범위 내에 안착했습니다." else "사용 중인 케이블에서 전력 손실이 약 15% 발생 중일 수 있습니다.\n정품 케이블 사용 권장.",
-                accent = Amber500,
-                bg = Color(0xFFFFFBF2),
-                icon = Icons.Default.Bolt
-            )
-        }
+        AiSummaryCard(
+            modifier = Modifier.fillMaxWidth(),
+            tag = "종합 진단",
+            title = "보조배터리 성능 평가",
+            value = conditionValue,
+            desc = dynamicAnalysisDesc,
+            accent = Blue600,
+            bg = Color(0xFFF5F8FF),
+            icon = Icons.Default.AutoAwesome
+        )
     }
 }

@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Emerald500
 import com.han.battery.ui.theme.Slate500
@@ -132,14 +131,6 @@ fun ChargeTimeCompareCard(
                 color = Emerald500
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            TimeCompareBar(
-                label = "케이블 손실 반영 시",
-                value = lossText,
-                progress = lossProgress,
-                color = Amber500
-            )
         }
     }
 }

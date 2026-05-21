@@ -50,7 +50,7 @@ fun LandingHeadline() {
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "AI가 분석한 배터리 건강도, 충전 예측,\n케이블 진단까지 한눈에 확인하세요.",
+            text = "AI가 분석한 배터리 건강도와\n충전 예측을 한눈에 확인하세요.",
             style = MaterialTheme.typography.bodyMedium,
             color = Slate500,
             textAlign = TextAlign.Center,
