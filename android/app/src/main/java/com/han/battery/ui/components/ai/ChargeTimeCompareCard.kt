@@ -1,5 +1,4 @@
 package com.han.battery.ui.components.ai
-// 배터리 성능 저하에 따른 충전 시간 비교 차트를 표시하는 카드 컴포넌트
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,7 +29,52 @@ import com.han.battery.ui.theme.Emerald500
 import com.han.battery.ui.theme.Slate500
 
 @Composable
-fun ChargeTimeCompareCard(modifier: Modifier = Modifier) {
+fun ChargeTimeCompareCard(
+    modifier: Modifier = Modifier,
+    currentSoc: Int = 78,
+    isCharging: Boolean = false,
+    estimatedFullCharges: Double? = null
+) {
+    val targetSoc = (100 - currentSoc).coerceAtLeast(0)
+
+    val currentText: String
+    val optimalText: String
+    val lossText: String
+
+    val currentProgress: Float
+    val optimalProgress: Float
+    val lossProgress: Float
+
+    if (!isCharging) {
+        currentText = "진단 대기"
+        optimalText = "진단 대기"
+        lossText = "진단 대기"
+        currentProgress = 0f
+        optimalProgress = 0f
+        lossProgress = 0f
+    } else if (targetSoc <= 0) {
+        currentText = "완충됨"
+        optimalText = "완충됨"
+        lossText = "완충됨"
+        currentProgress = 1f
+        optimalProgress = 1f
+        lossProgress = 1f
+    } else {
+        // 배터리 잔량에 따른 대략적인 소요 시간 계산
+        val currentMin = (targetSoc * 0.55).toInt().coerceAtLeast(1)
+        val optimalMin = (targetSoc * 0.45).toInt().coerceAtLeast(1)
+        val lossMin = (targetSoc * 0.70).toInt().coerceAtLeast(1)
+
+        currentText = "약 ${currentMin}분"
+        optimalText = "약 ${optimalMin}분"
+        lossText = "약 ${lossMin}분"
+
+        // 차트에 채워질 progress (속도가 빠를수록 progress바가 더 길게 참)
+        currentProgress = 0.82f
+        optimalProgress = 0.91f
+        lossProgress = 0.64f
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -58,8 +102,14 @@ fun ChargeTimeCompareCard(modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(6.dp))
 
+            val subtitle = if (isCharging) {
+                "현재 잔량 (${currentSoc}%) → 100%"
+            } else {
+                "현재 잔량 (${currentSoc}%) — 진단 시 완충 예상 시간 분석 가능"
+            }
+
             Text(
-                text = "현재 잔량 (78%) → 100%",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = Slate500
             )
@@ -68,8 +118,8 @@ fun ChargeTimeCompareCard(modifier: Modifier = Modifier) {
 
             TimeCompareBar(
                 label = "현재 충전 환경",
-                value = "약 42분",
-                progress = 0.82f,
+                value = currentText,
+                progress = currentProgress,
                 color = Blue600
             )
 
@@ -77,8 +127,8 @@ fun ChargeTimeCompareCard(modifier: Modifier = Modifier) {
 
             TimeCompareBar(
                 label = "최적 충전 환경",
-                value = "약 35분",
-                progress = 0.91f,
+                value = optimalText,
+                progress = optimalProgress,
                 color = Emerald500
             )
 
@@ -86,8 +136,8 @@ fun ChargeTimeCompareCard(modifier: Modifier = Modifier) {
 
             TimeCompareBar(
                 label = "케이블 손실 반영 시",
-                value = "약 50분",
-                progress = 0.64f,
+                value = lossText,
+                progress = lossProgress,
                 color = Amber500
             )
         }
@@ -130,4 +180,3 @@ private fun TimeCompareBar(
         )
     }
 }
-

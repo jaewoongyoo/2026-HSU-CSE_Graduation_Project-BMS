@@ -440,22 +440,21 @@ class AuthRepository(
     }
 
     /**
-     * 현재 로그인한 사용자 소유의 배터리만 조회합니다.
-     * 서버가 전체 목록을 반환하더라도 앱에서 한 번 더 필터링합니다.
+     * 현재 로그인한 사용자 소유의 배터리만 서버에서 직접 조회합니다.
      */
     suspend fun getCurrentUserBatteries(): Result<List<BatteryResponse>> {
-        return getBatteries().mapCatching { batteries ->
+        return try {
             val currentUserId = userManager.getCurrentUserId()
             if (currentUserId <= 0) {
                 throw IllegalStateException("로그인된 사용자가 없습니다.")
             }
-
-            val filteredBatteries = batteries.filter { it.user_id == currentUserId }
-            AppLogger.info(
-                "현재 사용자 배터리 필터링 완료: userId=$currentUserId, 전체 ${batteries.size}개, 사용자 ${filteredBatteries.size}개",
-                TAG
-            )
-            filteredBatteries
+            AppLogger.info("현재 사용자 배터리 조회: userId=$currentUserId", TAG)
+            val result = apiService.getBatteriesForUser(currentUserId.toString()).getOrThrow()
+            AppLogger.info("현재 사용자 배터리 조회 완료: ${result.size}개", TAG)
+            Result.success(result)
+        } catch (e: Exception) {
+            AppLogger.error("현재 사용자 배터리 조회 실패", e, TAG)
+            Result.failure(e)
         }
     }
 
@@ -558,6 +557,30 @@ class AuthRepository(
             }
             AppLogger.error("❌ 배터리 삭제 실패: $errorMessage (ID: $batteryId)", e, TAG)
             Result.failure(Exception(errorMessage))
+        }
+    }
+
+    suspend fun predictSoh(sessionId: Int): Result<SohPredictResponse> {
+        return try {
+            AppLogger.info("SOH 예측 트리거: sessionId=$sessionId", TAG)
+            val response = apiService.predictSoh(sessionId).getOrThrow()
+            AppLogger.info("SOH 예측 트리거 성공: $response", TAG)
+            Result.success(response)
+        } catch (e: Exception) {
+            AppLogger.error("SOH 예측 트리거 실패: sessionId=$sessionId", e, TAG)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSessionResult(sessionId: Int): Result<SessionResultResponse> {
+        return try {
+            AppLogger.info("세션 결과 조회: sessionId=$sessionId", TAG)
+            val response = apiService.getSessionResult(sessionId).getOrThrow()
+            AppLogger.info("세션 결과 조회 성공: $response", TAG)
+            Result.success(response)
+        } catch (e: Exception) {
+            AppLogger.error("세션 결과 조회 실패: sessionId=$sessionId", e, TAG)
+            Result.failure(e)
         }
     }
 }

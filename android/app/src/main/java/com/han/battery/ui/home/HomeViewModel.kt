@@ -52,7 +52,7 @@ class HomeViewModel(
             deleteResult.onSuccess {
                 preferenceManager.deleteDevice(device.model_name)
                 refreshDevices()
-                _events.emit(HomeUiEvent.ShowMessage(it.ifBlank { "Device deleted successfully." }))
+                _events.emit(HomeUiEvent.ShowMessage("배터리가 삭제되었습니다."))
                 if (navigateHomeAfterDelete) {
                     _events.emit(HomeUiEvent.NavigateToHome)
                 }

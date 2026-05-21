@@ -1,5 +1,4 @@
 package com.han.battery.ui.dashboard.sections
-// 대시보드의 예측 섹션 - SOH 예측 차트 및 충전 시간 비교 데이터 표시
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,18 +10,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.han.battery.data.model.SessionResultResponse
 import com.han.battery.ui.components.ai.ChargeTimeCompareCard
 import com.han.battery.ui.components.ai.SohPredictionChartCard
 import com.han.battery.ui.theme.Slate500
 
 @Composable
-fun PredictionSection() {
+fun PredictionSection(
+    analysisResult: SessionResultResponse? = null,
+    currentSoc: Int = 78,
+    isCharging: Boolean = false
+) {
     Column {
-        SohPredictionChartCard()
+        SohPredictionChartCard(analysisResult = analysisResult)
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        ChargeTimeCompareCard()
+        ChargeTimeCompareCard(
+            currentSoc = currentSoc,
+            isCharging = isCharging,
+            estimatedFullCharges = analysisResult?.estimated_full_charges
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -36,4 +44,3 @@ fun PredictionSection() {
         Spacer(modifier = Modifier.height(18.dp))
     }
 }
-

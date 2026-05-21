@@ -269,6 +269,130 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         result
     }
 
+    suspend fun getCommunity(
+        limit: Int = 50,
+        offset: Int = 0
+    ): Result<List<CommunityCardResponse>> = runCatching {
+        Log.d("ApiService", "커뮤니티 피드 조회: GET $baseUrl/api/v1/community")
+        val response = client.get("$baseUrl/api/v1/community") {
+            parameter("limit", limit)
+            parameter("offset", offset)
+        }
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "커뮤니티 피드 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("서버에서 데이터를 불러오는데 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun getCommunityFiltered(
+        request: CommunityFilterRequest
+    ): Result<List<CommunityCardResponse>> = runCatching {
+        Log.d("ApiService", "커뮤니티 필터 조회: POST $baseUrl/api/v1/community/filter")
+        val response = client.post("$baseUrl/api/v1/community/filter") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "커뮤니티 필터 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("필터링된 데이터를 불러오는데 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun getCommunityFilterOptions(): Result<CommunityFilterOptionsResponse> = runCatching {
+        Log.d("ApiService", "커뮤니티 필터 옵션 조회: GET $baseUrl/api/v1/community/filter-options")
+        val response = client.get("$baseUrl/api/v1/community/filter-options") {}
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "커뮤니티 필터 옵션 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("필터 옵션을 불러오는데 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun shareDevice(
+        deviceId: Int,
+        request: CommunityShareRequest
+    ): Result<CommunityShareResponse> = runCatching {
+        Log.d("ApiService", "커뮤니티 공유 등록: POST $baseUrl/api/v1/community/$deviceId/share")
+        val response = client.post("$baseUrl/api/v1/community/$deviceId/share") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "커뮤니티 공유 등록 실패: ${response.status.value} - $errorBody")
+            throw Exception("공유 등록에 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun updateShareStatus(
+        sharedReportId: Int,
+        request: CommunityShareUpdateRequest
+    ): Result<CommunityShareResponse> = runCatching {
+        Log.d("ApiService", "커뮤니티 공유 상태 수정: PATCH $baseUrl/api/v1/community/$sharedReportId")
+        val response = client.patch("$baseUrl/api/v1/community/$sharedReportId") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "공유 상태 수정 실패: ${response.status.value} - $errorBody")
+            throw Exception("공유 상태 수정에 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun deleteShare(sharedReportId: Int): Result<CommunityDeleteResponse> = runCatching {
+        Log.d("ApiService", "커뮤니티 공유 삭제: DELETE $baseUrl/api/v1/community/$sharedReportId")
+        val response = client.delete("$baseUrl/api/v1/community/$sharedReportId") {}
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "공유 삭제 실패: ${response.status.value} - $errorBody")
+            throw Exception("공유 삭제에 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
+    suspend fun predictSoh(sessionId: Int): Result<SohPredictResponse> = runCatching {
+        Log.d("ApiService", "SOH 예측 API 호출: POST $baseUrl/api/v1/sessions/$sessionId/predict-soh")
+        val response = client.post("$baseUrl/api/v1/sessions/$sessionId/predict-soh") {
+            contentType(ContentType.Application.Json)
+        }
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "SOH 예측 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+        response.body()
+    }
+
+    suspend fun getSessionResult(sessionId: Int): Result<SessionResultResponse> = runCatching {
+        Log.d("ApiService", "세션 결과 조회 API 호출: GET $baseUrl/api/v1/sessions/$sessionId/result")
+        val response = client.get("$baseUrl/api/v1/sessions/$sessionId/result")
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "세션 결과 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+        response.body()
+    }
+
+    suspend fun getBatteriesForUser(userId: String): Result<List<BatteryResponse>> = runCatching {
+        Log.d("ApiService", "사용자 기기 목록 조회 API 호출: GET $baseUrl/api/v1/devices/$userId")
+        val response = client.get("$baseUrl/api/v1/devices/$userId")
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "사용자 기기 목록 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+        response.body()
+    }
+
     fun close() {
         client.close()
     }

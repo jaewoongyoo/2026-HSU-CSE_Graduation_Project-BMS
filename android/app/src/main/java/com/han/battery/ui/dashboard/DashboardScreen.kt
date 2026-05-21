@@ -16,28 +16,46 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.han.battery.data.model.BatteryDevice // BatteryDevice로 타입 일치 확인
+import com.han.battery.data.model.BatteryDevice
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
 import com.han.battery.ui.dashboard.sections.MonitoringSection
 import com.han.battery.ui.dashboard.sections.PredictionSection
 import kotlin.math.abs
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    device: com.han.battery.data.model.BatteryDevice, // 타입 맞춰서 수정
+    device: com.han.battery.data.model.BatteryDevice,
     onBack: () -> Unit,
     onChangeDevice: () -> Unit,
     onDeleteDevice: () -> Unit
 ) {
+    val context = LocalContext.current
     val menuExpanded = remember { mutableStateOf(false) }
     val showDeleteDialog = remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is DashboardUiEvent.ShowMessage -> {
+                    Toast.makeText(
+                        context,
+                        event.message,
+                        if (event.isError) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
 
     // 데이터 구독
     val status by viewModel.batteryStatus.collectAsState()
     val isMonitoring by viewModel.isMonitoring.collectAsState()
+    val lastAnalysisResult by viewModel.lastAnalysisResult.collectAsState()
 
     LaunchedEffect(device.id, device.model_name) {
         viewModel.setDevice(device)
@@ -67,7 +85,7 @@ fun DashboardScreen(
     val isButtonEnabled = isMonitoring || status.isCharging
     val buttonText = if (isMonitoring) "진단 종료" else "AI 진단 시작"
 
-    // 삭제 다이얼로그 로직 (기존 유지)
+    // 삭제 다이얼로그 로직
     if (showDeleteDialog.value) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog.value = false },
@@ -110,6 +128,7 @@ fun DashboardScreen(
                         Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
                     }
                     DropdownMenu(expanded = menuExpanded.value, onDismissRequest = { menuExpanded.value = false }) {
+                        DropdownMenuItem(text = { Text("커뮤니티에 공유") }, onClick = { menuExpanded.value = false; viewModel.shareActiveDeviceToCommunity() })
                         DropdownMenuItem(text = { Text("기기 변경") }, onClick = { menuExpanded.value = false; onChangeDevice() })
                         DropdownMenuItem(text = { Text("기기 삭제") }, onClick = { menuExpanded.value = false; showDeleteDialog.value = true })
                     }
@@ -129,7 +148,7 @@ fun DashboardScreen(
             MonitoringSection(
                 isMonitoring = isMonitoring,
                 soc = status.soc,
-                soh = 92,
+                soh = lastAnalysisResult?.soh_percentage?.toInt() ?: 100,
                 power = powerDisplayValue,
                 powerUnit = powerDisplayUnit,
                 voltage = String.format("%.2f", status.voltage).toDouble(),
@@ -147,7 +166,7 @@ fun DashboardScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFFD1D5DB), // 충전 안 될 때 회색 비활성화
+                    disabledContainerColor = Color(0xFFD1D5DB),
                     disabledContentColor = Color.White.copy(alpha = 0.6f)
                 ),
                 shape = RoundedCornerShape(12.dp)
@@ -169,9 +188,16 @@ fun DashboardScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
             Spacer(modifier = Modifier.height(8.dp))
 
-            AiAnalysisSection(predictedTimeText = predictionText)
+            AiAnalysisSection(
+                predictedTimeText = predictionText,
+                analysisResult = lastAnalysisResult
+            )
             Spacer(modifier = Modifier.height(4.dp))
-            PredictionSection()
+            PredictionSection(
+                analysisResult = lastAnalysisResult,
+                currentSoc = status.soc,
+                isCharging = status.isCharging
+            )
 
             // 온도 정보 표기
             Spacer(modifier = Modifier.height(8.dp))
