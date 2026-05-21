@@ -112,3 +112,37 @@ data class SessionFinishResponse(
     val id: Int,
     val status: String
 )
+
+@Serializable
+data class SohPredictResponse(
+    val soh_percentage: Double,
+    val condition: String,
+    val estimated_full_charges: Double,
+    val powerbank_usable_mah: Double,
+    val smartphone_received_mah: Double? = null,
+    val mean_temperature_c: Double? = null,
+    @SerialName("standard_soh_percentage") val standardSohPercentage: Double? = null,
+    @SerialName("degradation_rate_ratio") val degradationRateRatio: Double? = null,
+    @SerialName("sessions_used") val sessionsUsed: Int? = null,
+    @SerialName("sessions_total") val sessionsTotal: Int? = null,
+    @SerialName("confidence") val confidence: Double? = null
+)
+
+@Serializable
+data class SessionResultResponse(
+    val id: Int,
+    val status: String,
+    val soh_percentage: Double? = null,
+    val condition: String? = null,
+    val estimated_full_charges: Double? = null,
+    val powerbank_usable_mah: Double? = null,
+    val smartphone_received_mah: Double? = null,
+    val mean_temperature_c: Double? = null,
+    val analyzed_at: String? = null,
+    @SerialName("standard_soh_percentage") val standardSohPercentage: Double? = null,
+    @SerialName("degradation_rate_ratio") val degradationRateRatio: Double? = null,
+    @SerialName("sessions_used") val sessionsUsed: Int? = null,
+    @SerialName("sessions_total") val sessionsTotal: Int? = null,
+    @SerialName("confidence") val confidence: Double? = null
+)
+

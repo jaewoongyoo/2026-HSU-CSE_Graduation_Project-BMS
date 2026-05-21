@@ -1,5 +1,4 @@
 package com.han.battery.ui.components.ai
-// 배터리 건강도(SOH) 예측 및 화학적 변화를 선 차트로 표시하는 AI 분석 컴포넌트
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
@@ -32,13 +31,48 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.han.battery.data.model.SessionResultResponse
 import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate300
 import com.han.battery.ui.theme.Slate500
 
 @Composable
-fun SohPredictionChartCard(modifier: Modifier = Modifier) {
+fun SohPredictionChartCard(
+    modifier: Modifier = Modifier,
+    analysisResult: SessionResultResponse? = null
+) {
+    val currentSoh = analysisResult?.soh_percentage ?: 92.0
+    val condition = analysisResult?.condition ?: "최상 (A+)"
+    
+    // LSTM 예측 기반 6개월간 매월 노화 속도 비율에 맞춰 감소하는 추세 생성
+    val degradation = (analysisResult?.degradationRateRatio ?: 1.0) * 0.6
+    val predictionPoints = List(7) { month ->
+        currentSoh - (month * degradation)
+    }
+    
+    val predictedSohSixMonthsLater = predictionPoints.last()
+    val formattedSixMonthsLater = String.format("%.1f", predictedSohSixMonthsLater)
+
+    // 안내 메세지 빌드
+    val tipText = when {
+        predictedSohSixMonthsLater < 80.0 -> "⚠ 6개월 후 SOH ${formattedSixMonthsLater}% 예상 — 배터리 교체를 강하게 권장합니다."
+        predictedSohSixMonthsLater < 90.0 -> "💡 6개월 후 SOH ${formattedSixMonthsLater}% 예상 — 보관 시 완전 방전을 방지하여 수명을 늘리세요."
+        else -> "✅ 6개월 후 SOH ${formattedSixMonthsLater}% 예상 — 건강도가 매우 안정적으로 양호합니다."
+    }
+
+    val tipBgColor = when {
+        predictedSohSixMonthsLater < 80.0 -> Color(0xFFFFF0F0)
+        predictedSohSixMonthsLater < 90.0 -> Color(0xFFFFF8E8)
+        else -> Color(0xFFE8FAF0)
+    }
+
+    val tipTextColor = when {
+        predictedSohSixMonthsLater < 80.0 -> Color(0xFFD32F2F)
+        predictedSohSixMonthsLater < 90.0 -> Color(0xFF9A6700)
+        else -> Color(0xFF2E7D32)
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -68,7 +102,7 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "6개월 SOH 변화 예측",
+                text = "6개월 SOH 변화 예측 (현재 ${String.format("%.1f", currentSoh)}%)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -76,7 +110,7 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "AI 모델 기반 배터리 수명 저하 시뮬레이션",
+                text = "AI 모델 기반 배터리 수명 저하 시뮬레이션 (상태: $condition)",
                 style = MaterialTheme.typography.bodySmall,
                 color = Slate500
             )
@@ -98,6 +132,7 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
                     val w = size.width
                     val h = size.height
 
+                    // Y축 기준선 (100% ~ 70%)
                     for (i in 0..4) {
                         val y = h * i / 4f
                         drawLine(
@@ -108,6 +143,7 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
                         )
                     }
 
+                    // X축 기준선 (0개월 ~ 6개월)
                     for (i in 0..6) {
                         val x = w * i / 6f
                         drawLine(
@@ -118,15 +154,14 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
                         )
                     }
 
-                    val points = listOf(
-                        Offset(0f, h * 0.18f),
-                        Offset(w * 0.16f, h * 0.22f),
-                        Offset(w * 0.33f, h * 0.28f),
-                        Offset(w * 0.50f, h * 0.37f),
-                        Offset(w * 0.67f, h * 0.43f),
-                        Offset(w * 0.84f, h * 0.52f),
-                        Offset(w, h * 0.59f)
-                    )
+                    // SOH 100% -> y = 0, 70% -> y = h로 매핑
+                    // 즉, y = h * (100 - soh) / 30f
+                    val points = predictionPoints.mapIndexed { index, soh ->
+                        val x = w * index / 6f
+                        val clampedSoh = soh.coerceIn(70.0, 100.0)
+                        val y = h * (100.0 - clampedSoh).toFloat() / 30f
+                        Offset(x, y)
+                    }
 
                     val linePath = Path().apply {
                         moveTo(points.first().x, points.first().y)
@@ -149,7 +184,8 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
                         )
                     }
 
-                    val warningY = h * 0.53f
+                    // 80% 교체 경고선 그리기
+                    val warningY = h * 20f / 30f
                     drawLine(
                         color = Amber500,
                         start = Offset(0f, warningY),
@@ -159,30 +195,57 @@ fun SohPredictionChartCard(modifier: Modifier = Modifier) {
                 }
 
                 Text(
-                    text = "100",
+                    text = "100%",
                     style = MaterialTheme.typography.bodySmall,
                     color = Slate500,
                     modifier = Modifier.align(Alignment.TopStart)
                 )
                 Text(
-                    text = "70",
+                    text = "70%",
                     style = MaterialTheme.typography.bodySmall,
                     color = Slate500,
                     modifier = Modifier.align(Alignment.BottomStart)
                 )
             }
 
+            if (analysisResult?.confidence != null || (analysisResult?.sessionsUsed != null && analysisResult?.sessionsTotal != null)) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    analysisResult.confidence?.let { conf ->
+                        Text(
+                            text = "🎯 예측 신뢰도: ${String.format("%.1f", conf * 100)}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (analysisResult.sessionsUsed != null && analysisResult.sessionsTotal != null) {
+                        Text(
+                            text = "📊 분석 세션: ${analysisResult.sessionsUsed}/${analysisResult.sessionsTotal}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFFFF8E8)
+                color = tipBgColor
             ) {
                 Text(
-                    text = "⚠ 6개월 후 SOH 77% 예상 — 교체 검토를 권장합니다.",
+                    text = tipText,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF9A6700),
+                    color = tipTextColor,
                     fontWeight = FontWeight.Medium
                 )
             }
