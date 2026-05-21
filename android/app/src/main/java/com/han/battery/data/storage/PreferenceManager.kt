@@ -20,6 +20,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         private const val KEY_DEVICES = "all_devices"
         private const val KEY_DEVICES_EXISTS = "devices_exist"
         private const val KEY_ACTIVE_DEVICE = "active_device"
+        private const val KEY_MONITORING_ACTIVE = "monitoring_active"
+        private const val KEY_MONITORING_MANUALLY_STOPPED = "monitoring_manually_stopped"
+        private const val KEY_LAST_SESSION_ID = "last_session_id"
+        private const val KEY_LAST_SESSION_RESULT = "last_session_result"
         private const val TAG = "PreferenceManager"
     }
 
@@ -40,6 +44,16 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     private fun getUserActiveDeviceKey(): String {
         val currentUser = userManager?.getCurrentUser() ?: "default"
         return "${currentUser}_$KEY_ACTIVE_DEVICE"
+    }
+
+    private fun getUserMonitoringActiveKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_MONITORING_ACTIVE"
+    }
+
+    private fun getUserMonitoringManuallyStoppedKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_MONITORING_MANUALLY_STOPPED"
     }
 
     /**
@@ -279,6 +293,22 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         }
     }
 
+    fun setMonitoringActive(active: Boolean) {
+        prefs.edit().putBoolean(getUserMonitoringActiveKey(), active).apply()
+    }
+
+    fun isMonitoringActive(): Boolean {
+        return prefs.getBoolean(getUserMonitoringActiveKey(), false)
+    }
+
+    fun setMonitoringManuallyStopped(manuallyStopped: Boolean) {
+        prefs.edit().putBoolean(getUserMonitoringManuallyStoppedKey(), manuallyStopped).apply()
+    }
+
+    fun wasMonitoringManuallyStopped(): Boolean {
+        return prefs.getBoolean(getUserMonitoringManuallyStoppedKey(), false)
+    }
+
     /**
      * 사용자 로그아웃 시 호출되는 메서드
      * 로그아웃 전 현재 사용자의 배터리 데이터를 초기화할 수 있습니다. (선택사항)
@@ -288,5 +318,67 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         // 향후 필요 시 여기에 추가
         val previousUser = userManager?.getCurrentUser() ?: "default"
         AppLogger.info("사용자 로그아웃 처리 [$previousUser]", TAG)
+    }
+
+    private fun getUserLastSessionIdKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_LAST_SESSION_ID"
+    }
+
+    private fun getUserLastSessionResultKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_LAST_SESSION_RESULT"
+    }
+
+    fun saveLastSessionId(sessionId: Int) {
+        prefs.edit().putInt(getUserLastSessionIdKey(), sessionId).apply()
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        AppLogger.info("마지막 세션 ID 저장 [$currentUser]: $sessionId", TAG)
+    }
+
+    fun getLastSessionId(): Int {
+        return prefs.getInt(getUserLastSessionIdKey(), 0)
+    }
+
+    fun saveLastSessionResult(result: com.han.battery.data.model.SessionResultResponse) {
+        try {
+            val json = JSONObject().apply {
+                put("id", result.id)
+                put("status", result.status)
+                result.soh_percentage?.let { put("soh_percentage", it) }
+                result.condition?.let { put("condition", it) }
+                result.estimated_full_charges?.let { put("estimated_full_charges", it) }
+                result.powerbank_usable_mah?.let { put("powerbank_usable_mah", it) }
+                result.smartphone_received_mah?.let { put("smartphone_received_mah", it) }
+                result.mean_temperature_c?.let { put("mean_temperature_c", it) }
+                result.analyzed_at?.let { put("analyzed_at", it) }
+            }
+            prefs.edit().putString(getUserLastSessionResultKey(), json.toString()).apply()
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("마지막 분석 결과 저장 [$currentUser]: session=${result.id}, status=${result.status}", TAG)
+        } catch (e: Exception) {
+            AppLogger.error("마지막 분석 결과 저장 실패", e, TAG)
+        }
+    }
+
+    fun getLastSessionResult(): com.han.battery.data.model.SessionResultResponse? {
+        return try {
+            val jsonString = prefs.getString(getUserLastSessionResultKey(), null) ?: return null
+            val json = JSONObject(jsonString)
+            com.han.battery.data.model.SessionResultResponse(
+                id = json.getInt("id"),
+                status = json.getString("status"),
+                soh_percentage = if (json.has("soh_percentage")) json.getDouble("soh_percentage") else null,
+                condition = if (json.has("condition")) json.getString("condition") else null,
+                estimated_full_charges = if (json.has("estimated_full_charges")) json.getDouble("estimated_full_charges") else null,
+                powerbank_usable_mah = if (json.has("powerbank_usable_mah")) json.getDouble("powerbank_usable_mah") else null,
+                smartphone_received_mah = if (json.has("smartphone_received_mah")) json.getDouble("smartphone_received_mah") else null,
+                mean_temperature_c = if (json.has("mean_temperature_c")) json.getDouble("mean_temperature_c") else null,
+                analyzed_at = if (json.has("analyzed_at")) json.getString("analyzed_at") else null
+            )
+        } catch (e: Exception) {
+            AppLogger.error("마지막 분석 결과 로드 실패", e, TAG)
+            null
+        }
     }
 }

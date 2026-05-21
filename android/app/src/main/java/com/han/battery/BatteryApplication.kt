@@ -6,9 +6,11 @@ import com.han.battery.data.api.ApiService
 import com.han.battery.data.repository.AWSIoTManager
 import com.han.battery.data.repository.AuthRepository
 import com.han.battery.data.repository.BatteryRepository
+import com.han.battery.data.repository.CommunityRepository
 import com.han.battery.data.storage.BatteryDatabase
 import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.data.storage.UserManager
+import com.han.battery.service.MonitoringRecoveryWorker
 
 class BatteryApplication : Application() {
     val userManager: UserManager by lazy {
@@ -43,8 +45,13 @@ class BatteryApplication : Application() {
         BatteryRepository(batteryDatabase.batteryDao(), awsIoTManager)
     }
 
+    val communityRepository: CommunityRepository by lazy {
+        CommunityRepository(apiService)
+    }
+
     override fun onCreate() {
         super.onCreate()
         java.security.Security.addProvider(org.bouncycastle.jce.provider.BouncyCastleProvider())
+        MonitoringRecoveryWorker.enqueue(applicationContext)
     }
 }

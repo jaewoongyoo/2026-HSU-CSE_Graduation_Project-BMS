@@ -19,6 +19,11 @@ import java.time.Instant
 import kotlin.math.abs
 
 class BatteryMonitoringService : Service() {
+    companion object {
+        const val ACTION_START_MONITORING = "com.han.battery.action.START_MONITORING"
+        const val ACTION_STOP_MONITORING = "com.han.battery.action.STOP_MONITORING"
+    }
+
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private val CHANNEL_ID = "battery_monitoring_channel"
     private val batteryApplication by lazy { application as BatteryApplication }
@@ -26,6 +31,8 @@ class BatteryMonitoringService : Service() {
     private val awsIoTManager by lazy { batteryApplication.awsIoTManager }
     private val authRepository by lazy { batteryApplication.authRepository }
     private val preferenceManager by lazy { batteryApplication.preferenceManager }
+
+
 
     private var collectingJob: Job? = null
     private var flushLoopJob: Job? = null
@@ -35,43 +42,58 @@ class BatteryMonitoringService : Service() {
     private var sessionId: Int? = null
     private var sessionStartInstant: Instant? = null
     private var sessionStartTimestamp: Long = System.currentTimeMillis()
-    private var powerbankCapacityStartMah: Double? = null
-    private var labelCapacityAh: Double? = null
+    @Volatile
+    private var shouldFinishSessionOnDestroy = false
     @Volatile
     private var isFinishingSession = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
+
+        if (intent?.action == ACTION_STOP_MONITORING) {
+            shouldFinishSessionOnDestroy = true
+            preferenceManager.setMonitoringManuallyStopped(true)
+            preferenceManager.setMonitoringActive(false)
+            Log.d("BatteryService", "명시적 종료 요청 수신 → 세션 종료 후 서비스 중지")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (collectingJob?.isActive == true || sessionId != null) {
+            Log.d("BatteryService", "이미 모니터링 중이므로 중복 시작을 건너뜁니다.")
+            return START_STICKY
+        }
+
         val activeDevice = preferenceManager.getActiveDevice()
             ?: preferenceManager.getAllDevices().firstOrNull { it.id > 0 }
 
         activeDeviceId = activeDevice?.id ?: 0
         activeDeviceModelName = activeDevice?.model_name
-        labelCapacityAh = activeDevice?.powerbank_capacity_mah?.toDouble()?.div(1000.0)
         if (activeDevice != null) {
             preferenceManager.setActiveDevice(activeDevice)
         }
 
         if (activeDeviceId <= 0) {
             Log.w("BatteryService", "활성 배터리 ID가 없어 AWS 연결을 건너뜁니다.")
+            preferenceManager.setMonitoringActive(false)
             stopSelf()
             return START_NOT_STICKY
         }
 
+        preferenceManager.setMonitoringActive(true)
+        preferenceManager.setMonitoringManuallyStopped(false)
         serviceScope.launch {
-            startSessionAndMonitoring(activeDevice?.powerbank_capacity_mah?.toDouble())
+            startSessionAndMonitoring()
         }
         return START_STICKY
     }
 
-    private suspend fun startSessionAndMonitoring(powerbankCapacityStartMah: Double?) {
+    private suspend fun startSessionAndMonitoring() {
         val sessionStartedAt = Instant.now()
-        this.powerbankCapacityStartMah = powerbankCapacityStartMah
 
         val startSessionResult = authRepository.startBatterySession(
             deviceId = activeDeviceId,
             powerbankId = activeDeviceModelName,
-            powerbankCapacityStartMah = powerbankCapacityStartMah,
             sessionStartTs = sessionStartedAt
         )
 
@@ -96,6 +118,7 @@ class BatteryMonitoringService : Service() {
 
         }.onFailure { error ->
             Log.e("BatteryService", "세션 시작 실패로 모니터링을 중단합니다: ${error.message}", error)
+            preferenceManager.setMonitoringActive(false)
             stopSelf()
         }
     }
@@ -132,6 +155,9 @@ class BatteryMonitoringService : Service() {
                 repository.insertLog(log)
                 if (!log.isCharging) {
                     Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
+                    shouldFinishSessionOnDestroy = true
+                    preferenceManager.setMonitoringManuallyStopped(false)
+                    preferenceManager.setMonitoringActive(false)
                     stopSelf()
                     break
                 }
@@ -199,12 +225,25 @@ class BatteryMonitoringService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        if (preferenceManager.isMonitoringActive() && !preferenceManager.wasMonitoringManuallyStopped()) {
+            Log.w("BatteryService", "최근 앱에서 제거됨 → 모니터링 서비스 복구 시도")
+            MonitoringServiceStarter.start(applicationContext)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         collectingJob?.cancel()
         flushLoopJob?.cancel()
 
-        finishSessionBlocking()
+        if (shouldFinishSessionOnDestroy) {
+            finishSessionBlocking()
+            preferenceManager.setMonitoringActive(false)
+        } else {
+            Log.w("BatteryService", "서비스가 명시적 종료 없이 파괴되었습니다. 세션 종료 API는 호출하지 않습니다.")
+        }
 
         awsIoTManager.disconnect()
 
@@ -223,14 +262,36 @@ class BatteryMonitoringService : Service() {
                 val capacityAh = calculateCapacityAh(sessionLogs)
                 authRepository.finishBatterySession(
                     sessionId = currentSessionId,
-                    powerbankCapacityStartMah = powerbankCapacityStartMah,
+                    powerbankCapacityStartMah = null,
                     sessionStartTs = sessionStartInstant,
                     sessionEndTs = Instant.now(),
                     capacityAh = capacityAh,
-                    powerbankCapacityEndMah = null,
-                    labelCapacityAh = labelCapacityAh
+                    powerbankCapacityEndMah = null
                 ).getOrThrow()
                 Log.d("BatteryService", "세션 종료 처리 완료: session_id=$currentSessionId, capacity_ah=$capacityAh")
+
+                // 마지막으로 종료 완료된 세션 ID 저장
+                preferenceManager.saveLastSessionId(currentSessionId)
+
+                // AI SOH 예측 실행 및 캐싱
+                runCatching {
+                    Log.d("BatteryService", "AI SOH 분석 예측 트리거 호출: session_id=$currentSessionId")
+                    val predictResult = authRepository.predictSoh(currentSessionId).getOrThrow()
+                    val resultResponse = com.han.battery.data.model.SessionResultResponse(
+                        id = currentSessionId,
+                        status = "COMPLETED",
+                        soh_percentage = predictResult.soh_percentage,
+                        condition = predictResult.condition,
+                        estimated_full_charges = predictResult.estimated_full_charges,
+                        powerbank_usable_mah = predictResult.powerbank_usable_mah,
+                        smartphone_received_mah = predictResult.smartphone_received_mah,
+                        mean_temperature_c = predictResult.mean_temperature_c
+                    )
+                    preferenceManager.saveLastSessionResult(resultResponse)
+                    Log.d("BatteryService", "AI SOH 분석 예측 결과 수신 및 캐시 완료: $resultResponse")
+                }.onFailure { error ->
+                    Log.e("BatteryService", "AI SOH 분석 예측 수행 오류: ${error.message}", error)
+                }
             }.onFailure { error ->
                 Log.e("BatteryService", "세션 종료 처리 실패: ${error.message}", error)
             }
@@ -240,11 +301,17 @@ class BatteryMonitoringService : Service() {
     private fun calculateCapacityAh(logs: List<com.han.battery.data.model.BatteryLog>): Double {
         if (logs.size < 2) return 0.0
 
-        val totalMah = logs.zipWithNext().sumOf { (previous, next) ->
-            val deltaHours = (next.timestamp - previous.timestamp).coerceAtLeast(0L) / 3_600_000.0
-            abs(previous.current) * deltaHours
-        }
+        val averageAbsCurrent = logs.map { abs(it.current) }.average()
+        val currentValuesAreAmps = averageAbsCurrent < 20.0
 
-        return totalMah / 1000.0
+        return logs.zipWithNext().sumOf { (previous, next) ->
+            val deltaHours = (next.timestamp - previous.timestamp).coerceAtLeast(0L) / 3_600_000.0
+            val currentA = if (currentValuesAreAmps) {
+                abs(previous.current)
+            } else {
+                abs(previous.current) / 1000.0
+            }
+            currentA * deltaHours
+        }
     }
 }
