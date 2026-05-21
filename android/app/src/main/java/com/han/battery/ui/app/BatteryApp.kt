@@ -54,8 +54,8 @@ import com.han.battery.ui.auth.AuthUiEvent
 import com.han.battery.ui.auth.AuthViewModel
 import com.han.battery.ui.auth.LoginScreen
 import com.han.battery.ui.auth.SignupScreen
-import com.han.battery.ui.board.BatteryPerformancePost
 import com.han.battery.ui.board.BoardScreen
+import com.han.battery.ui.board.BoardViewModel
 import com.han.battery.ui.dashboard.DashboardScreen
 import com.han.battery.ui.dashboard.DashboardViewModel
 import com.han.battery.ui.home.HomeScreen
@@ -125,6 +125,19 @@ fun BatteryApp() {
         }
     }
 
+    fun navigateHomeSingleTop() {
+        navController.navigate("home") {
+            popUpTo("home") { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateBackOrHome() {
+        if (!navController.popBackStack()) {
+            navigateHomeSingleTop()
+        }
+    }
+
     fun syncDevicesAndNavigateHome(popUpRoute: String) {
         coroutineScope.launch {
             val syncResult = appViewModel.syncDevicesFromServer()
@@ -152,7 +165,7 @@ fun BatteryApp() {
         context = context,
         homeViewModel = homeViewModel,
         navController = navController,
-        onNavigateHome = { navigateToHome("home") }
+        onNavigateHome = { navigateHomeSingleTop() }
     )
 
     LandingEventHandler(
@@ -272,7 +285,9 @@ fun BatteryApp() {
             homeViewModel = homeViewModel,
             landingViewModel = landingViewModel,
             devices = devices,
-            onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) }
+            onSyncAndNavigateHome = { popUpRoute -> syncDevicesAndNavigateHome(popUpRoute) },
+            onNavigateHome = { navigateHomeSingleTop() },
+            onNavigateBackOrHome = { navigateBackOrHome() }
         )
     }
 }
@@ -362,7 +377,9 @@ private fun BatteryNavGraph(
     homeViewModel: HomeViewModel,
     landingViewModel: LandingViewModel,
     devices: List<com.han.battery.data.model.BatteryDevice>,
-    onSyncAndNavigateHome: (String) -> Unit
+    onSyncAndNavigateHome: (String) -> Unit,
+    onNavigateHome: () -> Unit,
+    onNavigateBackOrHome: () -> Unit
 ) {
     NavHost(
         navController = navController,
@@ -430,7 +447,7 @@ private fun BatteryNavGraph(
                     landingViewModel.registerDevice(deviceInfo)
                 },
                 onBackClick = {
-                    navController.popBackStack()
+                    onNavigateBackOrHome()
                 }
             )
         }
@@ -448,7 +465,9 @@ private fun BatteryNavGraph(
                     simpleViewModelFactory {
                         DashboardViewModel(
                             batteryApplication.applicationContext,
-                            batteryApplication.preferenceManager
+                            preferenceManager = batteryApplication.preferenceManager,
+                            authRepository = batteryApplication.authRepository,
+                            communityRepository = batteryApplication.communityRepository
                         )
                     }
                 }
@@ -458,26 +477,43 @@ private fun BatteryNavGraph(
                 DashboardScreen(
                     viewModel = dashboardViewModel,
                     device = device,
-                    onBack = { navController.popBackStack() },
-                    onChangeDevice = { navController.navigate("home") },
+                    onBack = onNavigateBackOrHome,
+                    onChangeDevice = onNavigateHome,
                     onDeleteDevice = {
                         homeViewModel.deleteDevice(device, navigateHomeAfterDelete = true)
                     }
                 )
             } else {
-                navController.popBackStack()
+                onNavigateBackOrHome()
             }
         }
 
         composable("board") {
-            val dummyPosts = listOf(
-                BatteryPerformancePost("1", "배터리마스터", "Galaxy S24 Ultra", "Anker 10000mAh", 120, 85, 92),
-                BatteryPerformancePost("2", "보배콜렉터", "iPhone 15 Pro", "Belkin 20000mAh", 340, 78, 88),
-                BatteryPerformancePost("3", "충전중독자", "Pixel 8", "삼성 10000mAh 배터리팩", 50, 90, 99),
-                BatteryPerformancePost("4", "충전중독자", "Pixel 8", "삼성 10000mAh 배터리팩", 50, 90, 99)
+            val boardViewModel: BoardViewModel = viewModel(
+                factory = remember(batteryApplication) {
+                    simpleViewModelFactory {
+                        BoardViewModel(
+                            communityRepository = batteryApplication.communityRepository,
+                            userManager = batteryApplication.userManager
+                        )
+                    }
+                }
             )
+            val boardUiState by boardViewModel.uiState.collectAsState()
 
-            BoardScreen(posts = dummyPosts)
+            BoardScreen(
+                uiState = boardUiState,
+                onCategorySelected = boardViewModel::selectCategory,
+                onFilterSelected = boardViewModel::selectFilterValue,
+                onDeletePost = boardViewModel::deletePost,
+                onNavigateToHome = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onRetry = boardViewModel::refresh
+            )
         }
     }
 }
