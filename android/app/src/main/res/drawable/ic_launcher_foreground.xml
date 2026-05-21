@@ -4,9 +4,21 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- AppLogo와 동일한 Material Design Bolt 아이콘 -->
-    <!-- 정확한 형태: 지그재그 번개, 날카로운 모서리, 깔끔한 라인 -->
+    <!-- Battery Outline Body -->
     <path
-        android:fillColor="#2563EB"
-        android:pathData="M54,20 L45,42 L54,42 L37,82 L72,48 L63,48 L54,20 Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M44,28 C41.8,28 40,29.8 40,32 L40,78 C40,80.2 41.8,82 44,82 L64,82 C66.2,82 68,80.2 68,78 L68,32 C68,29.8 66.2,28 64,28 Z" />
+
+    <!-- Battery Cap -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,22 L58,22 C59.1,22 60,22.9 60,24 L60,28 L48,28 L48,24 C48,22.9 48.9,22 50,22 Z" />
+
+    <!-- Lightning Bolt inside Battery -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 L44,51 L53,51 L48,72 L62,49 L53,49 Z" />
 </vector>
