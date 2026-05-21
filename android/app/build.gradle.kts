@@ -73,6 +73,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.9")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("org.bouncycastle:bcpkix-jdk15on:1.70")
 
     // Ktor Client
