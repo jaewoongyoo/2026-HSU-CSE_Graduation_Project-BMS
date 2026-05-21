@@ -393,6 +393,20 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         response.body()
     }
 
+    suspend fun uploadRaw(sessionId: Int, request: RawUploadRequest): Result<Unit> = runCatching {
+        Log.d("ApiService", "Raw 텔레메트리 업로드 API 호출: POST $baseUrl/api/v1/sessions/$sessionId/raw")
+        val response = client.post("$baseUrl/api/v1/sessions/$sessionId/raw") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        Log.d("ApiService", "응답 상태: ${response.status} (${response.status.value})")
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "Raw 텔레메트리 업로드 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+    }
+
     fun close() {
         client.close()
     }

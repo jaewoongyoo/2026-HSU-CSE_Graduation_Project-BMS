@@ -125,7 +125,7 @@ data class SohPredictResponse(
     @SerialName("degradation_rate_ratio") val degradationRateRatio: Double? = null,
     @SerialName("sessions_used") val sessionsUsed: Int? = null,
     @SerialName("sessions_total") val sessionsTotal: Int? = null,
-    @SerialName("confidence") val confidence: Double? = null
+    @SerialName("confidence") val confidence: String? = null
 )
 
 @Serializable
@@ -143,6 +143,22 @@ data class SessionResultResponse(
     @SerialName("degradation_rate_ratio") val degradationRateRatio: Double? = null,
     @SerialName("sessions_used") val sessionsUsed: Int? = null,
     @SerialName("sessions_total") val sessionsTotal: Int? = null,
-    @SerialName("confidence") val confidence: Double? = null
+    @SerialName("confidence") val confidence: String? = null
+)
+
+@Serializable
+data class RawUploadRequest(
+    @SerialName("data_points") val dataPoints: List<RawDataPoint>
+)
+
+@Serializable
+data class RawDataPoint(
+    val timestamp: String,
+    @SerialName("voltage_mv") val voltageMv: Double,
+    @SerialName("current_ma") val currentMa: Double,
+    @SerialName("temperature_c") val temperatureC: Double,
+    @SerialName("elapsed_ms") val elapsedMs: Double,
+    @SerialName("battery_level") val batteryLevel: Int? = null,
+    @SerialName("battery_status") val batteryStatus: String? = null
 )
 

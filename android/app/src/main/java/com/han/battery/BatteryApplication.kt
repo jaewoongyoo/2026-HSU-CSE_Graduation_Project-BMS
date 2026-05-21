@@ -42,7 +42,7 @@ class BatteryApplication : Application() {
     }
 
     val batteryRepository: BatteryRepository by lazy {
-        BatteryRepository(batteryDatabase.batteryDao(), awsIoTManager)
+        BatteryRepository(batteryDatabase.batteryDao(), awsIoTManager, apiService)
     }
 
     val communityRepository: CommunityRepository by lazy {
