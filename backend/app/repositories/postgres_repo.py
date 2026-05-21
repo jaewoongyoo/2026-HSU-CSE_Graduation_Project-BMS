@@ -427,14 +427,18 @@ def get_public_shared_reports_by_filter(
 
     # SOH 범위 필터
     if soh_min is not None or soh_max is not None:
-        query = query.outerjoin(
-            BatteryAiResult,
+        from sqlalchemy import exists
+        subq = db.query(BatteryAiResult).join(
+            BatterySession,
             BatteryAiResult.session_id == BatterySession.id,
+        ).filter(
+            BatterySession.device_id == Device.id
         )
         if soh_min is not None:
-            query = query.filter(BatteryAiResult.soh_percentage >= soh_min)
+            subq = subq.filter(BatteryAiResult.soh_percentage >= soh_min)
         if soh_max is not None:
-            query = query.filter(BatteryAiResult.soh_percentage <= soh_max)
+            subq = subq.filter(BatteryAiResult.soh_percentage <= soh_max)
+        query = query.filter(subq.exists())
 
     return (
         query
