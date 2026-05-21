@@ -359,7 +359,7 @@ fun DeleteDeviceDialog(
 }
 
 /**
- * 처음 사용자를 위한 아코디언 타입 사용 설명서 카드
+ * 사용자를 위한 아코디언 타입 사용 설명서 카드
  */
 @Composable
 fun UserManualCard(
@@ -398,7 +398,7 @@ fun UserManualCard(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "초보자를 위한 사용 설명서 💡",
+                        text = "사용자를 위한 사용 설명서 💡",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
