@@ -8,6 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -127,10 +130,55 @@ fun DashboardScreen(
                     IconButton(onClick = { menuExpanded.value = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "옵션 메뉴")
                     }
-                    DropdownMenu(expanded = menuExpanded.value, onDismissRequest = { menuExpanded.value = false }) {
-                        DropdownMenuItem(text = { Text("커뮤니티에 공유") }, onClick = { menuExpanded.value = false; viewModel.shareActiveDeviceToCommunity() })
-                        DropdownMenuItem(text = { Text("기기 변경") }, onClick = { menuExpanded.value = false; onChangeDevice() })
-                        DropdownMenuItem(text = { Text("기기 삭제") }, onClick = { menuExpanded.value = false; showDeleteDialog.value = true })
+                    DropdownMenu(
+                        expanded = menuExpanded.value,
+                        onDismissRequest = { menuExpanded.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("커뮤니티에 공유", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded.value = false
+                                viewModel.shareActiveDeviceToCommunity()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("기기 변경", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded.value = false
+                                onChangeDevice()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("기기 삭제", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded.value = false
+                                showDeleteDialog.value = true
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFFF6F8FC))

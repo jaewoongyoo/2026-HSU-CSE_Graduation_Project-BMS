@@ -71,12 +71,55 @@ fun BoardScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showShareGuide by remember { mutableStateOf(false) }
+
+    if (showShareGuide) {
+        AlertDialog(
+            onDismissRequest = { showShareGuide = false },
+            title = {
+                Text(
+                    text = "내 배터리 공유 안내",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF0F172A)
+                )
+            },
+            text = {
+                Text(
+                    text = "내 배터리 성능(SOH)을 공유하려면 상세 대시보드로 이동해야 합니다.\n\n등록된 배터리 기기를 선택해 들어간 뒤, 우측 상단 더보기(⋮) 메뉴에서 '커뮤니티에 공유'를 누르면 간편하게 공유할 수 있습니다.\n\n기기를 선택하러 이동하시겠습니까?",
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    color = Color(0xFF334155)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showShareGuide = false
+                        onNavigateToHome()
+                    }
+                ) {
+                    Text("이동하기", color = Blue600, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showShareGuide = false }
+                ) {
+                    Text("취소", color = Color(0xFF64748B))
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = Color.White
+        )
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Slate50,
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onNavigateToHome,
+                onClick = { showShareGuide = true },
                 containerColor = Blue600,
                 contentColor = Color.White,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),

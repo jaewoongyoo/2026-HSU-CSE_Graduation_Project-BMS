@@ -1,6 +1,7 @@
 package com.han.battery.ui.home
 // 저장된 배터리 기기 목록을 표시하고 기기를 선택/등록하는 홈 화면
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -158,6 +162,10 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            UserManualCard()
+            
+            Spacer(modifier = Modifier.height(16.dp))
 
             // 기기 목록
             if (devices.isEmpty()) {
@@ -301,7 +309,7 @@ fun DeviceCard(
                         .size(40.dp)
                         .background(
                             Blue600.copy(alpha = 0.12f),
-                            androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                            RoundedCornerShape(10.dp)
                         )
                         .clickable(onClick = onDeleteClick),
                     contentAlignment = Alignment.Center
@@ -350,3 +358,119 @@ fun DeleteDeviceDialog(
     )
 }
 
+/**
+ * 처음 사용자를 위한 아코디언 타입 사용 설명서 카드
+ */
+@Composable
+fun UserManualCard(modifier: Modifier = Modifier) {
+    var isExpanded by remember { mutableStateOf(true) } // 기본적으로 활성화 상태
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .clickable { isExpanded = !isExpanded }
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = null,
+                        tint = Blue600,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "초보자를 위한 사용 설명서 💡",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "접기" else "펼치기",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ManualStepItem(
+                        stepNumber = "1",
+                        title = "새 배터리 등록",
+                        description = "하단의 '새 배터리 등록' 버튼을 눌러 보조배터리 제조사 및 용량을 입력합니다."
+                    )
+                    ManualStepItem(
+                        stepNumber = "2",
+                        title = "AI 배터리 진단",
+                        description = "등록된 배터리 카드를 눌러 대시보드로 이동한 후, 충전 중에 'AI 진단 시작'을 터치합니다. (최소 20분 이상 충전 분석 권장)"
+                    )
+                    ManualStepItem(
+                        stepNumber = "3",
+                        title = "SOH 성능 공유하기",
+                        description = "진단 완료 후 상세 대시보드 화면 우측 상단 더보기(⋮) 메뉴에서 '커뮤니티에 공유'를 누르면 다른 사용자들과 분석 결과가 공유됩니다."
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManualStepItem(
+    stepNumber: String,
+    title: String,
+    description: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .background(Blue600.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stepNumber,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Blue600
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+    }
+}
