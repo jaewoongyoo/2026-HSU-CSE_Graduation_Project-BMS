@@ -29,6 +29,11 @@ backend/**/*.class
 backend/**/*.log
 backend/**/.factorypath
 backend/env
+backend/venv
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+
 
 # =================================================================
 # [AI Part]
