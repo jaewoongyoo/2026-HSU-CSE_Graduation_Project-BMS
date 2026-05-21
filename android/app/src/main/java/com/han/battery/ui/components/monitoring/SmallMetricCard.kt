@@ -55,7 +55,7 @@ fun SmallMetricCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Slate500
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Box(
@@ -85,7 +85,7 @@ fun SmallMetricCard(
                 Text(
                     text = unit,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Slate500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold
                 )
             }

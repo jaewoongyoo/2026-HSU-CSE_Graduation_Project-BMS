@@ -40,6 +40,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -61,6 +63,7 @@ import com.han.battery.data.model.SohCondition
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 
+
 @Composable
 fun BoardScreen(
     uiState: BoardUiState,
@@ -72,6 +75,7 @@ fun BoardScreen(
     modifier: Modifier = Modifier
 ) {
     var showShareGuide by remember { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
 
     if (showShareGuide) {
         AlertDialog(
@@ -81,7 +85,7 @@ fun BoardScreen(
                     text = "내 배터리 공유 안내",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF0F172A)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
@@ -89,7 +93,7 @@ fun BoardScreen(
                     text = "내 배터리 성능(SOH)을 공유하려면 상세 대시보드로 이동해야 합니다.\n\n등록된 배터리 기기를 선택해 들어간 뒤, 우측 상단 더보기(⋮) 메뉴에서 '커뮤니티에 공유'를 누르면 간편하게 공유할 수 있습니다.\n\n기기를 선택하러 이동하시겠습니까?",
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
-                    color = Color(0xFF334155)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -99,28 +103,42 @@ fun BoardScreen(
                         onNavigateToHome()
                     }
                 ) {
-                    Text("이동하기", color = Blue600, fontWeight = FontWeight.Bold)
+                    Text("이동하기", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showShareGuide = false }
                 ) {
-                    Text("취소", color = Color(0xFF64748B))
+                    Text("취소", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             shape = RoundedCornerShape(16.dp),
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
+
+    val bgGradient = if (isDark) {
+        listOf(
+            MaterialTheme.colorScheme.background,
+            Color(0xFF020617),
+            Color(0xFF0B1329)
+        )
+    } else {
+        listOf(
+            Color(0xFFF8FAFC),
+            Color(0xFFEFF6FF),
+            Color(0xFFF8FAFC)
         )
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Slate50,
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showShareGuide = true },
-                containerColor = Blue600,
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -145,15 +163,7 @@ fun BoardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0xFFF8FAFC),
-                            Color(0xFFEFF6FF),
-                            Color(0xFFF8FAFC)
-                        )
-                    )
-                )
+                .background(Brush.verticalGradient(bgGradient))
         ) {
             BoardHeader(
                 totalPosts = uiState.posts.size,
@@ -206,7 +216,7 @@ fun BoardScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.TopCenter),
-                        color = Blue600
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -228,13 +238,13 @@ private fun BoardHeader(
             text = "SOH 경험 공유",
             fontSize = 28.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF0F172A)
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "같은 폰과 보조배터리를 쓰는 사용자의 진단 기록과 SOH 변화를 비교해보세요.",
             fontSize = 14.sp,
-            color = Color(0xFF64748B),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 20.sp
         )
         Spacer(modifier = Modifier.height(14.dp))
@@ -248,7 +258,7 @@ private fun BoardHeader(
 @Composable
 private fun SummaryPill(label: String, value: String) {
     Surface(
-        color = Color.White.copy(alpha = 0.85f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
         shape = RoundedCornerShape(999.dp),
         shadowElevation = 1.dp
     ) {
@@ -257,8 +267,8 @@ private fun SummaryPill(label: String, value: String) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(text = label, fontSize = 12.sp, color = Color(0xFF64748B))
-            Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Blue600)
+            Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -323,7 +333,7 @@ private fun PerformancePostCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -340,18 +350,18 @@ private fun PerformancePostCard(
                             text = post.userName,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color(0xFF0F172A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (isOwnPost) {
                             Surface(
-                                color = Blue600.copy(alpha = 0.12f),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = "나",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Blue600,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
@@ -360,7 +370,7 @@ private fun PerformancePostCard(
                             Icon(
                                 imageVector = Icons.Filled.Verified,
                                 contentDescription = "검증된 진단 기록",
-                                tint = Blue600,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(17.dp)
                             )
                         }
@@ -368,7 +378,7 @@ private fun PerformancePostCard(
                     Text(
                         text = post.createdAt,
                         fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -385,7 +395,7 @@ private fun PerformancePostCard(
                             Icon(
                                 imageVector = Icons.Filled.Delete,
                                 contentDescription = "공유 삭제",
-                                tint = Color(0xFFEF4444),
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -400,7 +410,7 @@ private fun PerformancePostCard(
                                             showConfirmDelete = false
                                             onDeletePost(post.sharedReportId)
                                         }
-                                    ) { Text("삭제", color = Color(0xFFEF4444)) }
+                                    ) { Text("삭제", color = MaterialTheme.colorScheme.error) }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showConfirmDelete = false }) { Text("취소") }
@@ -419,7 +429,7 @@ private fun PerformancePostCard(
             SohTrendBlock(post = post)
 
             Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = Color(0xFFE2E8F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(14.dp))
 
             Row(
@@ -449,7 +459,7 @@ private fun PerformancePostCard(
                 text = post.comment,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
-                color = Color(0xFF334155),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
@@ -493,7 +503,7 @@ private fun SohTrendBlock(post: BatteryPerformancePost) {
 
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(
             modifier = Modifier
@@ -509,7 +519,7 @@ private fun SohTrendBlock(post: BatteryPerformancePost) {
                     text = "SOH 변화",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (first != null && last != null) {
                     Text(
@@ -535,7 +545,7 @@ private fun SohTrendBlock(post: BatteryPerformancePost) {
                         "추세 그래프는 누적 SOH 기록이 쌓이면 표시됩니다."
                     },
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -548,6 +558,7 @@ private fun SohMiniChart(
     lineColor: Color
 ) {
     val safePoints = points.takeIf { it.size >= 2 } ?: return
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
 
     Canvas(
         modifier = Modifier
@@ -567,7 +578,6 @@ private fun SohMiniChart(
             )
         }
 
-        val gridColor = Color(0xFFE2E8F0)
         drawLine(
             color = gridColor,
             start = Offset(0f, size.height),
@@ -641,7 +651,7 @@ private fun MetricTile(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(
             modifier = Modifier
@@ -649,13 +659,13 @@ private fun MetricTile(
                 .padding(vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = label, fontSize = 11.sp, color = Color(0xFF64748B))
+            Text(text = label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0F172A)
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -674,7 +684,7 @@ private fun LoadingBoardState() {
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator(color = Blue600)
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -683,6 +693,12 @@ private fun MessageBoardState(
     message: String,
     onRetry: (() -> Unit)? = null
 ) {
+    val isDark = isSystemInDarkTheme()
+    val errBg = if (isDark) Color(0xFF3B1E1E) else Color(0xFFFEF2F2)
+    val errText = if (isDark) Color(0xFFFFDAD6) else Color(0xFF991B1B)
+    val errIconTint = if (isDark) Color(0xFFFFB4AB) else Color(0xFFDC2626)
+    val btnBg = if (isDark) MaterialTheme.colorScheme.error else Color(0xFFDC2626)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -691,7 +707,7 @@ private fun MessageBoardState(
     ) {
         Card(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+            colors = CardDefaults.cardColors(containerColor = errBg),
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -703,12 +719,12 @@ private fun MessageBoardState(
                 Icon(
                     imageVector = Icons.Filled.Warning,
                     contentDescription = "경고",
-                    tint = Color(0xFFDC2626),
+                    tint = errIconTint,
                     modifier = Modifier.size(48.dp)
                 )
                 Text(
                     text = message,
-                    color = Color(0xFF991B1B),
+                    color = errText,
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
                     fontWeight = FontWeight.Medium,
@@ -718,7 +734,7 @@ private fun MessageBoardState(
                     androidx.compose.material3.Button(
                         onClick = onRetry,
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFDC2626)
+                            containerColor = btnBg
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -730,12 +746,14 @@ private fun MessageBoardState(
     }
 }
 
+@Composable
 private fun SohCondition.color(): Color {
+    val isDark = isSystemInDarkTheme()
     return when (this) {
-        SohCondition.UNKNOWN -> Color(0xFF64748B)
-        SohCondition.GOOD -> Color(0xFF15803D)
-        SohCondition.NORMAL -> Color(0xFFB45309)
-        SohCondition.CAUTION -> Color(0xFFDC2626)
+        SohCondition.UNKNOWN -> if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+        SohCondition.GOOD -> if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+        SohCondition.NORMAL -> if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+        SohCondition.CAUTION -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
     }
 }
 

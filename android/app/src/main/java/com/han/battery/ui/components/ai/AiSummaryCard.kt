@@ -89,7 +89,7 @@ fun AiSummaryCard(
             Text(
                 text = desc,
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

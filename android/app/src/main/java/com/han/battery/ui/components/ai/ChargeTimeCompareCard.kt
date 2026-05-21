@@ -38,40 +38,31 @@ fun ChargeTimeCompareCard(
 
     val currentText: String
     val optimalText: String
-    val lossText: String
 
     val currentProgress: Float
     val optimalProgress: Float
-    val lossProgress: Float
 
     if (!isCharging) {
         currentText = "진단 대기"
         optimalText = "진단 대기"
-        lossText = "진단 대기"
         currentProgress = 0f
         optimalProgress = 0f
-        lossProgress = 0f
     } else if (targetSoc <= 0) {
         currentText = "완충됨"
         optimalText = "완충됨"
-        lossText = "완충됨"
         currentProgress = 1f
         optimalProgress = 1f
-        lossProgress = 1f
     } else {
         // 배터리 잔량에 따른 대략적인 소요 시간 계산
         val currentMin = (targetSoc * 0.55).toInt().coerceAtLeast(1)
         val optimalMin = (targetSoc * 0.45).toInt().coerceAtLeast(1)
-        val lossMin = (targetSoc * 0.70).toInt().coerceAtLeast(1)
 
         currentText = "약 ${currentMin}분"
         optimalText = "약 ${optimalMin}분"
-        lossText = "약 ${lossMin}분"
 
         // 차트에 채워질 progress (속도가 빠를수록 progress바가 더 길게 참)
         currentProgress = 0.82f
         optimalProgress = 0.91f
-        lossProgress = 0.64f
     }
 
     Card(
@@ -88,7 +79,7 @@ fun ChargeTimeCompareCard(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ShowChart,
                     contentDescription = null,
-                    tint = Blue600,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -110,7 +101,7 @@ fun ChargeTimeCompareCard(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -119,7 +110,7 @@ fun ChargeTimeCompareCard(
                 label = "현재 충전 환경",
                 value = currentText,
                 progress = currentProgress,
-                color = Blue600
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -150,7 +141,7 @@ private fun TimeCompareBar(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = value,

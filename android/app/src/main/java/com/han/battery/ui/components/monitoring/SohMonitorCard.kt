@@ -59,7 +59,7 @@ fun SohMonitorCard(
                     Text(
                         text = "SOH (State of Health)",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Slate500
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -102,7 +102,7 @@ fun SohMonitorCard(
             Text(
                 text = "현재 효율은 $soh%",
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))

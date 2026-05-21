@@ -129,6 +129,8 @@ class BatteryMonitoringService : Service() {
         }
     }
 
+    private val RESULT_CHANNEL_ID = "battery_diagnosis_result_channel"
+
     private fun startForegroundServiceWithNotification() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -138,11 +140,34 @@ class BatteryMonitoringService : Service() {
                 NotificationManager.IMPORTANCE_LOW
             )
             manager.createNotificationChannel(channel)
+
+            val resultChannel = NotificationChannel(
+                RESULT_CHANNEL_ID,
+                "배터리 진단 결과",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "AI 배터리 진단이 완료되었을 때 결과를 알려줍니다."
+                enableLights(true)
+                enableVibration(true)
+            }
+            manager.createNotificationChannel(resultChannel)
         }
+
+        val intent = Intent(this, com.han.battery.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("배터리 수집 시스템 작동 중")
             .setContentText("AWS로 데이터를 실시간 전송하고 있습니다.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -152,21 +177,102 @@ class BatteryMonitoringService : Service() {
         }
     }
 
+    private fun updateForegroundNotification(contentText: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val intent = Intent(this, com.han.battery.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("배터리 수집 시스템 작동 중")
+            .setContentText(contentText)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build()
+
+        manager.notify(1001, notification)
+    }
+
+    private fun showDiagnosisResultNotification(title: String, message: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelExists = manager.getNotificationChannel(RESULT_CHANNEL_ID) != null
+            if (!channelExists) {
+                val resultChannel = NotificationChannel(
+                    RESULT_CHANNEL_ID,
+                    "배터리 진단 결과",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    description = "AI 배터리 진단이 완료되었을 때 결과를 알려줍니다."
+                    enableLights(true)
+                    enableVibration(true)
+                }
+                manager.createNotificationChannel(resultChannel)
+            }
+        }
+
+        val intent = Intent(this, com.han.battery.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = Notification.Builder(this, RESULT_CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        manager.notify(2002, notification)
+    }
+
     private fun startCollecting() {
         if (collectingJob?.isActive == true) return
 
         collectingJob = serviceScope.launch {
+            var collectedCount = 0
+            var lastUpdateTs = 0L
             while (isActive) {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
                 repository.insertLog(log)
+                collectedCount++
+                
                 if (!log.isCharging) {
                     Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
                     shouldFinishSessionOnDestroy = true
                     preferenceManager.setMonitoringManuallyStopped(false)
                     preferenceManager.setMonitoringActive(false)
+                    
+                    showDiagnosisResultNotification(
+                        title = "충전이 중단되었습니다",
+                        message = "케이블 분리가 감지되어 배터리 진단을 조기 종료하고 분석을 진행합니다."
+                    )
+                    
                     stopSelf()
                     break
                 }
+
+                val now = System.currentTimeMillis()
+                if (now - lastUpdateTs >= 10000) {
+                    val statusText = "배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
+                    updateForegroundNotification(statusText)
+                    lastUpdateTs = now
+                }
+
                 delay(2000)
             }
         }
@@ -281,11 +387,24 @@ class BatteryMonitoringService : Service() {
                     )
                     preferenceManager.saveLastSessionResult(resultResponse)
                     Log.d("BatteryService", "AI SOH 분석 예측 결과 수신 및 캐시 완료: $resultResponse")
+
+                    showDiagnosisResultNotification(
+                        title = "AI 배터리 진단 완료 🔋",
+                        message = "건강도(SOH): ${String.format("%.1f", predictResult.soh_percentage)}% | 상태: ${predictResult.condition} (사용 가능 용량: ${predictResult.powerbank_usable_mah}mAh)"
+                    )
                 }.onFailure { error ->
                     Log.e("BatteryService", "AI SOH 분석 예측 수행 오류: ${error.message}", error)
+                    showDiagnosisResultNotification(
+                        title = "AI 배터리 진단 실패 ⚠️",
+                        message = "진단 데이터를 분석하는 도중 오류가 발생했습니다."
+                    )
                 }
             }.onFailure { error ->
                 Log.e("BatteryService", "세션 종료 처리 실패: ${error.message}", error)
+                showDiagnosisResultNotification(
+                    title = "AI 배터리 진단 실패 ⚠️",
+                    message = "충전 세션을 종료하는 도중 서버 통신에 실패했습니다."
+                )
             }
         }
     }

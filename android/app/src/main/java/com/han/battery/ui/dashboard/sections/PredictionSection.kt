@@ -37,7 +37,7 @@ fun PredictionSection(
         Text(
             text = "AI 분석은 현재 사용 배터리 기준으로 예측됩니다.\n마지막 업데이트: 방금 전",
             style = MaterialTheme.typography.bodySmall,
-            color = Slate500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 

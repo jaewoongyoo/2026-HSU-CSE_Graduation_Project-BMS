@@ -33,10 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.han.battery.data.model.SessionResultResponse
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate300
 import com.han.battery.ui.theme.Slate500
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -69,16 +71,33 @@ fun SohPredictionChartCard(
         else -> "✅ 6개월 후 SOH ${formattedSixMonthsLater}% 예상 — 건강도가 매우 안정적으로 양호합니다."
     }
 
-    val tipBgColor = when {
-        predictedSohSixMonthsLater < 80.0 -> Color(0xFFFFF0F0)
-        predictedSohSixMonthsLater < 90.0 -> Color(0xFFFFF8E8)
-        else -> Color(0xFFE8FAF0)
+    val isDark = isSystemInDarkTheme()
+    val tipBgColor = if (isDark) {
+        when {
+            predictedSohSixMonthsLater < 80.0 -> Color(0xFF3F1F21)
+            predictedSohSixMonthsLater < 90.0 -> Color(0xFF3F321F)
+            else -> Color(0xFF1F3F2A)
+        }
+    } else {
+        when {
+            predictedSohSixMonthsLater < 80.0 -> Color(0xFFFFF0F0)
+            predictedSohSixMonthsLater < 90.0 -> Color(0xFFFFF8E8)
+            else -> Color(0xFFE8FAF0)
+        }
     }
 
-    val tipTextColor = when {
-        predictedSohSixMonthsLater < 80.0 -> Color(0xFFD32F2F)
-        predictedSohSixMonthsLater < 90.0 -> Color(0xFF9A6700)
-        else -> Color(0xFF2E7D32)
+    val tipTextColor = if (isDark) {
+        when {
+            predictedSohSixMonthsLater < 80.0 -> Color(0xFFFFB4AB)
+            predictedSohSixMonthsLater < 90.0 -> Color(0xFFFFDF9E)
+            else -> Color(0xFFB4E7C4)
+        }
+    } else {
+        when {
+            predictedSohSixMonthsLater < 80.0 -> Color(0xFFD32F2F)
+            predictedSohSixMonthsLater < 90.0 -> Color(0xFF9A6700)
+            else -> Color(0xFF2E7D32)
+        }
     }
 
     Card(
@@ -95,14 +114,14 @@ fun SohPredictionChartCard(
                 Icon(
                     imageVector = Icons.Default.Memory,
                     contentDescription = null,
-                    tint = Blue600,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "LSTM 수명 시뮬레이션",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Blue600,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -120,10 +139,11 @@ fun SohPredictionChartCard(
             Text(
                 text = "AI 모델 기반 배터리 수명 저하 시뮬레이션 (상태: $condition)",
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant
 
             Box(
                 modifier = Modifier
@@ -144,7 +164,7 @@ fun SohPredictionChartCard(
                     for (i in 0..4) {
                         val y = h * i / 4f
                         drawLine(
-                            color = Slate300.copy(alpha = 0.55f),
+                            color = outlineVariantColor.copy(alpha = 0.55f),
                             start = Offset(0f, y),
                             end = Offset(w, y),
                             strokeWidth = 1f
@@ -155,7 +175,7 @@ fun SohPredictionChartCard(
                     for (i in 0..6) {
                         val x = w * i / 6f
                         drawLine(
-                            color = Slate300.copy(alpha = 0.45f),
+                            color = outlineVariantColor.copy(alpha = 0.45f),
                             start = Offset(x, 0f),
                             end = Offset(x, h),
                             strokeWidth = 1f
@@ -180,13 +200,13 @@ fun SohPredictionChartCard(
 
                     drawPath(
                         path = linePath,
-                        color = Blue600,
+                        color = primaryColor,
                         style = Stroke(width = 5f, cap = StrokeCap.Round)
                     )
 
                     points.forEach {
                         drawCircle(
-                            color = Blue600,
+                            color = primaryColor,
                             radius = 6f,
                             center = it
                         )
@@ -205,13 +225,13 @@ fun SohPredictionChartCard(
                 Text(
                     text = "100%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Slate500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.TopStart)
                 )
                 Text(
                     text = "70%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Slate500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.BottomStart)
                 )
             }
@@ -240,7 +260,7 @@ fun SohPredictionChartCard(
                         Text(
                             text = "🎯 예측 신뢰도: $confKorean",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Slate500,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -248,7 +268,7 @@ fun SohPredictionChartCard(
                         Text(
                             text = "📊 분석 세션: $usedSessions/$totalSessions",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Slate500,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.SemiBold
                         )
                     }

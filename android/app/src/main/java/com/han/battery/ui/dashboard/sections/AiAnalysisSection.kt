@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.han.battery.data.model.SessionResultResponse
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.han.battery.ui.components.ai.AiSummaryCard
 import com.han.battery.ui.theme.Blue100
 import com.han.battery.ui.theme.Blue600
+
 
 @Composable
 fun AiAnalysisSection(
@@ -56,6 +58,14 @@ fun AiAnalysisSection(
     }
 
     Column {
+        val isDark = isSystemInDarkTheme()
+        val accentColor = MaterialTheme.colorScheme.primary
+        val cardBg = if (isDark) {
+            MaterialTheme.colorScheme.surfaceVariant
+        } else {
+            Color(0xFFF5F8FF)
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "🧠 AI 종합 분석",
@@ -67,12 +77,12 @@ fun AiAnalysisSection(
 
             Surface(
                 shape = RoundedCornerShape(999.dp),
-                color = Blue100
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Text(
                     text = "Beta",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    color = Blue600,
+                    color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -87,8 +97,8 @@ fun AiAnalysisSection(
             title = "보조배터리 성능 평가",
             value = conditionValue,
             desc = dynamicAnalysisDesc,
-            accent = Blue600,
-            bg = Color(0xFFF5F8FF),
+            accent = accentColor,
+            bg = cardBg,
             icon = Icons.Default.AutoAwesome
         )
     }

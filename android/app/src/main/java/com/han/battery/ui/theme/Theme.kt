@@ -18,6 +18,7 @@ private val LightColors = lightColorScheme(
     surface          = androidx.compose.ui.graphics.Color.White,
     surfaceVariant   = Slate100,
     outline          = Slate300,
+    outlineVariant   = Slate200,
     onSurface        = Slate950,
     onBackground     = Slate950,
 )
@@ -30,6 +31,7 @@ private val DarkColors = darkColorScheme(
     surface          = Slate800,
     surfaceVariant   = Slate700,
     outline          = Slate500,
+    outlineVariant   = Slate700,
     onSurface        = Slate100,
     onBackground     = Slate100,
     onSurfaceVariant = Slate200,

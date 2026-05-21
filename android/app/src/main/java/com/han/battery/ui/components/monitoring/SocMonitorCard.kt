@@ -62,7 +62,7 @@ fun SocMonitorCard(
                     Text(
                         text = "SOC (State of Charge)",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Slate500
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -70,7 +70,7 @@ fun SocMonitorCard(
                     modifier = Modifier
                         .size(32.dp)
                         .background(
-                            Blue600.copy(alpha = 0.12f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -78,7 +78,7 @@ fun SocMonitorCard(
                     Icon(
                         imageVector = Icons.Default.BatteryChargingFull,
                         contentDescription = null,
-                        tint = Blue600,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -105,7 +105,7 @@ fun SocMonitorCard(
             Text(
                 text = "현재 충전량은 $soc%",
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate500
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (predictionText.isNotBlank()) {
@@ -125,7 +125,7 @@ fun SocMonitorCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp),
-                color = Blue600,
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
@@ -133,14 +133,14 @@ fun SocMonitorCard(
 
             Surface(
                 shape = RoundedCornerShape(999.dp),
-                color = Blue600.copy(alpha = 0.12f)
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ) {
                 Text(
                     text = "✓ 충전 양호",
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Blue600
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.han.battery.ui.dashboard
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +28,7 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 import kotlin.math.abs
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,14 +183,31 @@ fun DashboardScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFFF6F8FC))
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { innerPadding ->
+        val isDark = isSystemInDarkTheme()
+        val bgGradient = if (isDark) {
+            listOf(
+                MaterialTheme.colorScheme.background,
+                Color(0xFF020617),
+                Color(0xFF0B1329)
+            )
+        } else {
+            listOf(
+                Slate50,
+                Color(0xFFF6F8FC),
+                Slate50
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Slate50, Color(0xFFF6F8FC), Slate50)))
+                .background(Brush.verticalGradient(bgGradient))
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -214,8 +233,8 @@ fun DashboardScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFFD1D5DB),
-                    disabledContentColor = Color.White.copy(alpha = 0.6f)
+                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {

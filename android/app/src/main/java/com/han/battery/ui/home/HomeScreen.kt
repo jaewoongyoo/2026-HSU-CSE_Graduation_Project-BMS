@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.han.battery.data.model.BatteryDevice
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.AppLogo
@@ -103,18 +104,25 @@ fun HomeScreen(
         )
     }
     
+    val isDark = isSystemInDarkTheme()
+    val bgGradient = if (isDark) {
+        listOf(
+            MaterialTheme.colorScheme.background,
+            Color(0xFF020617),
+            Color(0xFF0B1329)
+        )
+    } else {
+        listOf(
+            Slate50,
+            Color(0xFFF6F8FC),
+            Slate50
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Slate50,
-                        Color(0xFFF6F8FC),
-                        Slate50
-                    )
-                )
-            )
+            .background(Brush.verticalGradient(bgGradient))
     ) {
         Column(
             modifier = Modifier
@@ -140,7 +148,7 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "로그아웃",
-                            tint = Blue600
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -152,12 +160,12 @@ fun HomeScreen(
                     text = "Battery Insight",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Blue600
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "나의 배터리를 관리하세요",
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -184,13 +192,13 @@ fun HomeScreen(
                             text = "등록된 배터리가 없습니다",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "아래 버튼을 눌러 새 배터리를 등록하세요",
                             fontSize = 13.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -221,7 +229,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue600
+                    containerColor = MaterialTheme.colorScheme.primary
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -255,7 +263,7 @@ fun DeviceCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Blue600.copy(alpha = 0.08f)
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp
@@ -275,27 +283,27 @@ fun DeviceCard(
                     text = device.model_name.ifBlank { "배터리" },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${device.powerbank_capacity_mah}mAh",
                     fontSize = 13.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 if (device.manufacturer.isNotBlank()) {
                     Text(
                         text = "제조사: ${device.manufacturer}",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 Text(
                     text = "제조: ${device.manufacture_date}",
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -308,7 +316,7 @@ fun DeviceCard(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            Blue600.copy(alpha = 0.12f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             RoundedCornerShape(10.dp)
                         )
                         .clickable(onClick = onDeleteClick),
@@ -317,7 +325,7 @@ fun DeviceCard(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "삭제",
-                        tint = Blue600,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -373,7 +381,7 @@ fun UserManualCard(
             .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -394,20 +402,20 @@ fun UserManualCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.HelpOutline,
                         contentDescription = null,
-                        tint = Blue600,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "사용자를 위한 사용 설명서 💡",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (isExpanded) "접기" else "펼치기",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -450,14 +458,14 @@ private fun ManualStepItem(
         Box(
             modifier = Modifier
                 .size(20.dp)
-                .background(Blue600.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = stepNumber,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = Blue600
+                color = MaterialTheme.colorScheme.primary
             )
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -465,14 +473,14 @@ private fun ManualStepItem(
                 text = title,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
-                color = Color(0xFF64748B)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
