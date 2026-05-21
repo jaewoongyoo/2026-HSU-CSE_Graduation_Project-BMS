@@ -45,7 +45,16 @@ fun AiAnalysisSection(
     val dynamicAnalysisDesc = if (analysisResult != null) {
         val soh = analysisResult.soh_percentage ?: 92.0
         val temperature = analysisResult.mean_temperature_c?.let { "${String.format("%.1f", it)}°C" } ?: "정상"
-        val confidenceText = analysisResult.confidence?.let { " (예측 신뢰도: ${String.format("%.1f", it * 100)}%)" } ?: ""
+        val confidenceText = analysisResult.confidence?.let { conf ->
+            val confKorean = when (conf.lowercase()) {
+                "high" -> "높음"
+                "medium" -> "보통"
+                "low" -> "낮음"
+                "fallback" -> "기본"
+                else -> conf
+            }
+            " (예측 신뢰도: $confKorean)"
+        } ?: ""
         "현재 SOH 건강도는 ${String.format("%.1f", soh)}%이며 상태 등급은 $conditionValue 입니다. 평균 충전 온도는 ${temperature}로 셀 스트레스 수준이 매우 적정합니다.$confidenceText"
     } else {
         "이전 충전 진단 이력이 존재하지 않습니다. 충전을 진행하여 배터리 상태 실시간 진단을 생성해 주세요."

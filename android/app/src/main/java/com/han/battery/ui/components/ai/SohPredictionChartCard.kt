@@ -31,12 +31,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.han.battery.data.model.SessionResultResponse
 import com.han.battery.ui.theme.Amber500
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate300
 import com.han.battery.ui.theme.Slate500
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SohPredictionChartCard(
     modifier: Modifier = Modifier,
@@ -46,7 +48,13 @@ fun SohPredictionChartCard(
     val condition = analysisResult?.condition ?: "최상 (A+)"
     
     // LSTM 예측 기반 6개월간 매월 노화 속도 비율에 맞춰 감소하는 추세 생성
-    val degradation = (analysisResult?.degradationRateRatio ?: 1.0) * 0.6
+    val rawRatio = analysisResult?.degradationRateRatio
+    val ratio = if (rawRatio == null || rawRatio.isNaN() || rawRatio.isInfinite()) {
+        1.0
+    } else {
+        rawRatio.coerceIn(0.1, 5.0)
+    }
+    val degradation = ratio * 0.6
     val predictionPoints = List(7) { month ->
         currentSoh - (month * degradation)
     }
@@ -208,25 +216,37 @@ fun SohPredictionChartCard(
                 )
             }
 
-            if (analysisResult?.confidence != null || (analysisResult?.sessionsUsed != null && analysisResult?.sessionsTotal != null)) {
+            val totalSessions = analysisResult?.sessionsTotal ?: 0
+            val usedSessions = analysisResult?.sessionsUsed ?: 0
+            val isSessionsValid = totalSessions > 0 && usedSessions >= 0 && usedSessions <= totalSessions
+
+            if (analysisResult?.confidence != null || isSessionsValid) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
+                // FlowRow를 사용하여 좁은 해상도에서 텍스트가 겹치지 않고 자연스럽게 줄바꿈(wrap)되도록 UX 보완
+                androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = 4.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
                 ) {
-                    analysisResult.confidence?.let { conf ->
+                    analysisResult?.confidence?.let { conf ->
+                        val confKorean = when (conf.lowercase()) {
+                            "high" -> "높음"
+                            "medium" -> "보통"
+                            "low" -> "낮음"
+                            "fallback" -> "기본"
+                            else -> conf
+                        }
                         Text(
-                            text = "🎯 예측 신뢰도: ${String.format("%.1f", conf * 100)}%",
+                            text = "🎯 예측 신뢰도: $confKorean",
                             style = MaterialTheme.typography.bodySmall,
                             color = Slate500,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    if (analysisResult.sessionsUsed != null && analysisResult.sessionsTotal != null) {
+                    if (isSessionsValid) {
                         Text(
-                            text = "📊 분석 세션: ${analysisResult.sessionsUsed}/${analysisResult.sessionsTotal}",
+                            text = "📊 분석 세션: $usedSessions/$totalSessions",
                             style = MaterialTheme.typography.bodySmall,
                             color = Slate500,
                             fontWeight = FontWeight.SemiBold
