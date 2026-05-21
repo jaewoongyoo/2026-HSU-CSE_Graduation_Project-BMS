@@ -108,13 +108,19 @@ class BatteryMonitoringService : Service() {
             )
             Log.d("AWSIoTManager", "연결 시도 ClientID: $clientId")
 
+            // AWS IoT 연결 시도는 백그라운드에서 진행
             awsIoTManager.initAndConnect(clientId, activeDeviceId) {
-                serviceScope.launch {
-                    flushPendingLogs()
-                    startFlushingLoop()
-                }
+                Log.d("BatteryService", "AWS IoT 연결 성공 콜백 실행")
             }
+
+            // AWS 연결 여부와 상관없이 수집 및 Flush 루프 기동
             startCollecting()
+            startFlushingLoop()
+
+            // 즉시 1회 Flush 시도
+            serviceScope.launch {
+                flushPendingLogs()
+            }
 
         }.onFailure { error ->
             Log.e("BatteryService", "세션 시작 실패로 모니터링을 중단합니다: ${error.message}", error)
@@ -185,35 +191,21 @@ class BatteryMonitoringService : Service() {
         val currentSessionId = sessionId ?: return
         val screenState = getCurrentScreenState()
 
-        // 2. [Mapping] BatteryLog(DB용) -> BatteryTelemetryLog(서버용) 변환
-        val mappedLogs = pendingLogs.map { dbLog ->
-            BatteryTelemetryLog(
-                timestamp = dbLog.timestamp,
-                level = dbLog.level,
-                voltage = dbLog.voltage,
-                current = dbLog.current,
-                temperature = dbLog.temperature,
-                elapsedMs = (dbLog.timestamp - sessionStartTimestamp).coerceAtLeast(0L),
-                isCharging = dbLog.isCharging,
-                screenState = screenState
-            )
-        }
-
-        // 3. [Batch] 택배 박스(BatteryTelemetryBatchPayload)에 담기
-        val batchPayload = BatteryTelemetryBatchPayload(
-            deviceId = activeDeviceId,
+        // repository의 sendTelemetryWithFallback 호출하여 MQTT/HTTP 대체 전송 수행
+        repository.sendTelemetryWithFallback(
             sessionId = currentSessionId,
-            logs = mappedLogs
-        )
-
-        // 4. 전송
-        repository.sendToAWS(
-            payload = batchPayload, // 📦 이제 리스트가 아닌 '객체 하나'를 보냅니다.
+            deviceId = activeDeviceId,
+            logs = pendingLogs,
+            sessionStartTimestamp = sessionStartTimestamp,
+            screenState = screenState,
             onSuccess = {
                 serviceScope.launch {
                     repository.markAsSent(pendingLogs.map { it.id })
-                    Log.d("BatteryService", "AWS 배치 전송 완료: ${pendingLogs.size}건")
+                    Log.d("BatteryService", "텔레메트리 배치 전송 완료 (DB 업데이트): ${pendingLogs.size}건")
                 }
+            },
+            onFailure = { error ->
+                Log.e("BatteryService", "텔레메트리 배치 전송 최종 실패 (AWS & HTTP 모두 실패): ${error?.message}")
             }
         )
     }
