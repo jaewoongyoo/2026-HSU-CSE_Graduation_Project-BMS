@@ -20,11 +20,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
@@ -138,7 +138,7 @@ fun HomeScreen(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.ExitToApp,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "로그아웃",
                             tint = Blue600
                         )
@@ -163,7 +163,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            UserManualCard()
+            UserManualCard(isDefaultExpanded = devices.isEmpty())
             
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -362,8 +362,11 @@ fun DeleteDeviceDialog(
  * 처음 사용자를 위한 아코디언 타입 사용 설명서 카드
  */
 @Composable
-fun UserManualCard(modifier: Modifier = Modifier) {
-    var isExpanded by remember { mutableStateOf(true) } // 기본적으로 활성화 상태
+fun UserManualCard(
+    isDefaultExpanded: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember(isDefaultExpanded) { mutableStateOf(isDefaultExpanded) }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -389,7 +392,7 @@ fun UserManualCard(modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.HelpOutline,
+                        imageVector = Icons.AutoMirrored.Filled.HelpOutline,
                         contentDescription = null,
                         tint = Blue600,
                         modifier = Modifier.size(20.dp)
