@@ -3,6 +3,7 @@ package com.han.battery.ui.dashboard
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -311,20 +312,16 @@ fun DashboardScreen(
                 Text(text = buttonText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
 
-            // 비활성화 안내 텍스트
+            // 비활성화 및 제한 안내 알림 박스
             if (!status.isCharging && !isMonitoring) {
-                Text(
-                    text = "보조배터리가 충전 중일 때만 진단이 가능합니다.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                Spacer(modifier = Modifier.height(14.dp))
+                ErrorNotificationBox(
+                    message = "보조배터리가 충전 중일 때만 AI 진단이 가능합니다. 기기를 충전 전원에 연결해주세요."
                 )
             } else if (status.isCharging && isAcOrWireless && !isMonitoring) {
-                Text(
-                    text = "⚠️ 고속 전원(AC) 연결로 감지되었습니다. 실제 보조배터리가 맞는지 확인해주세요.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFD97706),
-                    modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                Spacer(modifier = Modifier.height(14.dp))
+                WarningNotificationBox(
+                    message = "고속 충전 전원(AC) 연결 감지. 일반 콘센트가 아닌 보조배터리를 충전 중인지 확인해주세요."
                 )
             }
 
@@ -671,5 +668,73 @@ fun StatusPulseCircle(
                 .size(6.dp)
                 .background(color, shape = androidx.compose.foundation.shape.CircleShape)
         )
+    }
+}
+
+/**
+ * 시스템 경고 안내 박스
+ */
+@Composable
+fun WarningNotificationBox(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xFFFFFBEB), // Amber 50 (매우 부드러운 주황색 미색)
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A)) // Amber 200 선명한 주황색 실선
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "⚠️",
+                fontSize = 18.sp
+            )
+            Text(
+                text = message,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFB45309) // Amber 700 차분한 진한 주황색 텍스트
+            )
+        }
+    }
+}
+
+/**
+ * 시스템 에러/제한 안내 박스
+ */
+@Composable
+fun ErrorNotificationBox(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xFFFEF2F2), // Red 50 (매우 부드러운 빨간색 미색)
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFFECACA)) // Red 200
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "🛑",
+                fontSize = 18.sp
+            )
+            Text(
+                text = message,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFB91C1C) // Red 700
+            )
+        }
     }
 }

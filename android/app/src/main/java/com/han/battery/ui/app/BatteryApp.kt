@@ -214,24 +214,6 @@ fun BatteryApp() {
     }
 
     Scaffold(
-        topBar = {
-            if (showBottomBar) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "보조배터리 관리",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
