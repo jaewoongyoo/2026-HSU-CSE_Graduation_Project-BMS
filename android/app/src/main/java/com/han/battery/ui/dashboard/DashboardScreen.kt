@@ -459,10 +459,10 @@ fun TelemetryMonitorCard(
     var expanded by remember { mutableStateOf(false) }
     
     val statusText = when {
-        stats.failed > 0 -> "오류 발생 ⚠️"
-        stats.httpSuccess > 0 && stats.mqttSuccess == 0 -> "HTTP 우회 전송 중 📡"
-        stats.mqttSuccess > 0 -> "MQTT 실시간 연결 안정적 🟢"
-        else -> "데이터 대기 중..."
+        stats.failed > 0 -> "오류 ⚠️"
+        stats.httpSuccess > 0 && stats.mqttSuccess == 0 -> "HTTP 우회 📡"
+        stats.mqttSuccess > 0 -> "MQTT 안정 🟢"
+        else -> "대기 중..."
     }
     
     Card(
@@ -485,14 +485,20 @@ fun TelemetryMonitorCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "📡 텔레메트리 전송 모니터",
+                        text = "📡",
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "텔레메트리 전송 모니터",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
                 }
                 
@@ -502,18 +508,18 @@ fun TelemetryMonitorCard(
                         stats.mqttSuccess > 0 -> Color(0xFFDCFCE7)
                         else -> MaterialTheme.colorScheme.primaryContainer
                     },
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(99.dp)
                 ) {
                     Text(
                         text = statusText,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = when {
                             stats.failed > 0 -> MaterialTheme.colorScheme.onErrorContainer
                             stats.mqttSuccess > 0 -> Color(0xFF15803D)
                             else -> MaterialTheme.colorScheme.onPrimaryContainer
                         },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
             }
