@@ -121,21 +121,12 @@ fun SignupScreen(
             ) {
                 AppLogo(size = LogoSize.Large, showText = true)
 
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Text(
-                    text = "반갑습니다!",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "서비스 시작을 위해 가입해주세요",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Text(
-                    text = "새 계정 만들기",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 28.dp, top = 4.dp)
+                    modifier = Modifier.padding(top = 8.dp, bottom = 28.dp)
                 )
 
                 OutlinedTextField(

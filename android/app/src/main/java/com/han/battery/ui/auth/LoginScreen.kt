@@ -116,21 +116,12 @@ fun LoginScreen(
             ) {
                 AppLogo(size = LogoSize.Large, showText = true)
 
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Text(
-                    text = "환영합니다!",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "서비스 이용을 위해 로그인해주세요",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Text(
-                    text = "Battery Insight 서비스 로그인",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 28.dp, top = 4.dp)
+                    modifier = Modifier.padding(top = 8.dp, bottom = 28.dp)
                 )
 
                 OutlinedTextField(
