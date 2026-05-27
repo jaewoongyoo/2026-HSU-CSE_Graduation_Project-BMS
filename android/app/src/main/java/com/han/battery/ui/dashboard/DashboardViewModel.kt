@@ -54,6 +54,8 @@ class DashboardViewModel(
     private val _events = MutableSharedFlow<DashboardUiEvent>()
     val events: SharedFlow<DashboardUiEvent> = _events.asSharedFlow()
 
+    val telemetryStats = BatteryMonitoringService.telemetryStats.asStateFlow()
+
     init {
         monitorBattery()
         loadLastAnalysisResult()

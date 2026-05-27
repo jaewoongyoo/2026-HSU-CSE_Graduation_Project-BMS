@@ -2,6 +2,8 @@ package com.han.battery.ui.dashboard
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +69,7 @@ fun DashboardScreen(
     val status by viewModel.batteryStatus.collectAsState()
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val lastAnalysisResult by viewModel.lastAnalysisResult.collectAsState()
+    val stats by viewModel.telemetryStats.collectAsState()
 
     val pluggedType = remember(status.isCharging) {
         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -267,6 +270,13 @@ fun DashboardScreen(
                 predictionText = predictionText
             )
 
+            if (isMonitoring) {
+                DiagnosticEtaCard(
+                    totalCollected = stats.totalCollected,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
             // 핵심 버튼 영역
             Button(
                 enabled = isButtonEnabled,
@@ -306,6 +316,11 @@ fun DashboardScreen(
                 )
             }
 
+            if (isMonitoring) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TelemetryMonitorCard(stats = stats)
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
             Spacer(modifier = Modifier.height(8.dp))
@@ -337,5 +352,228 @@ fun DashboardScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+fun DiagnosticEtaCard(
+    totalCollected: Int,
+    modifier: Modifier = Modifier
+) {
+    val minCount = 600 // 최소 20분
+    val targetCount = 900 // 권장 30분
+    
+    val elapsedSeconds = totalCollected * 2
+    val minSeconds = minCount * 2
+    val targetSeconds = targetCount * 2
+    
+    val progress = (totalCollected.toFloat() / targetCount.toFloat()).coerceIn(0f, 1f)
+    
+    val etaText = when {
+        totalCollected >= targetCount -> "권장 진단 완료! 언제든 종료하셔도 좋습니다. 🎉"
+        totalCollected >= minCount -> {
+            val remain = targetSeconds - elapsedSeconds
+            val min = remain / 60
+            val sec = remain % 60
+            "권장 분석 완료까지: ${min}분 ${sec}초 남음"
+        }
+        else -> {
+            val remain = minSeconds - elapsedSeconds
+            val min = remain / 60
+            val sec = remain % 60
+            "최소 분석 가능까지: ${min}분 ${sec}초 남음"
+        }
+    }
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "⏱️ 실시간 진단 진행 상황",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // ETA 문구
+            Text(
+                text = etaText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Linear Progress Indicator
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(8.dp).background(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(4.dp)
+                ),
+                color = if (totalCollected >= minCount) MaterialTheme.colorScheme.primary else Color(0xFFF59E0B),
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "진행률: ${(progress * 100).toInt()}%",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "수집: $totalCollected / $targetCount 건",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TelemetryMonitorCard(
+    stats: com.han.battery.service.TelemetryStats,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    val statusText = when {
+        stats.failed > 0 -> "오류 발생 ⚠️"
+        stats.httpSuccess > 0 && stats.mqttSuccess == 0 -> "HTTP 우회 전송 중 📡"
+        stats.mqttSuccess > 0 -> "MQTT 실시간 연결 안정적 🟢"
+        else -> "데이터 대기 중..."
+    }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .animateContentSize()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "📡 텔레메트리 전송 모니터",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Surface(
+                    color = when {
+                        stats.failed > 0 -> MaterialTheme.colorScheme.errorContainer
+                        stats.mqttSuccess > 0 -> Color(0xFFDCFCE7)
+                        else -> MaterialTheme.colorScheme.primaryContainer
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = statusText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            stats.failed > 0 -> MaterialTheme.colorScheme.onErrorContainer
+                            stats.mqttSuccess > 0 -> Color(0xFF15803D)
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            
+            if (expanded) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatsRow(label = "📥 누적 수집 로그 수", value = "${stats.totalCollected}건")
+                    StatsRow(
+                        label = "⚡ AWS IoT (MQTT) 성공",
+                        value = "${stats.mqttSuccess}건",
+                        valueColor = Color(0xFF16A34A)
+                    )
+                    StatsRow(
+                        label = "🌐 HTTP 대체 전송 성공",
+                        value = "${stats.httpSuccess}건",
+                        valueColor = MaterialTheme.colorScheme.primary
+                    )
+                    StatsRow(
+                        label = "⏳ 전송 대기열 (Pending)",
+                        value = "${stats.pending}건",
+                        valueColor = if (stats.pending > 0) Color(0xFFD97706) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    StatsRow(
+                        label = "❌ 전송 실패 (Failed)",
+                        value = "${stats.failed}건",
+                        valueColor = if (stats.failed > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "터치하여 실시간 데이터 전송 통계 보기",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = valueColor
+        )
     }
 }

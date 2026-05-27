@@ -18,10 +18,20 @@ import kotlinx.coroutines.*
 import java.time.Instant
 import kotlin.math.abs
 
+data class TelemetryStats(
+    val totalCollected: Int = 0,
+    val mqttSuccess: Int = 0,
+    val httpSuccess: Int = 0,
+    val failed: Int = 0,
+    val pending: Int = 0
+)
+
 class BatteryMonitoringService : Service() {
     companion object {
         const val ACTION_START_MONITORING = "com.han.battery.action.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.han.battery.action.STOP_MONITORING"
+        
+        val telemetryStats = kotlinx.coroutines.flow.MutableStateFlow(TelemetryStats())
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
@@ -248,6 +258,7 @@ class BatteryMonitoringService : Service() {
 
         collectingJob = serviceScope.launch {
             var collectedCount = 0
+            telemetryStats.value = TelemetryStats() // 수집 시작 시 통계 초기화
             var lastUpdateTs = 0L
             startPluggedType = getPluggedType(applicationContext)
             Log.d("BatteryService", "수집 시작 시 충전 공급원 plugged type: $startPluggedType")
@@ -256,6 +267,14 @@ class BatteryMonitoringService : Service() {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
                 repository.insertLog(log)
                 collectedCount++
+                
+                // 실시간 수집 통계 갱신 (pending 건수 계산)
+                val currentStats = telemetryStats.value
+                val newPending = collectedCount - currentStats.mqttSuccess - currentStats.httpSuccess
+                telemetryStats.value = currentStats.copy(
+                    totalCollected = collectedCount,
+                    pending = newPending.coerceAtLeast(0)
+                )
                 
                 val currentPlugged = getPluggedType(applicationContext)
                 
@@ -338,14 +357,38 @@ class BatteryMonitoringService : Service() {
             logs = pendingLogs,
             sessionStartTimestamp = sessionStartTimestamp,
             screenState = screenState,
-            onSuccess = {
+            onSuccess = { isMqtt ->
                 serviceScope.launch {
                     repository.markAsSent(pendingLogs.map { it.id })
                     Log.d("BatteryService", "텔레메트리 배치 전송 완료 (DB 업데이트): ${pendingLogs.size}건")
+                    
+                    // 전송 통계 실시간 갱신
+                    val currentStats = telemetryStats.value
+                    val addedCount = pendingLogs.size
+                    val newMqttSuccess = if (isMqtt) currentStats.mqttSuccess + addedCount else currentStats.mqttSuccess
+                    val newHttpSuccess = if (!isMqtt) currentStats.httpSuccess + addedCount else currentStats.httpSuccess
+                    val newPending = (currentStats.totalCollected - newMqttSuccess - newHttpSuccess).coerceAtLeast(0)
+                    
+                    telemetryStats.value = currentStats.copy(
+                        mqttSuccess = newMqttSuccess,
+                        httpSuccess = newHttpSuccess,
+                        pending = newPending
+                    )
                 }
             },
             onFailure = { error ->
                 Log.e("BatteryService", "텔레메트리 배치 전송 최종 실패 (AWS & HTTP 모두 실패): ${error?.message}")
+                
+                // 실패 통계 실시간 갱신
+                val currentStats = telemetryStats.value
+                val addedCount = pendingLogs.size
+                val newFailed = currentStats.failed + addedCount
+                val newPending = (currentStats.totalCollected - currentStats.mqttSuccess - currentStats.httpSuccess).coerceAtLeast(0)
+                
+                telemetryStats.value = currentStats.copy(
+                    failed = newFailed,
+                    pending = newPending
+                )
             }
         )
     }

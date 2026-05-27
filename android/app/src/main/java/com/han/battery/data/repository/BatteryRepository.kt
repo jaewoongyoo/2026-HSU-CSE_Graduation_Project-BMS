@@ -26,7 +26,7 @@ class BatteryRepository(
         logs: List<BatteryLog>,
         sessionStartTimestamp: Long,
         screenState: Boolean,
-        onSuccess: () -> Unit,
+        onSuccess: (isMqtt: Boolean) -> Unit,
         onFailure: (Throwable?) -> Unit = {}
     ) {
         // 1. MQTT용 payload 매핑 (BatteryTelemetryBatchPayload)
@@ -62,7 +62,7 @@ class BatteryRepository(
         }
 
         if (mqttSuccess) {
-            onSuccess()
+            onSuccess(true)
             return
         }
 
@@ -84,7 +84,7 @@ class BatteryRepository(
         try {
             apiService.uploadRaw(sessionId, httpPayload).getOrThrow()
             Log.d("BatteryRepository", "HTTP API 대체 전송 성공 ✅ (sessionId: $sessionId)")
-            onSuccess()
+            onSuccess(false)
         } catch (e: Exception) {
             Log.e("BatteryRepository", "HTTP API 대체 전송도 실패 ❌: ${e.message}", e)
             onFailure(e)
