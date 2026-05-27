@@ -371,6 +371,16 @@ class BatteryMonitoringService : Service() {
                 // 마지막으로 종료 완료된 세션 ID 저장
                 preferenceManager.saveLastSessionId(currentSessionId)
 
+                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 15개 미만, 약 30초 이하 충전 시)
+                if (sessionLogs.size < 15) {
+                    Log.w("BatteryService", "수집 데이터 부족으로 SOH 예측을 생기하고 세션만 종료합니다. (수집 건수: ${sessionLogs.size}건)")
+                    showDiagnosisResultNotification(
+                        title = "AI 배터리 진단 중단 ⚠️",
+                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 10분 이상 충전을 유지해 주세요."
+                    )
+                    return@runCatching
+                }
+
                 // AI SOH 예측 실행 및 캐싱
                 runCatching {
                     Log.d("BatteryService", "AI SOH 분석 예측 트리거 호출: session_id=$currentSessionId")
@@ -396,14 +406,14 @@ class BatteryMonitoringService : Service() {
                     Log.e("BatteryService", "AI SOH 분석 예측 수행 오류: ${error.message}", error)
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 실패 ⚠️",
-                        message = "진단 데이터를 분석하는 도중 오류가 발생했습니다."
+                        message = "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
                     )
                 }
             }.onFailure { error ->
                 Log.e("BatteryService", "세션 종료 처리 실패: ${error.message}", error)
                 showDiagnosisResultNotification(
                     title = "AI 배터리 진단 실패 ⚠️",
-                    message = "충전 세션을 종료하는 도중 서버 통신에 실패했습니다."
+                    message = "충전 세션을 종료하는 도중 서버 통신에 실패했습니다. (사유: ${error.message})"
                 )
             }
         }
