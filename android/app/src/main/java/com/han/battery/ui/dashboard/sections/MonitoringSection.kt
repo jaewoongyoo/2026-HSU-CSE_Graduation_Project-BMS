@@ -46,15 +46,8 @@ fun MonitoringSection(
                 .fillMaxWidth()
                 .padding(top = 16.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Start
         ) {
-            Text(
-                text = "배터리 상태",
-                fontSize = 19.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
             LiveStatusBadge(isLive = isMonitoring)
         }
 
