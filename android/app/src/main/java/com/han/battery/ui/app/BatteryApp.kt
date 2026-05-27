@@ -178,17 +178,23 @@ fun BatteryApp() {
     val showBottomBar = currentRoute in listOf("home", "board") ||
         currentRoute?.startsWith("dashboard") == true
 
+    val isRootRoute = currentRoute == "home" || currentRoute == "login" || currentRoute == "splash"
+
     BackHandler {
-        if (!navController.popBackStack()) {
+        if (isRootRoute) {
             showExitDialog = true
+        } else {
+            if (!navController.popBackStack()) {
+                showExitDialog = true
+            }
         }
     }
 
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("Exit") },
-            text = { Text("Close the app?") },
+            title = { Text("앱 종료", fontWeight = FontWeight.Bold) },
+            text = { Text("애플리케이션을 종료하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -196,12 +202,12 @@ fun BatteryApp() {
                         activity?.finish()
                     }
                 ) {
-                    Text("Exit", color = androidx.compose.ui.graphics.Color.Red)
+                    Text("종료", color = androidx.compose.ui.graphics.Color.Red, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExitDialog = false }) {
-                    Text("Cancel")
+                    Text("취소")
                 }
             }
         )
