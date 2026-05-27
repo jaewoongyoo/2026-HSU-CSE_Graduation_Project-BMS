@@ -51,6 +51,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.han.battery.data.model.BatteryDevice
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.components.common.AppLogo
@@ -188,13 +196,15 @@ fun HomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
+                        EmptyDeviceIllustration()
+                        Spacer(modifier = Modifier.height(18.dp))
                         Text(
                             text = "등록된 배터리가 없습니다",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "아래 버튼을 눌러 새 배터리를 등록하세요",
                             fontSize = 13.sp,
@@ -257,22 +267,47 @@ fun DeviceCard(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit = {}
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isDark) {
+        Brush.linearGradient(
+            listOf(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            listOf(
+                Color(0xFFFAFBFC),
+                Color(0xFFF1F5F9)
+            )
+        )
+    }
+    
+    val borderStroke = if (isDark) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+    } else {
+        BorderStroke(1.dp, Color(0xFFE2E8F0))
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = borderStroke,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            containerColor = Color.Transparent
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
+            defaultElevation = if (isDark) 0.dp else 2.dp
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .background(cardBg)
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -282,28 +317,29 @@ fun DeviceCard(
                 Text(
                     text = device.model_name.ifBlank { "배터리" },
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${device.powerbank_capacity_mah}mAh",
+                    text = "${device.powerbank_capacity_mah} mAh",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 if (device.manufacturer.isNotBlank()) {
                     Text(
                         text = "제조사: ${device.manufacturer}",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                 }
                 Text(
-                    text = "제조: ${device.manufacture_date}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "등록일: ${device.manufacture_date}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
 
@@ -311,13 +347,13 @@ fun DeviceCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 삭제 버튼 - 개선된 디자인
+                // 삭제 버튼 - 세련된 디자인
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            RoundedCornerShape(10.dp)
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                            RoundedCornerShape(12.dp)
                         )
                         .clickable(onClick = onDeleteClick),
                     contentAlignment = Alignment.Center
@@ -325,16 +361,28 @@ fun DeviceCard(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "삭제",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                // AppLogo 사용
-                AppLogo(
-                    size = LogoSize.Small,
-                    showText = false
-                )
+                // 고급 배터리 팩 모양 아이콘 인디케이터
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            RoundedCornerShape(14.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Bolt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
@@ -351,11 +399,11 @@ fun DeleteDeviceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("배터리 삭제") },
-        text = { Text("'${device.model_name}'을(를) 삭제하시겠습니까?") },
+        title = { Text("배터리 삭제", fontWeight = FontWeight.Bold) },
+        text = { Text("'${device.model_name}'을(를) 정말 삭제하시겠습니까?") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("삭제", color = Color.Red)
+                Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -375,15 +423,24 @@ fun UserManualCard(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember(isDefaultExpanded) { mutableStateOf(isDefaultExpanded) }
+    val isDark = isSystemInDarkTheme()
+    
+    val borderStroke = if (isDark) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+    } else {
+        BorderStroke(1.dp, Color(0xFFE2E8F0))
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = borderStroke,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -408,7 +465,7 @@ fun UserManualCard(
                     Text(
                         text = "사용자를 위한 사용 설명서 💡",
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -421,8 +478,8 @@ fun UserManualCard(
             }
 
             if (isExpanded) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ManualStepItem(
                         stepNumber = "1",
                         title = "새 배터리 등록",
@@ -452,18 +509,18 @@ private fun ManualStepItem(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
-                .size(20.dp)
+                .size(22.dp)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = stepNumber,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -475,13 +532,91 @@ private fun ManualStepItem(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = description,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * 기기가 등록되어 있지 않을 때 표시되는 Canvas 기반 펄싱 일러스트레이션
+ */
+@Composable
+fun EmptyDeviceIllustration(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "emptyState")
+    val batteryPulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = androidx.compose.animation.core.EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    val primary = MaterialTheme.colorScheme.primary
+    
+    Box(
+        modifier = modifier.size(width = 140.dp, height = 90.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            
+            // 배터리 몸체 그리기 (둥근 사각형)
+            val bodyWidth = w * 0.82f
+            val bodyHeight = h * 0.7f
+            val bodyLeft = (w - bodyWidth) / 2f - 4f
+            val bodyTop = (h - bodyHeight) / 2f
+            
+            drawRoundRect(
+                color = primary.copy(alpha = 0.08f),
+                topLeft = Offset(bodyLeft, bodyTop),
+                size = androidx.compose.ui.geometry.Size(bodyWidth, bodyHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f, 16f)
+            )
+            drawRoundRect(
+                color = primary.copy(alpha = 0.5f),
+                topLeft = Offset(bodyLeft, bodyTop),
+                size = androidx.compose.ui.geometry.Size(bodyWidth, bodyHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f, 16f),
+                style = Stroke(width = 4f)
+            )
+            
+            // 배터리 단자 그리기 (우측 돌기)
+            val capWidth = w * 0.05f
+            val capHeight = h * 0.22f
+            val capLeft = bodyLeft + bodyWidth
+            val capTop = (h - capHeight) / 2f
+            
+            drawRoundRect(
+                color = primary.copy(alpha = 0.5f),
+                topLeft = Offset(capLeft, capTop),
+                size = androidx.compose.ui.geometry.Size(capWidth, capHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+            
+            // 내부 충전 펄스 게이지 그리기 (3칸)
+            val innerLeft = bodyLeft + 12f
+            val innerTop = bodyTop + 12f
+            val innerWidth = bodyWidth - 24f
+            val innerHeight = bodyHeight - 24f
+            val segmentWidth = (innerWidth - 16f) / 3f
+            
+            for (i in 0..2) {
+                val segLeft = innerLeft + i * (segmentWidth + 8f)
+                drawRoundRect(
+                    color = primary.copy(alpha = batteryPulseAlpha),
+                    topLeft = Offset(segLeft, innerTop),
+                    size = androidx.compose.ui.geometry.Size(segmentWidth, innerHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+                )
+            }
         }
     }
 }

@@ -1,5 +1,9 @@
 package com.han.battery.ui.landing
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -201,7 +205,7 @@ fun LandingScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
+                                color = if (isDarkTheme) Color(0xFF1E293B) else Color.White,
                                 modifier = Modifier.size(48.dp),
                                 shadowElevation = 1.dp
                             ) {
@@ -350,262 +354,280 @@ fun StepInputScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // ── 각 단계별 입력 ──
+            // ── 각 단계별 입력 (슬라이드 애니메이션 적용) ──
             Card(
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 0.dp else 2.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    when (currentStep) {
-                        1 -> {
-                            // ── Step 1: 제조사 ──
-                            Icon(
-                                Icons.Default.Business,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(48.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-
-                            Text(
-                                "배터리 제조사",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "보조배터리 제조사를 입력해주세요",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(Modifier.height(24.dp))
-
-                            BatteryFormField(
-                                label = "제조사 *",
-                                value = manufacturer,
-                                onValueChange = onManufacturerChange,
-                                placeholder = "예: Anker, Samsung",
-                                focusRequester = manufacturerFocusRequester,
-                                maxLength = 100,
-                                isError = manufacturerError.isNotEmpty(),
-                                helperText = "배터리 제조사를 입력하세요 (${manufacturer.length}/100)",
-                                errorText = manufacturerError
-                            )
+                AnimatedContent(
+                    targetState = currentStep,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideInHorizontally { width -> width } togetherWith slideOutHorizontally { width -> -width }
+                        } else {
+                            slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
                         }
+                    },
+                    label = "stepTransition"
+                ) { step ->
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        when (step) {
+                            1 -> {
+                                // ── Step 1: 제조사 ──
+                                Icon(
+                                    Icons.Default.Business,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .size(48.dp)
+                                )
+                                Spacer(Modifier.height(16.dp))
 
-                        2 -> {
-                            // ── Step 2: 모델명 ──
-                            Icon(
-                                Icons.Default.Devices,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(48.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-
-                            Text(
-                                "배터리 모델명",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "정확한 모델명을 입력해주세요",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(Modifier.height(24.dp))
-
-                            BatteryFormField(
-                                label = "모델명 *",
-                                value = nickname,
-                                onValueChange = onNicknameChange,
-                                placeholder = "예: PowerCore 10000",
-                                focusRequester = nicknameFocusRequester,
-                                maxLength = 100,
-                                isError = nicknameError.isNotEmpty(),
-                                helperText = "배터리 모델명을 정확하게 입력하세요 (${nickname.length}/100)",
-                                errorText = nicknameError
-                            )
-                        }
-
-                        3 -> {
-                            // ── Step 3: 용량 ──
-                            Icon(
-                                Icons.Default.Battery6Bar,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(48.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-
-                            Text(
-                                "배터리 용량",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "배터리 용량을 mAh로 입력해주세요",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(Modifier.height(24.dp))
-
-                            BatteryFormField(
-                                label = "정격 용량 (mAh) *",
-                                value = capacity,
-                                onValueChange = onCapacityChange,
-                                placeholder = "예: 10000",
-                                focusRequester = capacityFocusRequester,
-                                keyboardType = KeyboardType.Number,
-                                suffix = "mAh",
-                                isError = capacityError.isNotEmpty(),
-                                helperText = "100 ~ 100,000 mAh 범위의 용량을 입력하세요",
-                                errorText = capacityError
-                            )
-                        }
-
-                        4 -> {
-                            // ── Step 4: 제조년월 ──
-                            Icon(
-                                Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(48.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-
-                            Text(
-                                "제조년월",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "배터리의 제조연월을 선택해주세요",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(Modifier.height(24.dp))
-
-                            // 캘린더 선택 버튼
-                            Button(
-                                onClick = { showDatePicker = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = MaterialTheme.colorScheme.primary
-                                ),
-                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(8.dp))
                                 Text(
-                                    if (manufactureDate.isEmpty()) "캘린더에서 선택" else manufactureDate,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
+                                    "배터리 제조사",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "보조배터리 제조사를 입력해주세요",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Spacer(Modifier.height(24.dp))
+
+                                BatteryFormField(
+                                    label = "제조사 *",
+                                    value = manufacturer,
+                                    onValueChange = onManufacturerChange,
+                                    placeholder = "예: Anker, Samsung",
+                                    focusRequester = manufacturerFocusRequester,
+                                    maxLength = 100,
+                                    isError = manufacturerError.isNotEmpty(),
+                                    helperText = "배터리 제조사를 입력하세요 (${manufacturer.length}/100)",
+                                    errorText = manufacturerError
                                 )
                             }
 
-                            if (manufactureDate.isNotEmpty()) {
-                                Spacer(Modifier.height(12.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
+                            2 -> {
+                                // ── Step 2: 모델명 ──
+                                Icon(
+                                    Icons.Default.Devices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .size(48.dp)
+                                )
+                                Spacer(Modifier.height(16.dp))
+
+                                Text(
+                                    "배터리 모델명",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "정확한 모델명을 입력해주세요",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Spacer(Modifier.height(24.dp))
+
+                                BatteryFormField(
+                                    label = "모델명 *",
+                                    value = nickname,
+                                    onValueChange = onNicknameChange,
+                                    placeholder = "예: PowerCore 10000",
+                                    focusRequester = nicknameFocusRequester,
+                                    maxLength = 100,
+                                    isError = nicknameError.isNotEmpty(),
+                                    helperText = "배터리 모델명을 정확하게 입력하세요 (${nickname.length}/100)",
+                                    errorText = nicknameError
+                                )
+                            }
+
+                            3 -> {
+                                // ── Step 3: 용량 ──
+                                Icon(
+                                    Icons.Default.Battery6Bar,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .size(48.dp)
+                                )
+                                Spacer(Modifier.height(16.dp))
+
+                                Text(
+                                    "배터리 용량",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "배터리 용량을 mAh로 입력해주세요",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Spacer(Modifier.height(24.dp))
+
+                                BatteryFormField(
+                                    label = "정격 용량 (mAh) *",
+                                    value = capacity,
+                                    onValueChange = onCapacityChange,
+                                    placeholder = "예: 10000",
+                                    focusRequester = capacityFocusRequester,
+                                    keyboardType = KeyboardType.Number,
+                                    suffix = "mAh",
+                                    isError = capacityError.isNotEmpty(),
+                                    helperText = "100 ~ 100,000 mAh 범위의 용량을 입력하세요",
+                                    errorText = capacityError
+                                )
+                            }
+
+                            4 -> {
+                                // ── Step 4: 제조년월 ──
+                                Icon(
+                                    Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .size(48.dp)
+                                )
+                                Spacer(Modifier.height(16.dp))
+
+                                Text(
+                                    "제조년월",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "배터리의 제조연월을 선택해주세요",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Spacer(Modifier.height(24.dp))
+
+                                // 캘린더 선택 버튼
+                                Button(
+                                    onClick = { showDatePicker = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
                                 ) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = Color(0xFF4CAF50),
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(20.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        "선택된 날짜: $manufactureDate",
-                                        fontSize = 12.sp,
+                                        if (manufactureDate.isEmpty()) "캘린더에서 선택" else manufactureDate,
+                                        fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
-                            }
-                        }
-                    }
 
-                    Spacer(Modifier.height(32.dp))
-
-                    // ── 버튼 영역 ──
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (currentStep > 1) {
-                            OutlinedButton(
-                                onClick = onPrevClick,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Text("이전", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            }
-                        }
-
-                        val isCurrentStepValid = when (currentStep) {
-                            1 -> manufacturer.isNotBlank() && manufacturerError.isEmpty()
-                            2 -> nickname.isNotBlank() && nicknameError.isEmpty()
-                            3 -> capacity.isNotBlank() && capacityError.isEmpty()
-                            4 -> manufactureDate.isNotBlank()
-                            else -> false
-                        }
-
-                        Button(
-                            onClick = {
-                                if (currentStep < 4) {
-                                    onNextClick()
-                                } else {
-                                    onCompleteClick()
+                                if (manufactureDate.isNotEmpty()) {
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color(0xFF4CAF50),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "선택된 날짜: $manufactureDate",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
-                            },
-                            enabled = isCurrentStepValid,
-                            modifier = Modifier
-                                .weight(if (currentStep > 1) 1f else 1.2f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                            )
+                            }
+                        }
+
+                        Spacer(Modifier.height(32.dp))
+
+                        // ── 버튼 영역 ──
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                if (currentStep == 4) "등록" else "다음",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
+                            if (currentStep > 1) {
+                                OutlinedButton(
+                                    onClick = onPrevClick,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Text("이전", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                            }
+
+                            val isCurrentStepValid = when (currentStep) {
+                                1 -> manufacturer.isNotBlank() && manufacturerError.isEmpty()
+                                2 -> nickname.isNotBlank() && nicknameError.isEmpty()
+                                3 -> capacity.isNotBlank() && capacityError.isEmpty()
+                                4 -> manufactureDate.isNotBlank()
+                                else -> false
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (currentStep < 4) {
+                                        onNextClick()
+                                    } else {
+                                        onCompleteClick()
+                                    }
+                                },
+                                enabled = isCurrentStepValid,
+                                modifier = Modifier
+                                    .weight(if (currentStep > 1) 1f else 1.2f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                )
+                            ) {
+                                Text(
+                                    if (currentStep == 4) "등록" else "다음",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -643,7 +665,7 @@ fun StepProgressBar(currentStep: Int) {
                     .weight(1f)
                     .height(8.dp)
                     .background(
-                        color = if (stepNum <= currentStep) MaterialTheme.colorScheme.primary else Color(0xFFE0E0E0),
+                        color = if (stepNum <= currentStep) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                         shape = RoundedCornerShape(4.dp)
                     )
             )
@@ -655,11 +677,10 @@ fun StepProgressBar(currentStep: Int) {
     Text(
         "Step $currentStep / 4",
         fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerDialog(
     selectedDate: String,
@@ -681,21 +702,22 @@ fun DatePickerDialog(
             Text(
                 "제조년월 선택",
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                    .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 연도 선택
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp),
+                        .padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -711,10 +733,11 @@ fun DatePickerDialog(
                         selectedYearMonth.year.toString(),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(16.dp),
+                            .padding(8.dp),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     IconButton(
@@ -730,7 +753,7 @@ fun DatePickerDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp),
+                        .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     repeat(4) { row ->
@@ -741,28 +764,29 @@ fun DatePickerDialog(
                             repeat(3) { col ->
                                 val month = row * 3 + col + 1
                                 if (month <= 12) {
+                                    val isSelected = selectedYearMonth.monthValue == month
                                     Button(
                                         onClick = {
                                             selectedYearMonth = selectedYearMonth.withMonth(month)
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(40.dp),
+                                            .height(42.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (selectedYearMonth.monthValue == month) {
+                                            containerColor = if (isSelected) {
                                                 MaterialTheme.colorScheme.primary
                                             } else {
-                                                Color(0xFFE0E0E0)
+                                                MaterialTheme.colorScheme.surfaceVariant
                                             }
                                         ),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Text(
                                             "${month.toString().padStart(2, '0')}월",
-                                            color = if (selectedYearMonth.monthValue == month) {
-                                                Color.White
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.onPrimary
                                             } else {
-                                                Color.Black
+                                                MaterialTheme.colorScheme.onSurfaceVariant
                                             },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp
@@ -793,7 +817,7 @@ fun DatePickerDialog(
                     onDateSelected(dateString)
                 }
             ) {
-                Text("확인")
+                Text("확인", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -856,6 +880,18 @@ fun BatteryFormField(
     helperText: String? = null,
     errorText: String? = null
 ) {
+    // 흔들림(Shake) 애니메이션 구현
+    val shakeOffset = remember(isError) { Animatable(0f) }
+    LaunchedEffect(isError) {
+        if (isError) {
+            repeat(3) {
+                shakeOffset.animateTo(8f, animationSpec = tween(50, easing = LinearEasing))
+                shakeOffset.animateTo(-8f, animationSpec = tween(50, easing = LinearEasing))
+            }
+            shakeOffset.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
+        }
+    }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -868,7 +904,7 @@ fun BatteryFormField(
                 fontWeight = FontWeight.Bold,
                 color = when {
                     isError -> Color.Red
-                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 },
                 modifier = Modifier.padding(start = 4.dp)
             )
@@ -881,7 +917,7 @@ fun BatteryFormField(
                     color = when {
                         isError -> Color.Red
                         value.length >= maxLength * 0.8 -> Color(0xFFFF9800)
-                        else -> Color.Gray.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     },
                     fontWeight = FontWeight.SemiBold
                 )
@@ -898,14 +934,15 @@ fun BatteryFormField(
                     onValueChange(newValue)
                 }
             },
-            placeholder = { Text(placeholder, fontSize = 14.sp, color = Color.LightGray) },
+            placeholder = { Text(placeholder, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
             trailingIcon = if (suffix != null) ({
-                Text(suffix, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(end = 12.dp))
+                Text(suffix, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
             }) else null,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier
                 .fillMaxWidth()
+                .offset(x = shakeOffset.value.dp) // 흔들림 오프셋 추가
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
             shape = RoundedCornerShape(14.dp),
             isError = isError,
@@ -916,16 +953,10 @@ fun BatteryFormField(
                 },
                 unfocusedBorderColor = when {
                     isError -> Color.Red.copy(alpha = 0.3f)
-                    else -> Color(0xFFF0F0F0)
+                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
                 },
-                focusedContainerColor = when {
-                    isError -> Color.Red.copy(alpha = 0.05f)
-                    else -> Color(0xFFFAFBFC)
-                },
-                unfocusedContainerColor = when {
-                    isError -> Color.Red.copy(alpha = 0.02f)
-                    else -> Color(0xFFFAFBFC)
-                },
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.05f),
                 errorBorderColor = Color.Red,
                 errorContainerColor = Color.Red.copy(alpha = 0.05f)
             )
