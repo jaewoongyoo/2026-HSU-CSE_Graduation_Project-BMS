@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,6 +43,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -257,18 +260,58 @@ private fun BoardHeader(
 
 @Composable
 private fun SummaryPill(label: String, value: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
-        shape = RoundedCornerShape(999.dp),
-        shadowElevation = 1.dp
+    val isDark = isSystemInDarkTheme()
+    val bg = if (isDark) Color(0xFF1E293B) else Color(0xFFEFF6FF)
+    val textColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
+    Row(
+        modifier = Modifier
+            .background(bg, RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Text(text = label, fontSize = 12.sp, color = textColor)
+        Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun TossFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String
+) {
+    val isDark = isSystemInDarkTheme()
+    val backgroundColor = when {
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        isDark -> Color(0xFF1E293B)
+        else -> Color(0xFFF1F5F9)
+    }
+    val contentColor = when {
+        selected -> MaterialTheme.colorScheme.primary
+        isDark -> Color(0xFFCBD5E1)
+        else -> Color(0xFF475569)
+    }
+    val textWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+
+    Surface(
+        color = backgroundColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier
+            .height(36.dp)
+            .clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = textWeight,
+                maxLines = 1
+            )
         }
     }
 }
@@ -284,10 +327,10 @@ private fun CategoryFilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(BoardFilterCategory.entries) { category ->
-            FilterChip(
+            TossFilterChip(
                 selected = selectedCategory == category,
                 onClick = { onCategorySelected(category) },
-                label = { Text(category.label, maxLines = 1) }
+                label = category.label
             )
         }
     }
@@ -311,10 +354,10 @@ private fun OptionFilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(options) { option ->
-            FilterChip(
+            TossFilterChip(
                 selected = selectedValue == option,
                 onClick = { onFilterSelected(option) },
-                label = { Text(option, maxLines = 1) }
+                label = option
             )
         }
     }
@@ -328,12 +371,15 @@ private fun PerformancePostCard(
     onDeletePost: (Int) -> Unit
 ) {
     val isOwnPost = !currentUserName.isNullOrBlank() && post.userName == currentUserName
+    val isDark = isSystemInDarkTheme()
+    val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
+    val cardBorderColor = if (isDark) Color(0xFF334155).copy(alpha = 0.7f) else Color(0xFFEFF1F3)
 
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(width = 1.dp, color = cardBorderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -429,29 +475,10 @@ private fun PerformancePostCard(
             SohTrendBlock(post = post)
 
             Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(14.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                MetricTile(
-                    label = "SOH",
-                    value = post.estimatedSoh?.let { "$it%" } ?: "-",
-                    modifier = Modifier.weight(1f)
-                )
-                MetricTile(
-                    label = "예상 완충",
-                    value = post.estimatedFullCharges?.let { "${it}회" } ?: "-",
-                    modifier = Modifier.weight(1f)
-                )
-                MetricTile(
-                    label = "누적 사용",
-                    value = "${post.totalUsageHours.formatOneDecimal()}h",
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            PostMetricsRow(post = post)
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -469,28 +496,54 @@ private fun PerformancePostCard(
 
 @Composable
 private fun DeviceInfoBlock(post: BatteryPerformancePost) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AssistChip(
-            onClick = {},
-            label = { Text(post.smartphoneModel.displayOrUnknown("폰 기종 미등록")) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.PhoneAndroid,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.weight(1f, fill = false)) {
+            DeviceInfoTag(
+                icon = Icons.Filled.PhoneAndroid,
+                text = post.smartphoneModel.displayOrUnknown("폰 기종 미등록")
+            )
+        }
+        Box(modifier = Modifier.weight(1f, fill = false)) {
+            DeviceInfoTag(
+                icon = Icons.Filled.BatteryChargingFull,
+                text = post.powerBankLabel()
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeviceInfoTag(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    val isDark = isSystemInDarkTheme()
+    val bg = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
+    val contentColor = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+    Row(
+        modifier = Modifier
+            .background(bg, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(14.dp)
         )
-        AssistChip(
-            onClick = {},
-            label = { Text(post.powerBankLabel()) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.BatteryChargingFull,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -500,38 +553,38 @@ private fun SohTrendBlock(post: BatteryPerformancePost) {
     val trendColor = post.condition.color()
     val first = post.sohHistory.firstOrNull()
     val last = post.sohHistory.lastOrNull()
+    val isDark = isSystemInDarkTheme()
+    val bg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.3f) else Color(0xFFF8FAFC)
 
-    Card(
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg, RoundedCornerShape(18.dp))
+            .padding(14.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "SOH 변화",
+                    text = "SOH 변화 추세",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 if (first != null && last != null) {
                     Text(
-                        text = "최근 $first% -> $last%",
+                        text = "최근 $first% → $last%",
                         fontSize = 12.sp,
                         color = trendColor,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             if (post.sohHistory.size >= 2) {
                 SohMiniChart(
                     points = post.sohHistory,
@@ -619,55 +672,84 @@ private fun SohMiniChart(
 @Composable
 private fun SohBadge(condition: SohCondition, soh: Int?) {
     val color = condition.color()
-    Surface(
-        color = color.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(999.dp)
+    Row(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.1f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = condition.label,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Text(
-                text = soh?.let { "$it%" } ?: "-",
-                fontSize = 12.sp,
-                color = color
-            )
-        }
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(color, RoundedCornerShape(999.dp))
+        )
+        Text(
+            text = "${condition.label} ${soh?.let { "$it%" } ?: "-"}",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
     }
 }
 
 @Composable
-private fun MetricTile(
+private fun PostMetricsRow(post: BatteryPerformancePost) {
+    val isDark = isSystemInDarkTheme()
+    val bg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF8FAFC)
+    val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg, RoundedCornerShape(16.dp))
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PostMetricItem(
+            label = "SOH",
+            value = post.estimatedSoh?.let { "$it%" } ?: "-",
+            modifier = Modifier.weight(1f)
+        )
+        Box(modifier = Modifier.width(1.dp).height(24.dp).background(dividerColor))
+        PostMetricItem(
+            label = "예상 완충",
+            value = post.estimatedFullCharges?.let { "${it}회" } ?: "-",
+            modifier = Modifier.weight(1f)
+        )
+        Box(modifier = Modifier.width(1.dp).height(24.dp).background(dividerColor))
+        PostMetricItem(
+            label = "누적 사용",
+            value = "${post.totalUsageHours.formatOneDecimal()}h",
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun PostMetricItem(
     label: String,
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Column(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = value,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

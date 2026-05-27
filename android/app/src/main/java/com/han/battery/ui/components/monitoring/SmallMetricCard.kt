@@ -36,7 +36,8 @@ fun SmallMetricCard(
     title: String,
     value: String,
     unit: String,
-    accent: Color
+    accent: Color,
+    progress: Float = 0.5f
 ) {
     Card(
         modifier = modifier,
@@ -57,7 +58,7 @@ fun SmallMetricCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
+ 
                 Box(
                     modifier = Modifier
                         .size(22.dp)
@@ -72,28 +73,33 @@ fun SmallMetricCard(
                     )
                 }
             }
-
+ 
             Spacer(modifier = Modifier.height(10.dp))
-
-            Row(verticalAlignment = Alignment.Bottom) {
+ 
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Start
+            ) {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = unit,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
-
+ 
             Spacer(modifier = Modifier.height(10.dp))
-
+ 
             LinearProgressIndicator(
-                progress = { 0.72f },
+                progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp),

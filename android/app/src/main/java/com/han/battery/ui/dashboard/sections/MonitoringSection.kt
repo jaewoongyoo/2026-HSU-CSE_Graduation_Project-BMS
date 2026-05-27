@@ -26,7 +26,7 @@ import com.han.battery.ui.theme.Emerald500
 
 @Composable
 fun MonitoringSection(
-    isMonitoring: Boolean, // ⭐ [수정됨] title 파라미터 대신 상태값을 직접 받습니다.
+    isMonitoring: Boolean,
     soc: Int,
     soh: Int,
     power: String,
@@ -36,13 +36,12 @@ fun MonitoringSection(
     predictionText: String = ""
 ) {
     Column {
-        // ⭐ [수정됨] 기존 SectionHeader를 지우고, 상단바 디자인이었던 배지를 포함한 새로운 헤더를 구성합니다.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween // 텍스트는 왼쪽, 배지는 오른쪽에 배치
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = "배터리 상태",
@@ -50,7 +49,6 @@ fun MonitoringSection(
                 fontWeight = FontWeight.Bold
             )
 
-            // 상단바에 있던 배지가 이곳에서 상태값(isMonitoring)에 따라 바뀌게 됩니다.
             LiveStatusBadge(isLive = isMonitoring)
         }
 
@@ -74,6 +72,23 @@ fun MonitoringSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // 실시간 계측값을 기반으로 한 게이지 프로그레스 계산 (토스 스타일 동적 바)
+        val powerVal = power.toDoubleOrNull() ?: 0.0
+        val powerProgress = if (powerUnit == "W") {
+            (powerVal / 25.0).toFloat().coerceIn(0f, 1f) // 최대 25W 기준
+        } else {
+            (powerVal / 25000.0).toFloat().coerceIn(0f, 1f) // 최대 25000mW 기준
+        }
+        
+        val voltageProgress = ((voltage - 3.0) / (4.5 - 3.0)).toFloat().coerceIn(0f, 1f) // 최소 3.0V ~ 최대 4.5V 기준
+        
+        val currentVal = current.toDoubleOrNull() ?: 0.0
+        val currentProgress = if (currentVal > 5.0) {
+            (currentVal / 3000.0).toFloat().coerceIn(0f, 1f) // 최대 3000mA 기준
+        } else {
+            (currentVal / 3.0).toFloat().coerceIn(0f, 1f) // 최대 3.0A 기준
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -83,21 +98,24 @@ fun MonitoringSection(
                 title = "충전 속도",
                 value = power,
                 unit = powerUnit,
-                accent = Blue600
+                accent = Blue600,
+                progress = powerProgress
             )
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "전압",
                 value = voltage.toString(),
                 unit = "V",
-                accent = Color(0xFFA78BFA)
+                accent = Color(0xFFA78BFA),
+                progress = voltageProgress
             )
             SmallMetricCard(
                 modifier = Modifier.weight(1f),
                 title = "전류",
                 value = current,
                 unit = "mA",
-                accent = Emerald500
+                accent = Emerald500,
+                progress = currentProgress
             )
         }
 
