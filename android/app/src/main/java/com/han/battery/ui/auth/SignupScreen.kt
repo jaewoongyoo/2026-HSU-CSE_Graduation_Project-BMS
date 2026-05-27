@@ -2,6 +2,7 @@ package com.han.battery.ui.auth
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -94,15 +95,18 @@ fun SignupScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
-                .offset(x = shakeOffset.value.dp)
-                .verticalScroll(rememberScrollState()),
+                .offset(x = shakeOffset.value.dp),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isDarkTheme) {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                    Color(0xFF1E293B)
                 } else {
-                    Color.White.copy(alpha = 0.9f)
+                    Color.White
                 }
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (isDarkTheme) Color(0xFF334155) else Color(0xFFE2E8F0)
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = if (isDarkTheme) 0.dp else 8.dp
@@ -111,6 +115,7 @@ fun SignupScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
