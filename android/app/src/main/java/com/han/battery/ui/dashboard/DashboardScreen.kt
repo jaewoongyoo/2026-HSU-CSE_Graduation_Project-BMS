@@ -100,10 +100,10 @@ fun DashboardScreen(
     }
     val powerDisplayUnit = if (abs(powerW) < 1f) "mW" else "W"
     val currentDisplayValue = String.format("%.2f", status.current)
-    // AC 또는 무선 충전일 때는 비활성화하고 에러 텍스트 표기
+    // AC 또는 무선 충전 감지 여부 (다이얼로그 경고 문구용)
     val isAcOrWireless = pluggedType == BatteryManager.BATTERY_PLUGGED_AC || pluggedType == BatteryManager.BATTERY_PLUGGED_WIRELESS
-    // 버튼 상태 결정
-    val isButtonEnabled = isMonitoring || (status.isCharging && !isAcOrWireless)
+    // 버튼 상태 결정 - 충전 중이기만 하면 진단 시작 허용
+    val isButtonEnabled = isMonitoring || status.isCharging
     val buttonText = if (isMonitoring) "진단 종료" else "AI 진단 시작"
 
     // 삭제 다이얼로그 로직
@@ -128,14 +128,20 @@ fun DashboardScreen(
 
     // 보조배터리 확인 다이얼로그 로직
     if (showPowerBankConfirmDialog) {
+        val warningText = if (isAcOrWireless) {
+            "⚠️ 현재 기기가 일반 콘센트 전원(AC) 또는 무선 충전으로 감지되었습니다.\n\n벽면 충전기가 아닌 '고속 충전 보조배터리'를 스마트폰에 연결하신 것이 맞나요?\n\n(고성능 보조배터리의 경우 시스템에서 일반 AC 충전기로 오인해 분류할 수 있습니다. 보조배터리 연결이 확실하다면 아래 버튼을 눌러 시작해 주세요.)"
+        } else {
+            "노트북이나 벽면 콘센트 충전기가 아닌, 실제 보조배터리를 스마트폰에 연결하셨나요?\n\n노트북이나 다른 기기로 충전할 경우 전력 분석이 왜곡되어 정확한 건강도 측정이 불가능합니다."
+        }
+
         AlertDialog(
             onDismissRequest = { showPowerBankConfirmDialog = false },
             title = { Text("보조배터리 연결 확인 🔌", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "노트북이나 벽면 콘센트 충전기가 아닌, 실제 보조배터리를 스마트폰에 연결하셨나요?\n\n노트북이나 일반 충전기로 충전할 경우 전력 분석이 왜곡되어 올바른 배터리 건강도(SOH)를 측정할 수 없습니다.",
+                    text = warningText,
                     fontSize = 14.sp,
-                    lineHeight = 20.sp,
+                    lineHeight = 22.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -309,9 +315,9 @@ fun DashboardScreen(
                 )
             } else if (status.isCharging && isAcOrWireless && !isMonitoring) {
                 Text(
-                    text = "콘센트(AC)/무선 충전 중입니다. 보조배터리로 충전해주세요.",
+                    text = "⚠️ 고속 전원(AC) 연결로 감지되었습니다. 실제 보조배터리가 맞는지 확인해주세요.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = Color(0xFFD97706),
                     modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
                 )
             }

@@ -293,21 +293,6 @@ class BatteryMonitoringService : Service() {
                     break
                 }
 
-                // 충전 공급원 변경 감지 (예: 보조배터리(USB)에서 일반충전기(AC)로 바뀌는 등)
-                if (startPluggedType != -1 && currentPlugged != startPluggedType) {
-                    Log.w("BatteryService", "충전 공급원 변경 감지 (기존: $startPluggedType -> 현재: $currentPlugged) → 모니터링 종료")
-                    shouldFinishSessionOnDestroy = true
-                    preferenceManager.setMonitoringManuallyStopped(false)
-                    preferenceManager.setMonitoringActive(false)
-                    
-                    showDiagnosisResultNotification(
-                        title = "진단이 중단되었습니다 ⚠️",
-                        message = "충전 케이블 분리 또는 전원 공급원 변경이 감지되어 배터리 진단을 조기 종료합니다."
-                    )
-                    
-                    stopSelf()
-                    break
-                }
 
                 val now = System.currentTimeMillis()
                 if (now - lastUpdateTs >= 10000) {
