@@ -192,6 +192,7 @@ class BatteryMonitoringService : Service() {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("배터리 수집 시스템 작동 중")
             .setContentText(contentText)
+            .setStyle(Notification.BigTextStyle().bigText(contentText))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -232,6 +233,7 @@ class BatteryMonitoringService : Service() {
         val notification = Notification.Builder(this, RESULT_CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(message)
+            .setStyle(Notification.BigTextStyle().bigText(message))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -268,7 +270,17 @@ class BatteryMonitoringService : Service() {
 
                 val now = System.currentTimeMillis()
                 if (now - lastUpdateTs >= 10000) {
-                    val statusText = "배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
+                    val targetCount = 600 // 권장 수집 목표 (20분, 2초 주기 = 600건)
+                    val minTargetCount = 150 // 최소 수집 목표 (5분, 2초 주기 = 150건)
+                    val progressPercent = ((collectedCount.toFloat() / targetCount.toFloat()) * 100).toInt().coerceAtMost(100)
+                    
+                    val progressText = when {
+                        collectedCount >= targetCount -> "권장 진단 완료! (종료하셔도 좋습니다)"
+                        collectedCount >= minTargetCount -> "최소 진단 가능 ($progressPercent%) | 신뢰도를 높이려면 더 충전하세요."
+                        else -> "진단 분석 중: $progressPercent% (최소 5분 충전 필요)"
+                    }
+                    
+                    val statusText = "$progressText\n배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
                     updateForegroundNotification(statusText)
                     lastUpdateTs = now
                 }
@@ -371,12 +383,12 @@ class BatteryMonitoringService : Service() {
                 // 마지막으로 종료 완료된 세션 ID 저장
                 preferenceManager.saveLastSessionId(currentSessionId)
 
-                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 15개 미만, 약 30초 이하 충전 시)
-                if (sessionLogs.size < 15) {
-                    Log.w("BatteryService", "수집 데이터 부족으로 SOH 예측을 생기하고 세션만 종료합니다. (수집 건수: ${sessionLogs.size}건)")
+                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 150개 미만, 약 5분 이하 충전 시)
+                if (sessionLogs.size < 150) {
+                    Log.w("BatteryService", "수집 데이터 부족으로 SOH 예측을 생략하고 세션만 종료합니다. (수집 건수: ${sessionLogs.size}건)")
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 중단 ⚠️",
-                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 10분 이상 충전을 유지해 주세요."
+                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 5분 이상 충전을 유지해 주세요."
                     )
                     return@runCatching
                 }
