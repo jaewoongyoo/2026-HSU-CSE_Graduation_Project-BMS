@@ -46,6 +46,7 @@ class BatteryMonitoringService : Service() {
     private var shouldFinishSessionOnDestroy = false
     @Volatile
     private var isFinishingSession = false
+    private var startPluggedType: Int = -1
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
@@ -248,12 +249,17 @@ class BatteryMonitoringService : Service() {
         collectingJob = serviceScope.launch {
             var collectedCount = 0
             var lastUpdateTs = 0L
+            startPluggedType = getPluggedType(applicationContext)
+            Log.d("BatteryService", "수집 시작 시 충전 공급원 plugged type: $startPluggedType")
+
             while (isActive) {
                 val log = BatteryUtils.getCurrentBatteryState(applicationContext)
                 repository.insertLog(log)
                 collectedCount++
                 
-                if (!log.isCharging) {
+                val currentPlugged = getPluggedType(applicationContext)
+                
+                if (!log.isCharging || currentPlugged == 0) {
                     Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
                     shouldFinishSessionOnDestroy = true
                     preferenceManager.setMonitoringManuallyStopped(false)
@@ -268,16 +274,32 @@ class BatteryMonitoringService : Service() {
                     break
                 }
 
+                // 충전 공급원 변경 감지 (예: 보조배터리(USB)에서 일반충전기(AC)로 바뀌는 등)
+                if (startPluggedType != -1 && currentPlugged != startPluggedType) {
+                    Log.w("BatteryService", "충전 공급원 변경 감지 (기존: $startPluggedType -> 현재: $currentPlugged) → 모니터링 종료")
+                    shouldFinishSessionOnDestroy = true
+                    preferenceManager.setMonitoringManuallyStopped(false)
+                    preferenceManager.setMonitoringActive(false)
+                    
+                    showDiagnosisResultNotification(
+                        title = "진단이 중단되었습니다 ⚠️",
+                        message = "충전 케이블 분리 또는 전원 공급원 변경이 감지되어 배터리 진단을 조기 종료합니다."
+                    )
+                    
+                    stopSelf()
+                    break
+                }
+
                 val now = System.currentTimeMillis()
                 if (now - lastUpdateTs >= 10000) {
-                    val targetCount = 600 // 권장 수집 목표 (20분, 2초 주기 = 600건)
-                    val minTargetCount = 150 // 최소 수집 목표 (5분, 2초 주기 = 150건)
+                    val targetCount = 900 // 권장 수집 목표 (30분, 2초 주기 = 900건)
+                    val minTargetCount = 600 // 최소 수집 목표 (20분, 2초 주기 = 600건)
                     val progressPercent = ((collectedCount.toFloat() / targetCount.toFloat()) * 100).toInt().coerceAtMost(100)
                     
                     val progressText = when {
                         collectedCount >= targetCount -> "권장 진단 완료! (종료하셔도 좋습니다)"
                         collectedCount >= minTargetCount -> "최소 진단 가능 ($progressPercent%) | 신뢰도를 높이려면 더 충전하세요."
-                        else -> "진단 분석 중: $progressPercent% (최소 5분 충전 필요)"
+                        else -> "진단 분석 중: $progressPercent% (최소 20분 충전 필요)"
                     }
                     
                     val statusText = "$progressText\n배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
@@ -383,12 +405,12 @@ class BatteryMonitoringService : Service() {
                 // 마지막으로 종료 완료된 세션 ID 저장
                 preferenceManager.saveLastSessionId(currentSessionId)
 
-                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 150개 미만, 약 5분 이하 충전 시)
-                if (sessionLogs.size < 150) {
+                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 600개 미만, 약 20분 이하 충전 시)
+                if (sessionLogs.size < 600) {
                     Log.w("BatteryService", "수집 데이터 부족으로 SOH 예측을 생략하고 세션만 종료합니다. (수집 건수: ${sessionLogs.size}건)")
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 중단 ⚠️",
-                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 5분 이상 충전을 유지해 주세요."
+                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 20분 이상 충전을 유지해 주세요."
                     )
                     return@runCatching
                 }
@@ -446,5 +468,10 @@ class BatteryMonitoringService : Service() {
             }
             currentA * deltaHours
         }
+    }
+
+    private fun getPluggedType(context: Context): Int {
+        val intent = context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        return intent?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1) ?: -1
     }
 }

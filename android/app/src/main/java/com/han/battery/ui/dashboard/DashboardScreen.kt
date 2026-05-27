@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.han.battery.data.model.BatteryDevice
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.dashboard.sections.AiAnalysisSection
@@ -28,6 +29,10 @@ import com.han.battery.ui.dashboard.sections.PredictionSection
 import kotlin.math.abs
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +47,7 @@ fun DashboardScreen(
     val context = LocalContext.current
     val menuExpanded = remember { mutableStateOf(false) }
     val showDeleteDialog = remember { mutableStateOf(false) }
+    var showPowerBankConfirmDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
@@ -61,6 +67,11 @@ fun DashboardScreen(
     val status by viewModel.batteryStatus.collectAsState()
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val lastAnalysisResult by viewModel.lastAnalysisResult.collectAsState()
+
+    val pluggedType = remember(status.isCharging) {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+    }
 
     LaunchedEffect(device.id, device.model_name) {
         viewModel.setDevice(device)
@@ -86,8 +97,10 @@ fun DashboardScreen(
     }
     val powerDisplayUnit = if (abs(powerW) < 1f) "mW" else "W"
     val currentDisplayValue = String.format("%.2f", status.current)
+    // AC 또는 무선 충전일 때는 비활성화하고 에러 텍스트 표기
+    val isAcOrWireless = pluggedType == BatteryManager.BATTERY_PLUGGED_AC || pluggedType == BatteryManager.BATTERY_PLUGGED_WIRELESS
     // 버튼 상태 결정
-    val isButtonEnabled = isMonitoring || status.isCharging
+    val isButtonEnabled = isMonitoring || (status.isCharging && !isAcOrWireless)
     val buttonText = if (isMonitoring) "진단 종료" else "AI 진단 시작"
 
     // 삭제 다이얼로그 로직
@@ -106,6 +119,37 @@ fun DashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog.value = false }) { Text("취소") }
+            }
+        )
+    }
+
+    // 보조배터리 확인 다이얼로그 로직
+    if (showPowerBankConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showPowerBankConfirmDialog = false },
+            title = { Text("보조배터리 연결 확인 🔌", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    text = "노트북이나 벽면 콘센트 충전기가 아닌, 실제 보조배터리를 스마트폰에 연결하셨나요?\n\n노트북이나 일반 충전기로 충전할 경우 전력 분석이 왜곡되어 올바른 배터리 건강도(SOH)를 측정할 수 없습니다.",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPowerBankConfirmDialog = false
+                        viewModel.startMonitoring()
+                    }
+                ) {
+                    Text("예, 연결했습니다", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPowerBankConfirmDialog = false }) {
+                    Text("취소")
+                }
             }
         )
     }
@@ -227,7 +271,11 @@ fun DashboardScreen(
             Button(
                 enabled = isButtonEnabled,
                 onClick = {
-                    if (isMonitoring) viewModel.stopMonitoring() else viewModel.startMonitoring()
+                    if (isMonitoring) {
+                        viewModel.stopMonitoring()
+                    } else {
+                        showPowerBankConfirmDialog = true
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -245,6 +293,13 @@ fun DashboardScreen(
             if (!status.isCharging && !isMonitoring) {
                 Text(
                     text = "보조배터리가 충전 중일 때만 진단이 가능합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                )
+            } else if (status.isCharging && isAcOrWireless && !isMonitoring) {
+                Text(
+                    text = "콘센트(AC)/무선 충전 중입니다. 보조배터리로 충전해주세요.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
