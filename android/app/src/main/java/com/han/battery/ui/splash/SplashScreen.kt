@@ -118,7 +118,7 @@ fun SplashScreen(
                 modifier = Modifier.alpha(textAlpha.value)
             ) {
                 Text(
-                    text = "BatteryAI",
+                    text = "Battery Insight",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary

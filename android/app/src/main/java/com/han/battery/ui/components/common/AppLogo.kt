@@ -50,7 +50,7 @@ fun AppLogo(
         if (showText) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "BatteryAI",
+                text = "Battery Insight",
                 fontSize = size.textSize,
                 fontWeight = FontWeight.ExtraBold,
                 color = Blue600,

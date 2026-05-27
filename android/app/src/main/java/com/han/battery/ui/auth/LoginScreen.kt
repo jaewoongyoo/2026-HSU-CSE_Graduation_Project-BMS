@@ -126,7 +126,7 @@ fun LoginScreen(
                 )
                 
                 Text(
-                    text = "BatteryAI 서비스 로그인",
+                    text = "Battery Insight 서비스 로그인",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
