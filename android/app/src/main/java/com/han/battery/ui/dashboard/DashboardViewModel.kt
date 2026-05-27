@@ -64,7 +64,8 @@ class DashboardViewModel(
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
         preferenceManager.setActiveDevice(device)
-        if (!manuallyStoppedMonitoring) {
+        // 충전 상태라고 해서 무조건 서비스를 시작하지 않고, 이전에 사용자가 명시적으로 활성화했는지 확인
+        if (preferenceManager.isMonitoringActive()) {
             ensureMonitoringServiceIfCharging()
         }
     }
