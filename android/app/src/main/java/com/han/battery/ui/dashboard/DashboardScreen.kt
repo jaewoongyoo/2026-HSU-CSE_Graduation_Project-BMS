@@ -4,6 +4,12 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -391,8 +397,22 @@ fun DiagnosticEtaCard(
         }
     }
     
+    // 부드러운 숨쉬기 펄스 애니메이션 (스케일 미세 조정)
+    val infiniteTransition = rememberInfiniteTransition(label = "etaCard")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = androidx.compose.animation.core.EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
@@ -459,10 +479,16 @@ fun TelemetryMonitorCard(
     var expanded by remember { mutableStateOf(false) }
     
     val statusText = when {
-        stats.failed > 0 -> "오류 ⚠️"
-        stats.httpSuccess > 0 && stats.mqttSuccess == 0 -> "HTTP 우회 📡"
-        stats.mqttSuccess > 0 -> "MQTT 안정 🟢"
-        else -> "대기 중..."
+        stats.failed > 0 -> "오류"
+        stats.httpSuccess > 0 && stats.mqttSuccess == 0 -> "HTTP 우회"
+        stats.mqttSuccess > 0 -> "MQTT 안정"
+        else -> "대기 중"
+    }
+    
+    val statusColor = when {
+        stats.failed > 0 -> MaterialTheme.colorScheme.error
+        stats.mqttSuccess > 0 -> Color(0xFF22C55E)
+        else -> MaterialTheme.colorScheme.primary
     }
     
     Card(
@@ -510,17 +536,23 @@ fun TelemetryMonitorCard(
                     },
                     shape = RoundedCornerShape(99.dp)
                 ) {
-                    Text(
-                        text = statusText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = when {
-                            stats.failed > 0 -> MaterialTheme.colorScheme.onErrorContainer
-                            stats.mqttSuccess > 0 -> Color(0xFF15803D)
-                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                        },
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    ) {
+                        StatusPulseCircle(color = statusColor)
+                        Text(
+                            text = statusText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = when {
+                                stats.failed > 0 -> MaterialTheme.colorScheme.onErrorContainer
+                                stats.mqttSuccess > 0 -> Color(0xFF15803D)
+                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                            }
+                        )
+                    }
                 }
             }
             
@@ -586,6 +618,58 @@ private fun StatsRow(
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = valueColor
+        )
+    }
+}
+
+/**
+ * 실시간 상태 펄스를 시각적으로 나타내는 애니메이션 서클 컴포넌트
+ */
+@Composable
+fun StatusPulseCircle(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulseCircle")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 2.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = androidx.compose.animation.core.EaseOutSine),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = androidx.compose.animation.core.EaseOutSine),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "alpha"
+    )
+
+    Box(
+        modifier = modifier.size(14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // 외곽 펄스 링
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    alpha = alpha
+                )
+                .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+        )
+        // 중심 고정 서클
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(color, shape = androidx.compose.foundation.shape.CircleShape)
         )
     }
 }

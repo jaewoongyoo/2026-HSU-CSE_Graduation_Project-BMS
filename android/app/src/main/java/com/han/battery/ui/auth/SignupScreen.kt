@@ -1,43 +1,40 @@
 package com.han.battery.ui.auth
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.han.battery.ui.components.common.AppLogo
 import com.han.battery.ui.components.common.LogoSize
 import com.han.battery.ui.theme.Slate50
 import com.han.battery.ui.theme.Slate950
+import kotlinx.coroutines.launch
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(
     viewModel: AuthViewModel,
@@ -46,8 +43,38 @@ fun SignupScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
+
     val uiState by viewModel.uiState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Shake 애니메이션을 위한 Animatable
+    val shakeOffset = remember { Animatable(0f) }
+
+    // 에러 발생 시 Shake 애니메이션 트리거
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Error) {
+            coroutineScope.launch {
+                shakeOffset.animateTo(
+                    targetValue = 0f,
+                    animationSpec = keyframes {
+                        durationMillis = 500
+                        -20f at 50
+                        20f at 100
+                        -15f at 150
+                        15f at 200
+                        -10f at 250
+                        10f at 300
+                        -5f at 350
+                        5f at 400
+                        0f at 500
+                    }
+                )
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -55,119 +82,267 @@ fun SignupScreen(
             .background(
                 Brush.verticalGradient(
                     if (isDarkTheme) {
-                        listOf(Slate950, Color(0xFF1A1F35), Slate950)
+                        listOf(Slate950, Color(0xFF0F172A), Slate950)
                     } else {
-                        listOf(Slate50, Color(0xFFF6F8FC), Slate50)
+                        listOf(Slate50, Color(0xFFEFF6FF), Slate50)
                     }
                 )
-            )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
+        Card(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(24.dp)
+                .offset(x = shakeOffset.value.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            AppLogo(size = LogoSize.Large, showText = true)
-
-            Text(
-                text = "회원가입",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(bottom = 32.dp, top = 16.dp)
-            )
-
-
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("사용자명") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                ),
-                enabled = uiState !is AuthUiState.Loading
-            )
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("비밀번호") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Next
-                ),
-                enabled = uiState !is AuthUiState.Loading
-            )
-
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("비밀번호 확인") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                enabled = uiState !is AuthUiState.Loading
-            )
-
-            if (uiState is AuthUiState.Error) {
-                Text(
-                    text = (uiState as AuthUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
-
-            if (password != confirmPassword && confirmPassword.isNotEmpty()) {
-                Text(
-                    text = "비밀번호가 일치하지 않습니다",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
-
-            Button(
-                onClick = {
-                    viewModel.signup(username, password, confirmPassword)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                enabled = username.isNotBlank() && password.isNotBlank() && password == confirmPassword && uiState !is AuthUiState.Loading
-            ) {
-                if (uiState is AuthUiState.Loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .padding(end = 8.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Text("회원가입 중...")
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDarkTheme) {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                 } else {
-                    Text("회원가입")
+                    Color.White.copy(alpha = 0.9f)
                 }
-            }
-
-            TextButton(
-                onClick = onNavigateToLogin,
-                enabled = uiState !is AuthUiState.Loading
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = if (isDarkTheme) 0.dp else 8.dp
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("로그인으로 돌아가기")
+                AppLogo(size = LogoSize.Large, showText = true)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "반갑습니다!",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Text(
+                    text = "새 계정 만들기",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 28.dp, top = 4.dp)
+                )
+
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("사용자명") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "사용자명 아이콘",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent
+                    ),
+                    enabled = uiState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("비밀번호") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "비밀번호 아이콘",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = {
+                        val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        val description = if (passwordVisible) "비밀번호 숨기기" else "비밀번호 보기"
+
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = icon, contentDescription = description)
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent
+                    ),
+                    enabled = uiState !is AuthUiState.Loading
+                )
+
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("비밀번호 확인") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "비밀번호 확인 아이콘",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = {
+                        val icon = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        val description = if (confirmPasswordVisible) "비밀번호 숨기기" else "비밀번호 보기"
+
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(imageVector = icon, contentDescription = description)
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    singleLine = true,
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (username.isNotBlank() && password.isNotBlank() && password == confirmPassword && uiState !is AuthUiState.Loading) {
+                                viewModel.signup(username, password, confirmPassword)
+                            }
+                        }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent
+                    ),
+                    enabled = uiState !is AuthUiState.Loading
+                )
+
+                if (uiState is AuthUiState.Error) {
+                    Text(
+                        text = (uiState as AuthUiState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                if (password != confirmPassword && confirmPassword.isNotEmpty()) {
+                    Text(
+                        text = "비밀번호가 일치하지 않습니다",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                // 프리미엄 그라데이션 버튼
+                val isButtonEnabled = username.isNotBlank() && password.isNotBlank() && password == confirmPassword && uiState !is AuthUiState.Loading
+
+                Button(
+                    onClick = {
+                        viewModel.signup(username, password, confirmPassword)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .padding(bottom = 4.dp),
+                    enabled = isButtonEnabled,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent
+                    ),
+                    contentPadding = PaddingValues()
+                ) {
+                    val gradient = if (isButtonEnabled) {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    } else {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                            )
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(gradient)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (uiState is AuthUiState.Loading) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .padding(end = 8.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                                Text("회원가입 중...", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text(
+                                "회원가입",
+                                color = if (isButtonEnabled) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(
+                    onClick = onNavigateToLogin,
+                    enabled = uiState !is AuthUiState.Loading
+                ) {
+                    Text(
+                        "이미 계정이 있으신가요? 로그인",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
