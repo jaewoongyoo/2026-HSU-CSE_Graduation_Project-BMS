@@ -466,9 +466,16 @@ class BatteryMonitoringService : Service() {
                     )
                 }.onFailure { error ->
                     Log.e("BatteryService", "AI SOH 분석 예측 수행 오류: ${error.message}", error)
+                    val rawMsg = error.message ?: ""
+                    val friendlyMessage = when {
+                        rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions") -> {
+                            "AI 진단을 위해 최소 3회 이상의 유효한 충전 데이터 수집이 필요합니다. (현재 수집된 세션: 0개)\n보조배터리를 충전기에 20분 이상 연결해 진단을 3번 완료해 주세요."
+                        }
+                        else -> "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
+                    }
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 실패 ⚠️",
-                        message = "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
+                        message = friendlyMessage
                     )
                 }
             }.onFailure { error ->
