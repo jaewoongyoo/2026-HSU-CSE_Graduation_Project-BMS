@@ -40,6 +40,18 @@ data class CommunityEfficiencyStats(
 )
 
 @Serializable
+data class CommunitySohHistoryPoint(
+    val measured_at: String,
+    val soh_percentage: Double
+)
+
+@Serializable
+data class CommunitySohHistoryResponse(
+    val shared_report_id: Int,
+    val points: List<CommunitySohHistoryPoint> = emptyList()
+)
+
+@Serializable
 data class CommunityFilterRequest(
     val phone_models: List<String>? = null,
     val manufacturers: List<String>? = null,
