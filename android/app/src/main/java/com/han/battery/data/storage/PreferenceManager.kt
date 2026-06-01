@@ -249,14 +249,16 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         val userDevicesKey = getUserDevicesKey()
         val userDevicesExistsKey = getUserDevicesExistsKey()
         val activeDeviceKey = getUserActiveDeviceKey()
+        val pendingKey = getUserPendingPredictionsKey()
         prefs.edit().apply {
             remove(userDevicesKey)
             remove(activeDeviceKey)
+            remove(pendingKey)
             putBoolean(userDevicesExistsKey, false)
             apply()  // commit() 대신 apply() 사용
         }
         val currentUser = userManager?.getCurrentUser() ?: "default"
-        AppLogger.info("모든 배터리 삭제됨 [$currentUser]", TAG)
+        AppLogger.info("모든 배터리 삭제 및 리트라이 큐 초기화 완료 [$currentUser]", TAG)
     }
 
     fun setActiveDevice(device: BatteryDevice) {
@@ -315,10 +317,10 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
      * 로그아웃 전 현재 사용자의 배터리 데이터를 초기화할 수 있습니다. (선택사항)
      */
     fun onUserLogout() {
-        // 로그아웃 시 실행할 정리 작업 (현재는 추가 작업 없음)
-        // 향후 필요 시 여기에 추가
+        val pendingKey = getUserPendingPredictionsKey()
+        prefs.edit().remove(pendingKey).apply()
         val previousUser = userManager?.getCurrentUser() ?: "default"
-        AppLogger.info("사용자 로그아웃 처리 [$previousUser]", TAG)
+        AppLogger.info("사용자 로그아웃 처리 (리트라이 큐 초기화 완료) [$previousUser]", TAG)
     }
 
     private fun getUserLastSessionIdKey(deviceId: Int = 0): String {

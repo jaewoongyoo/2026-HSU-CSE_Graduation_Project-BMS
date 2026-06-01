@@ -332,8 +332,13 @@ class DashboardViewModel(
                 }.onFailure { error ->
                     Log.e("DashboardViewModel", "미완료 세션 $sessId 분석 재시도 실패: ${error.message}")
                     val rawMsg = error.message ?: ""
-                    if (rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions")) {
+                    if (rawMsg.contains("at least 3 valid charging sessions") || 
+                        rawMsg.contains("charging sessions") || 
+                        rawMsg.contains("404") || 
+                        rawMsg.contains("400")
+                    ) {
                         preferenceManager.removePendingPrediction(sessId)
+                        Log.d("DashboardViewModel", "영구 실패 에러 감지로 미완료 세션 $sessId 대기열에서 제거")
                     }
                 }
             }
@@ -341,6 +346,10 @@ class DashboardViewModel(
     }
 
     private fun registerNetworkCallback() {
+        if (networkCallback != null) {
+            Log.d("DashboardViewModel", "NetworkCallback이 이미 등록되어 있어 중복 등록을 스킵합니다.")
+            return
+        }
         try {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             networkCallback = object : ConnectivityManager.NetworkCallback() {
