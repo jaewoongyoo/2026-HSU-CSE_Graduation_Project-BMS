@@ -519,11 +519,6 @@ fun UserManualCard(
                         title = "AI 배터리 진단",
                         description = "등록된 배터리 카드를 눌러 대시보드로 이동한 후, 충전 중에 'AI 진단 시작'을 터치합니다. (최소 20분 이상 충전 분석 권장)"
                     )
-                    ManualStepItem(
-                        stepNumber = "3",
-                        title = "SOH 성능 공유하기",
-                        description = "진단 완료 후 상세 대시보드 화면 우측 상단 더보기(⋮) 메뉴에서 '커뮤니티에 공유'를 누르면 다른 사용자들과 분석 결과가 공유됩니다."
-                    )
                 }
             }
         }

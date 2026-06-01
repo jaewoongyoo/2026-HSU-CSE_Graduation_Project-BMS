@@ -196,21 +196,7 @@ fun DashboardScreen(
                         expanded = menuExpanded.value,
                         onDismissRequest = { menuExpanded.value = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("커뮤니티에 공유", fontWeight = FontWeight.Medium) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            },
-                            onClick = {
-                                menuExpanded.value = false
-                                viewModel.shareActiveDeviceToCommunity()
-                            }
-                        )
+
                         DropdownMenuItem(
                             text = { Text("기기 변경", fontWeight = FontWeight.Medium) },
                             leadingIcon = {
