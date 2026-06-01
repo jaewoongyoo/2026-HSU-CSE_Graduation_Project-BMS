@@ -51,6 +51,9 @@ class DashboardViewModel(
     private val _lastAnalysisResult = MutableStateFlow<SessionResultResponse?>(null)
     val lastAnalysisResult: StateFlow<SessionResultResponse?> = _lastAnalysisResult.asStateFlow()
 
+    private val _isAnyOtherDeviceMonitoring = MutableStateFlow(false)
+    val isAnyOtherDeviceMonitoring: StateFlow<Boolean> = _isAnyOtherDeviceMonitoring.asStateFlow()
+
     private val _events = MutableSharedFlow<DashboardUiEvent>()
     val events: SharedFlow<DashboardUiEvent> = _events.asSharedFlow()
 
@@ -72,6 +75,8 @@ class DashboardViewModel(
         }
         
         _isMonitoring.value = isCurrentDeviceMonitoring
+        _isAnyOtherDeviceMonitoring.value = preferenceManager.isMonitoringActive() &&
+                (preferenceManager.getMonitoringDeviceId() != device.id)
         
         if (isCurrentDeviceMonitoring) {
             ensureMonitoringServiceIfCharging()
@@ -104,21 +109,26 @@ class DashboardViewModel(
     }
 
     fun startMonitoring() {
-        val activeDevice = preferenceManager.getActiveDevice()
-        if (activeDevice == null) {
+        val device = _currentDevice.value
+        if (device == null) {
             Log.w("DashboardViewModel", "등록된 기기가 없어 시작할 수 없습니다.")
             return
         }
+
+        preferenceManager.setActiveDevice(device)
+        preferenceManager.saveMonitoringDeviceId(device.id)
 
         manuallyStoppedMonitoring = false
         BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
         preferenceManager.setMonitoringManuallyStopped(false)
         preferenceManager.setMonitoringActive(true)
-        preferenceManager.saveMonitoringDeviceId(activeDevice.id)
+        
+        _isAnyOtherDeviceMonitoring.value = false
+
         MonitoringRecoveryWorker.enqueue(context)
         MonitoringServiceStarter.start(context)
         _isMonitoring.value = true
-        Log.d("DashboardViewModel", "진단 시작")
+        Log.d("DashboardViewModel", "기기 ${device.model_name}(ID:${device.id}) 진단 시작")
     }
 
     fun stopMonitoring() {
@@ -170,8 +180,14 @@ class DashboardViewModel(
                 val newStatus = getRealBatteryInfo()
                 _batteryStatus.value = newStatus
 
-                // ✅ 핵심: 진단 중인데 충전선이 뽑히면 즉시 중단 및 UI 업데이트
-                if (!newStatus.isCharging && _isMonitoring.value) {
+                val activeDeviceId = preferenceManager.getMonitoringDeviceId()
+                val currentId = _currentDevice.value?.id ?: 0
+
+                _isAnyOtherDeviceMonitoring.value = preferenceManager.isMonitoringActive() &&
+                        (activeDeviceId != currentId)
+
+                // ✅ 핵심: 진단 중인 기기의 화면일 때만 충전 해제 감지 시 중단 및 UI 업데이트 실행
+                if (activeDeviceId == currentId && !newStatus.isCharging && _isMonitoring.value) {
                     stopMonitoring(manualStop = false)
                 }
                 delay(2000)

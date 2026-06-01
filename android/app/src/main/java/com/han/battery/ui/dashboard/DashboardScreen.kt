@@ -109,9 +109,14 @@ fun DashboardScreen(
     val currentDisplayValue = String.format("%.2f", status.current)
     // AC 또는 무선 충전 감지 여부 (다이얼로그 경고 문구용)
     val isAcOrWireless = pluggedType == BatteryManager.BATTERY_PLUGGED_AC || pluggedType == BatteryManager.BATTERY_PLUGGED_WIRELESS
-    // 버튼 상태 결정 - 충전 중이기만 하면 진단 시작 허용
-    val isButtonEnabled = isMonitoring || status.isCharging
-    val buttonText = if (isMonitoring) "진단 종료" else "AI 진단 시작"
+    val isAnyOtherDeviceMonitoring by viewModel.isAnyOtherDeviceMonitoring.collectAsState()
+    // 버튼 상태 결정 - 충전 중이며 다른 기기가 진단 중이 아닐 때만 AI 진단 시작 허용
+    val isButtonEnabled = isMonitoring || (status.isCharging && !isAnyOtherDeviceMonitoring)
+    val buttonText = when {
+        isMonitoring -> "진단 종료"
+        isAnyOtherDeviceMonitoring -> "다른 기기 진단 중"
+        else -> "AI 진단 시작"
+    }
 
     // 삭제 다이얼로그 로직
     if (showDeleteDialog.value) {
