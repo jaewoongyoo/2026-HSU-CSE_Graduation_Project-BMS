@@ -83,6 +83,7 @@ class BatteryMonitoringService : Service() {
         if (activeDevice != null) {
             preferenceManager.setActiveDevice(activeDevice)
         }
+        preferenceManager.saveMonitoringDeviceId(activeDeviceId)
 
         if (activeDeviceId <= 0) {
             Log.w("BatteryService", "활성 배터리 ID가 없어 AWS 연결을 건너뜁니다.")
@@ -406,6 +407,7 @@ class BatteryMonitoringService : Service() {
         }
 
         awsIoTManager.disconnect()
+        preferenceManager.saveMonitoringDeviceId(0)
 
         serviceScope.cancel()
     }

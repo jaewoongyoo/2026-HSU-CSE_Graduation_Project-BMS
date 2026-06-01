@@ -44,7 +44,7 @@ class DashboardViewModel(
     private val _batteryStatus = MutableStateFlow(BatteryStatus())
     val batteryStatus: StateFlow<BatteryStatus> = _batteryStatus.asStateFlow()
 
-    private val _isMonitoring = MutableStateFlow(preferenceManager.isMonitoringActive())
+    private val _isMonitoring = MutableStateFlow(false)
     val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
     private var manuallyStoppedMonitoring = preferenceManager.wasMonitoringManuallyStopped()
 
@@ -63,9 +63,17 @@ class DashboardViewModel(
 
     fun setDevice(device: BatteryDevice) {
         _currentDevice.value = device
-        preferenceManager.setActiveDevice(device)
-        // 충전 상태라고 해서 무조건 서비스를 시작하지 않고, 이전에 사용자가 명시적으로 활성화했는지 확인
-        if (preferenceManager.isMonitoringActive()) {
+        
+        val isCurrentDeviceMonitoring = preferenceManager.isMonitoringActive() &&
+                (preferenceManager.getMonitoringDeviceId() == device.id)
+
+        if (!preferenceManager.isMonitoringActive()) {
+            preferenceManager.setActiveDevice(device)
+        }
+        
+        _isMonitoring.value = isCurrentDeviceMonitoring
+        
+        if (isCurrentDeviceMonitoring) {
             ensureMonitoringServiceIfCharging()
         }
     }
@@ -106,6 +114,7 @@ class DashboardViewModel(
         BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
         preferenceManager.setMonitoringManuallyStopped(false)
         preferenceManager.setMonitoringActive(true)
+        preferenceManager.saveMonitoringDeviceId(activeDevice.id)
         MonitoringRecoveryWorker.enqueue(context)
         MonitoringServiceStarter.start(context)
         _isMonitoring.value = true
@@ -120,6 +129,7 @@ class DashboardViewModel(
         manuallyStoppedMonitoring = manualStop
         preferenceManager.setMonitoringManuallyStopped(manualStop)
         preferenceManager.setMonitoringActive(false)
+        preferenceManager.saveMonitoringDeviceId(0)
         MonitoringServiceStarter.stop(context)
         _isMonitoring.value = false
         Log.d("DashboardViewModel", if (manualStop) "사용자 요청으로 모니터링 서비스를 종료합니다." else "충전 종료로 모니터링 서비스를 종료합니다.")

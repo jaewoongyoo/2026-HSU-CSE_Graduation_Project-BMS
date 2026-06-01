@@ -22,6 +22,7 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         private const val KEY_ACTIVE_DEVICE = "active_device"
         private const val KEY_MONITORING_ACTIVE = "monitoring_active"
         private const val KEY_MONITORING_MANUALLY_STOPPED = "monitoring_manually_stopped"
+        private const val KEY_MONITORING_DEVICE_ID = "monitoring_device_id"
         private const val KEY_LAST_SESSION_ID = "last_session_id"
         private const val KEY_LAST_SESSION_RESULT = "last_session_result"
         private const val TAG = "PreferenceManager"
@@ -380,5 +381,20 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
             AppLogger.error("마지막 분석 결과 로드 실패", e, TAG)
             null
         }
+    }
+
+    private fun getUserMonitoringDeviceIdKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_$KEY_MONITORING_DEVICE_ID"
+    }
+
+    fun saveMonitoringDeviceId(deviceId: Int) {
+        prefs.edit().putInt(getUserMonitoringDeviceIdKey(), deviceId).apply()
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        AppLogger.info("모니터링 중인 기기 ID 저장 [$currentUser]: $deviceId", TAG)
+    }
+
+    fun getMonitoringDeviceId(): Int {
+        return prefs.getInt(getUserMonitoringDeviceIdKey(), 0)
     }
 }
