@@ -11,6 +11,5 @@ class SessionResultResponse(BaseModel):
     condition: Optional[str] = None
     estimated_full_charges: Optional[float] = None
     powerbank_usable_mah: Optional[float] = None
-    smartphone_received_mah: Optional[float] = None
     mean_temperature_c: Optional[float] = None
     analyzed_at: Optional[datetime] = None

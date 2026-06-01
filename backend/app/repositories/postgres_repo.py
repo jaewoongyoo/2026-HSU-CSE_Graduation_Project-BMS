@@ -294,9 +294,12 @@ def save_ai_result(db: Session, session_id: int, device_id: int, result: dict) -
         condition=result.get("condition"),
         estimated_full_charges=result.get("estimated_full_charges"),
         powerbank_usable_mah=result.get("powerbank_usable_mah"),
-        smartphone_received_mah=result.get("smartphone_received_mah"),
         mean_temperature_c=result.get("mean_temperature_c"),
-        raw_response_json=json.dumps(result, ensure_ascii=False),
+        standard_soh_percentage=result.get("standard_soh_percentage"),
+        degradation_rate_ratio=result.get("degradation_rate_ratio"),
+        sessions_used=result.get("sessions_used"),
+        sessions_total=result.get("sessions_total"),
+        confidence=result.get("confidence"),
     )
     db.add(row)
     db.add(

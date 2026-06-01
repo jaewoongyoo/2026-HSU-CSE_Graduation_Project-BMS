@@ -21,7 +21,6 @@ class SohPredictResponse(BaseModel):
     condition: str
     estimated_full_charges: float
     powerbank_usable_mah: float
-    smartphone_received_mah: Optional[float] = None
     mean_temperature_c: Optional[float] = None
     standard_soh_percentage: Optional[float] = None
     degradation_rate_ratio: Optional[float] = None

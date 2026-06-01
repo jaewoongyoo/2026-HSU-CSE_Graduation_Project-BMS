@@ -41,11 +41,9 @@ def _build_community_card(shared_report, device, user) -> CommunityCardResponse:
     efficiency_pct = None
     mean_temp = None
 
-    # AI 결과에서 효율 계산
-    if ai_result and ai_result.powerbank_usable_mah and ai_result.smartphone_received_mah:
-        efficiency_pct = round(
-            (ai_result.smartphone_received_mah / ai_result.powerbank_usable_mah) * 100, 2
-        )
+    # smartphone_received_mah 제거(curve_fit 전환)로 충전 효율 계산은 폐기.
+    # 평균 온도는 AI 결과에서 직접 사용.
+    if ai_result:
         mean_temp = ai_result.mean_temperature_c
 
     # SOH 찾기
@@ -93,10 +91,8 @@ def get_community_feed(
         # 효율 계산
         efficiency_pct = None
         mean_temp = None
-        if ai_result and ai_result.powerbank_usable_mah and ai_result.smartphone_received_mah:
-            efficiency_pct = round(
-                (ai_result.smartphone_received_mah / ai_result.powerbank_usable_mah) * 100, 2
-            )
+        # smartphone_received_mah 제거(curve_fit 전환)로 충전 효율 계산은 폐기.
+        if ai_result:
             mean_temp = ai_result.mean_temperature_c
 
         # SOH 찾기
@@ -154,10 +150,8 @@ def get_community_feed_by_filter(
 
         efficiency_pct = None
         mean_temp = None
-        if ai_result and ai_result.powerbank_usable_mah and ai_result.smartphone_received_mah:
-            efficiency_pct = round(
-                (ai_result.smartphone_received_mah / ai_result.powerbank_usable_mah) * 100, 2
-            )
+        # smartphone_received_mah 제거(curve_fit 전환)로 충전 효율 계산은 폐기.
+        if ai_result:
             mean_temp = ai_result.mean_temperature_c
 
         soh_percentage = None

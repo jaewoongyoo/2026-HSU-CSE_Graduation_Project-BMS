@@ -6,7 +6,6 @@ GET  /soh/health        : 모델 로드 상태 확인
 
 ※ 기존 LSTM 기반 API와의 하위호환을 위해 deprecated 필드를 일부 유지한다.
   - 요청: `capacity_ah` 필드가 포함돼도 무시된다.
-  - 응답: `smartphone_received_mah` 필드는 항상 0.0을 반환한다 (계산되지 않음).
   상세 내용은 soh_service/README.md 참조.
 """
 
@@ -101,10 +100,6 @@ class PredictResponse(BaseModel):
     sessions_used: int = Field(description="필터 통과한 유효 세션 수.")
     sessions_total: int = Field(description="요청에 포함된 전체 세션 수.")
     confidence: str = Field(description="예측 신뢰도. fallback | low | medium | high")
-    smartphone_received_mah: float = Field(
-        default=0.0,
-        description="[Deprecated] 항상 0.0 반환. 이전 LSTM 기반 API와의 하위호환용 필드.",
-    )
 
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
