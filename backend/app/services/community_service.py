@@ -139,12 +139,7 @@ def get_community_feed_by_filter(
         db,
         phone_models=request.phone_models,
         manufacturers=request.manufacturers,
-<<<<<<< Updated upstream
         capacities=request.capacities,
-=======
-        powerbank_capacity_min=request.powerbank_capacity_min,
-        powerbank_capacity_max=request.powerbank_capacity_max,
->>>>>>> Stashed changes
         soh_min=request.soh_min,
         soh_max=request.soh_max,
         limit=request.limit,
