@@ -81,25 +81,31 @@ class DashboardViewModel(
         if (isCurrentDeviceMonitoring) {
             ensureMonitoringServiceIfCharging()
         }
+        
+        // 해당 기기의 최신 AI 진단 결과 로드
+        loadLastAnalysisResult(device.id)
     }
 
-    fun loadLastAnalysisResult() {
+    fun loadLastAnalysisResult(deviceId: Int = 0) {
+        val targetDeviceId = if (deviceId > 0) deviceId else (_currentDevice.value?.id ?: 0)
         viewModelScope.launch {
             // 1. 로컬 캐시 로드
-            val cachedResult = preferenceManager.getLastSessionResult()
+            val cachedResult = preferenceManager.getLastSessionResult(targetDeviceId)
             if (cachedResult != null) {
                 _lastAnalysisResult.value = cachedResult
-                Log.d("DashboardViewModel", "로컬 캐시된 AI 분석 결과 적재: SOH=${cachedResult.soh_percentage}%")
+                Log.d("DashboardViewModel", "로컬 캐시된 AI 분석 결과 적재 (기기 $targetDeviceId): SOH=${cachedResult.soh_percentage}%")
+            } else {
+                _lastAnalysisResult.value = null
             }
 
             // 2. 서버 최신화 (최근 세션 ID가 있는 경우)
-            val lastSessionId = preferenceManager.getLastSessionId()
+            val lastSessionId = preferenceManager.getLastSessionId(targetDeviceId)
             if (lastSessionId > 0) {
                 authRepository.getSessionResult(lastSessionId).onSuccess { response ->
                     if (response.status == "COMPLETED") {
                         _lastAnalysisResult.value = response
-                        preferenceManager.saveLastSessionResult(response)
-                        Log.d("DashboardViewModel", "서버 실시간 갱신 완료: SOH=${response.soh_percentage}%")
+                        preferenceManager.saveLastSessionResult(response, targetDeviceId)
+                        Log.d("DashboardViewModel", "서버 실시간 갱신 완료 (기기 $targetDeviceId): SOH=${response.soh_percentage}%")
                     }
                 }.onFailure { error ->
                     Log.e("DashboardViewModel", "서버 최신 결과 조회 실패: ${error.message}")
@@ -142,12 +148,13 @@ class DashboardViewModel(
         preferenceManager.saveMonitoringDeviceId(0)
         MonitoringServiceStarter.stop(context)
         _isMonitoring.value = false
+        val currentId = _currentDevice.value?.id ?: 0
         Log.d("DashboardViewModel", if (manualStop) "사용자 요청으로 모니터링 서비스를 종료합니다." else "충전 종료로 모니터링 서비스를 종료합니다.")
 
         // 2초 뒤 분석 결과 로드 (백그라운드 서비스의 세션 종료 및 AI 예측 비동기 완료 대기)
         viewModelScope.launch {
             delay(2000)
-            loadLastAnalysisResult()
+            loadLastAnalysisResult(currentId)
         }
     }
 

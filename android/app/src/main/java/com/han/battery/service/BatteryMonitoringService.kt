@@ -456,7 +456,8 @@ class BatteryMonitoringService : Service() {
                 Log.d("BatteryService", "세션 종료 처리 완료: session_id=$currentSessionId, capacity_ah=$capacityAh")
 
                 // 마지막으로 종료 완료된 세션 ID 저장
-                preferenceManager.saveLastSessionId(currentSessionId)
+                val activeDeviceId = preferenceManager.getMonitoringDeviceId()
+                preferenceManager.saveLastSessionId(currentSessionId, activeDeviceId)
 
                 // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (단일 세션 SOH 최소 조건 10개 미만, 약 20초 충전 시)
                 if (sessionLogs.size < 10) {
@@ -482,7 +483,7 @@ class BatteryMonitoringService : Service() {
                         smartphone_received_mah = predictResult.smartphone_received_mah,
                         mean_temperature_c = predictResult.mean_temperature_c
                     )
-                    preferenceManager.saveLastSessionResult(resultResponse)
+                    preferenceManager.saveLastSessionResult(resultResponse, activeDeviceId)
                     Log.d("BatteryService", "AI SOH 분석 예측 결과 수신 및 캐시 완료: $resultResponse")
 
                     showDiagnosisResultNotification(

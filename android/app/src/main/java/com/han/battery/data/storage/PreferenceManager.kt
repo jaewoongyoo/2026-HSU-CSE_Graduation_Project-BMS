@@ -321,27 +321,35 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
         AppLogger.info("사용자 로그아웃 처리 [$previousUser]", TAG)
     }
 
-    private fun getUserLastSessionIdKey(): String {
+    private fun getUserLastSessionIdKey(deviceId: Int = 0): String {
         val currentUser = userManager?.getCurrentUser() ?: "default"
-        return "${currentUser}_$KEY_LAST_SESSION_ID"
+        return if (deviceId > 0) {
+            "${currentUser}_${KEY_LAST_SESSION_ID}_$deviceId"
+        } else {
+            "${currentUser}_$KEY_LAST_SESSION_ID"
+        }
     }
 
-    private fun getUserLastSessionResultKey(): String {
+    private fun getUserLastSessionResultKey(deviceId: Int = 0): String {
         val currentUser = userManager?.getCurrentUser() ?: "default"
-        return "${currentUser}_$KEY_LAST_SESSION_RESULT"
+        return if (deviceId > 0) {
+            "${currentUser}_${KEY_LAST_SESSION_RESULT}_$deviceId"
+        } else {
+            "${currentUser}_$KEY_LAST_SESSION_RESULT"
+        }
     }
 
-    fun saveLastSessionId(sessionId: Int) {
-        prefs.edit().putInt(getUserLastSessionIdKey(), sessionId).apply()
+    fun saveLastSessionId(sessionId: Int, deviceId: Int = 0) {
+        prefs.edit().putInt(getUserLastSessionIdKey(deviceId), sessionId).apply()
         val currentUser = userManager?.getCurrentUser() ?: "default"
-        AppLogger.info("마지막 세션 ID 저장 [$currentUser]: $sessionId", TAG)
+        AppLogger.info("마지막 세션 ID 저장 [$currentUser](기기 $deviceId): $sessionId", TAG)
     }
 
-    fun getLastSessionId(): Int {
-        return prefs.getInt(getUserLastSessionIdKey(), 0)
+    fun getLastSessionId(deviceId: Int = 0): Int {
+        return prefs.getInt(getUserLastSessionIdKey(deviceId), 0)
     }
 
-    fun saveLastSessionResult(result: com.han.battery.data.model.SessionResultResponse) {
+    fun saveLastSessionResult(result: com.han.battery.data.model.SessionResultResponse, deviceId: Int = 0) {
         try {
             val json = JSONObject().apply {
                 put("id", result.id)
@@ -354,17 +362,17 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
                 result.mean_temperature_c?.let { put("mean_temperature_c", it) }
                 result.analyzed_at?.let { put("analyzed_at", it) }
             }
-            prefs.edit().putString(getUserLastSessionResultKey(), json.toString()).apply()
+            prefs.edit().putString(getUserLastSessionResultKey(deviceId), json.toString()).apply()
             val currentUser = userManager?.getCurrentUser() ?: "default"
-            AppLogger.info("마지막 분석 결과 저장 [$currentUser]: session=${result.id}, status=${result.status}", TAG)
+            AppLogger.info("마지막 분석 결과 저장 [$currentUser](기기 $deviceId): session=${result.id}, status=${result.status}", TAG)
         } catch (e: Exception) {
             AppLogger.error("마지막 분석 결과 저장 실패", e, TAG)
         }
     }
 
-    fun getLastSessionResult(): com.han.battery.data.model.SessionResultResponse? {
+    fun getLastSessionResult(deviceId: Int = 0): com.han.battery.data.model.SessionResultResponse? {
         return try {
-            val jsonString = prefs.getString(getUserLastSessionResultKey(), null) ?: return null
+            val jsonString = prefs.getString(getUserLastSessionResultKey(deviceId), null) ?: return null
             val json = JSONObject(jsonString)
             com.han.battery.data.model.SessionResultResponse(
                 id = json.getInt("id"),
