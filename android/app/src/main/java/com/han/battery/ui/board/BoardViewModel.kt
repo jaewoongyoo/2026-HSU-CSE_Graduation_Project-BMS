@@ -63,6 +63,7 @@ class BoardViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BoardUiState(isLoading = true))
     val uiState: StateFlow<BoardUiState> = _uiState.asStateFlow()
+    private val sohHistoryCache = mutableMapOf<Int, List<Int>>()
 
     init {
         _uiState.update { it.copy(currentUserName = userManager.getCurrentUser()) }
@@ -104,9 +105,17 @@ class BoardViewModel(
 
             result
                 .onSuccess { posts ->
+                    val postsWithCachedHistory = posts.map { post ->
+                        val sharedReportId = post.sharedReportId
+                        if (sharedReportId != null && sohHistoryCache.containsKey(sharedReportId)) {
+                            post.copy(sohHistory = sohHistoryCache.getValue(sharedReportId))
+                        } else {
+                            post
+                        }
+                    }
                     _uiState.update { state ->
                         state.copy(
-                            posts = posts,
+                            posts = postsWithCachedHistory,
                             isLoading = false,
                             errorMessage = null
                         )
@@ -169,6 +178,29 @@ class BoardViewModel(
                         it.copy(
                             isLoading = false,
                             errorMessage = error.message ?: "공유를 취소하지 못했습니다."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun loadSohHistory(post: BatteryPerformancePost) {
+        val sharedReportId = post.sharedReportId ?: return
+        if (sohHistoryCache.containsKey(sharedReportId)) return
+
+        viewModelScope.launch {
+            communityRepository.getSohHistory(sharedReportId)
+                .onSuccess { history ->
+                    sohHistoryCache[sharedReportId] = history
+                    _uiState.update { state ->
+                        state.copy(
+                            posts = state.posts.map { currentPost ->
+                                if (currentPost.sharedReportId == sharedReportId) {
+                                    currentPost.copy(sohHistory = history)
+                                } else {
+                                    currentPost
+                                }
+                            }
                         )
                     }
                 }
