@@ -9,12 +9,14 @@ from app.schemas.community import (
     CommunityShareRequest,
     CommunityShareResponse,
     CommunityShareUpdateRequest,
+    CommunitySohHistoryResponse,
 )
 from app.services.community_service import (
     delete_share_service,
     get_community_feed,
     get_community_feed_by_filter,
     get_filter_options_service,
+    get_soh_history_service,
     share_device_service,
     update_share_status_service,
 )
@@ -61,6 +63,23 @@ def get_filter_options(
     필터링 옵션 조회 (사용 가능한 폰 모델, 배터리 제조사 목록)
     """
     return get_filter_options_service(db)
+
+
+@router.get("/{shared_report_id}/soh-history", response_model=CommunitySohHistoryResponse)
+def get_soh_history(
+    shared_report_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    공유 보고서의 SOH 그래프 이력 조회
+
+    - **shared_report_id**: 공유 보고서 ID
+    - 공개 상태인 공유 보고서만 조회 가능
+    """
+    result = get_soh_history_service(db, shared_report_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Shared report not found")
+    return result
 
 
 @router.post("/{device_id}/share", response_model=CommunityShareResponse)
