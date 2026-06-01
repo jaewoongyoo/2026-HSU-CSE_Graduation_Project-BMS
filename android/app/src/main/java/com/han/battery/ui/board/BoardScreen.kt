@@ -498,15 +498,15 @@ private fun PerformancePostCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         border = BorderStroke(width = 1.dp, color = cardBorderColor)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
@@ -516,7 +516,7 @@ private fun PerformancePostCard(
                         Text(
                             text = post.userName,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         if (isOwnPost) {
@@ -538,13 +538,14 @@ private fun PerformancePostCard(
                                 imageVector = Icons.Filled.Verified,
                                 contentDescription = "검증된 진단 기록",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(17.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = post.createdAt,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -589,28 +590,20 @@ private fun PerformancePostCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             DeviceInfoBlock(post = post)
-            Spacer(modifier = Modifier.height(14.dp))
 
-            SohTrendBlock(post = post)
-
-            Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(14.dp))
-
-            PostMetricsRow(post = post)
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = post.comment,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (post.comment.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = post.comment,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
