@@ -404,7 +404,12 @@ def get_public_shared_reports_by_filter(
     db: Session,
     phone_models: Optional[list[str]] = None,
     manufacturers: Optional[list[str]] = None,
+<<<<<<< Updated upstream
     capacities: Optional[list[int]] = None,
+=======
+    powerbank_capacity_min: Optional[int] = None,
+    powerbank_capacity_max: Optional[int] = None,
+>>>>>>> Stashed changes
     soh_min: Optional[float] = None,
     soh_max: Optional[float] = None,
     limit: int = 50,
@@ -426,9 +431,17 @@ def get_public_shared_reports_by_filter(
     if manufacturers:
         query = query.filter(Device.manufacturer.in_(manufacturers))
 
+<<<<<<< Updated upstream
     # capacity 필터
     if capacities:
         query = query.filter(Device.powerbank_capacity_mah.in_(capacities))
+=======
+    # battery capacity 필터
+    if powerbank_capacity_min is not None:
+        query = query.filter(Device.powerbank_capacity_mah >= powerbank_capacity_min)
+    if powerbank_capacity_max is not None:
+        query = query.filter(Device.powerbank_capacity_mah <= powerbank_capacity_max)
+>>>>>>> Stashed changes
 
     # SOH 범위 필터
     if soh_min is not None or soh_max is not None:

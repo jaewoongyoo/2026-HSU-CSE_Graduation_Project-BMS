@@ -48,7 +48,12 @@ class CommunityFilterRequest(BaseModel):
     """필터링 요청 DTO"""
     phone_models: Optional[list[str]] = Field(default=None, description="폰 모델 필터 (OR 조건)")
     manufacturers: Optional[list[str]] = Field(default=None, description="배터리 제조사 필터 (OR 조건)")
+<<<<<<< Updated upstream
     capacities: Optional[list[int]] = Field(default=None, description="배터리 용량 필터 (mAh, OR 조건)")
+=======
+    powerbank_capacity_min: Optional[int] = Field(default=None, ge=0, description="보조배터리 용량 최소값 (mAh)")
+    powerbank_capacity_max: Optional[int] = Field(default=None, ge=0, description="보조배터리 용량 최대값 (mAh)")
+>>>>>>> Stashed changes
     soh_min: Optional[float] = Field(default=None, ge=0, le=100, description="SOH 최소값")
     soh_max: Optional[float] = Field(default=None, ge=0, le=100, description="SOH 최대값")
     limit: int = Field(default=50, ge=1, le=200, description="조회 수 제한")

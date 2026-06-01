@@ -47,6 +47,7 @@ def get_community_filtered(
     
     - **phone_models**: 폰 모델 필터 (OR 조건)
     - **manufacturers**: 배터리 제조사 필터 (OR 조건)
+    - **powerbank_capacity_min/max**: 배터리 용량 필터 (mAh)
     - **soh_min/max**: SOH 범위 필터 (0~100)
     """
     return get_community_feed_by_filter(db, request)

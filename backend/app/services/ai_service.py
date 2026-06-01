@@ -17,7 +17,9 @@ RECENT_SESSION_LIMIT = 20
 MIN_VALID_SESSION_COUNT = 3
 MIN_SESSION_DURATION_MS = 10 * 60 * 1000
 MIN_PERSONALIZATION_DURATION_MS = 20 * 60 * 1000
-MIN_DELIVERED_WH = 2.0
+# 이전에는 delivered Wh(Wh 단위) 가 너무 작으면 세션을 AI 입력에서 제외했습니다.
+# 실제 환경에서 핸드폰/보조배터리 성능이 모두 낮은 경우가 있어 이 제한을 해제합니다.
+MIN_DELIVERED_WH = 0.0
 MAX_START_BATTERY_LEVEL_PCT = 85.0
 MIN_FILLABLE_GAP_PCT = 15.0
 AGGREGATION_WINDOW_MS = 10 * 60 * 1000
@@ -137,8 +139,8 @@ def _get_session_reject_reason(raw_points, cycle_records: list[dict]) -> str | N
         return "duration_too_short_for_personalization"
 
     delivered_wh = _calculate_delivered_wh(raw_points)
-    if delivered_wh < MIN_DELIVERED_WH:
-        return "delivered_wh_too_low"
+    # delivered_wh 기준으로 세션을 배제하지 않음 (작은 delivered_wh 도 AI 입력으로 허용)
+    # 이전 동작: delivered_wh < MIN_DELIVERED_WH -> "delivered_wh_too_low"
 
     if start_battery_level_pct > MAX_START_BATTERY_LEVEL_PCT:
         return "start_level_too_high"
