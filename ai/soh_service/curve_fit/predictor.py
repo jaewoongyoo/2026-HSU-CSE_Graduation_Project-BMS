@@ -16,8 +16,10 @@ from soh_service.curve_fit.models import (
 
 # ── 필터 상수 ─────────────────────────────────────────────────────────────────
 
-MIN_SESSION_DURATION_S = 1200.0  # 20분 미만 세션 제외 (백엔드 유효 세션 기준과 동일)
-MIN_SESSION_DELIVERED_WH = 2.0   # 너무 적은 에너지 전달 세션 제외
+MIN_SESSION_DURATION_S = 900.0   # 15분: 일반 충전 최소 세션 길이
+MIN_FAST_CHARGE_DURATION_S = 480.0  # 8분: 고속 충전 최소 세션 길이
+FAST_CHARGE_THRESHOLD_A = 2.0    # 2A 이상 중앙값 전류 → 고속 충전 세션으로 분류
+MIN_SESSION_DELIVERED_WH = 1.0   # 너무 적은 에너지 전달 세션 제외
 MIN_BATTERY_LEVEL_GAP_PCT = 15.0  # 스마트폰 배터리가 이 값 이상 남아있으면 제외 (충전 여지가 적음)
 MAX_START_BATTERY_LEVEL_PCT = 85.0  # 시작 잔량이 너무 높으면 제외
 
@@ -252,8 +254,11 @@ class CurveFitPredictor:
         duration_s = samples[-1].time_s - samples[0].time_s
         delivered_wh = _integrate_delivered_wh(samples)
 
+        is_fast = _is_fast_charging_samples(samples)
+        min_duration_s = MIN_FAST_CHARGE_DURATION_S if is_fast else MIN_SESSION_DURATION_S
+
         # 필터링
-        if duration_s < MIN_SESSION_DURATION_S:
+        if duration_s < min_duration_s:
             return SessionObservation(
                 duration_s=duration_s,
                 delivered_wh=delivered_wh,
@@ -303,6 +308,15 @@ class CurveFitPredictor:
             filter_reject_reason=None,
             normalized_wh_per_pct=normalized_wh_per_pct,
         )
+
+
+def _is_fast_charging_samples(samples: list[TelemetrySample]) -> bool:
+    """Median |current_a| ≥ FAST_CHARGE_THRESHOLD_A → fast charging session."""
+    currents = [abs(s.current_a) for s in samples]
+    if not currents:
+        return False
+    median_a = sorted(currents)[len(currents) // 2]
+    return median_a >= FAST_CHARGE_THRESHOLD_A
 
 
 def _integrate_delivered_wh(samples: list[TelemetrySample]) -> float:

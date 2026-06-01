@@ -15,10 +15,11 @@ from app.repositories.postgres_repo import (
 
 RECENT_SESSION_LIMIT = 20
 MIN_VALID_SESSION_COUNT = 3
-MIN_SESSION_DURATION_MS = 10 * 60 * 1000
-MIN_PERSONALIZATION_DURATION_MS = 20 * 60 * 1000
-# 이전에는 delivered Wh(Wh 단위) 가 너무 작으면 세션을 AI 입력에서 제외했습니다.
-# 실제 환경에서 핸드폰/보조배터리 성능이 모두 낮은 경우가 있어 이 제한을 해제합니다.
+MIN_SESSION_DURATION_MS = 5 * 60 * 1000
+MIN_PERSONALIZATION_DURATION_MS = 15 * 60 * 1000
+MIN_FAST_CHARGE_PERSONALIZATION_DURATION_MS = 8 * 60 * 1000
+FAST_CHARGE_THRESHOLD_MA = 2000.0
+# delivered Wh 체크 해제: 저성능 핸드폰/보조배터리 환경에서 2Wh 기준이 과도하게 세션을 제외했음
 MIN_DELIVERED_WH = 0.0
 MAX_START_BATTERY_LEVEL_PCT = 85.0
 MIN_FILLABLE_GAP_PCT = 15.0
@@ -37,6 +38,19 @@ def get_ai_health() -> dict:
         return response.json()
     except requests.RequestException as exc:
         raise AIServiceException(str(exc)) from exc
+
+
+def _is_fast_charging(raw_points) -> bool:
+    """Median current ≥ FAST_CHARGE_THRESHOLD_MA → fast charging session."""
+    currents = [
+        abs(float(point.current_ma))
+        for point in raw_points
+        if point.current_ma is not None
+    ]
+    if not currents:
+        return False
+    median_current = sorted(currents)[len(currents) // 2]
+    return median_current >= FAST_CHARGE_THRESHOLD_MA
 
 
 def _sorted_points(raw_points):
@@ -132,9 +146,24 @@ def _get_session_reject_reason(raw_points, cycle_records: list[dict]) -> str | N
     if start_battery_level_pct is None:
         return "missing_start_battery_level"
 
-    # AI 서버 자체에서 자동 필터링(20분 미만, 2Wh 미만 등)을 수행하므로,
-    # 백엔드 단에서의 조기 필터 차단을 제거하여 0~2개 세션의 Fallback 표준곡선 예측 기능이 올바르게 동작하도록 수정합니다.
-    # 단, cycle_records가 아예 없어 AI 서버 Schema validation(minItems=2) 에러가 나는 것만 방어합니다.
+    duration_ms = _calculate_duration_ms(raw_points)
+    if duration_ms < MIN_SESSION_DURATION_MS:
+        return "duration_too_short"
+    min_personal_ms = (
+        MIN_FAST_CHARGE_PERSONALIZATION_DURATION_MS
+        if _is_fast_charging(raw_points)
+        else MIN_PERSONALIZATION_DURATION_MS
+    )
+    if duration_ms < min_personal_ms:
+        return "duration_too_short_for_personalization"
+
+    if start_battery_level_pct > MAX_START_BATTERY_LEVEL_PCT:
+        return "start_level_too_high"
+
+    fillable_gap_pct = 100.0 - start_battery_level_pct
+    if fillable_gap_pct < MIN_FILLABLE_GAP_PCT:
+        return "fillable_gap_too_small"
+
     if len(cycle_records) < 2:
         return "too_few_cycle_records"
 
