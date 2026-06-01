@@ -14,6 +14,7 @@ from app.repositories.postgres_repo import (
     get_latest_soh_analysis_for_device,
     get_public_shared_reports_by_filter,
     get_session_stats_for_device,
+    get_soh_history_for_shared_report,
     update_shared_report,
 )
 from app.schemas.community import (
@@ -21,6 +22,8 @@ from app.schemas.community import (
     CommunityFilterRequest,
     CommunityShareRequest,
     CommunityShareResponse,
+    CommunitySohHistoryPoint,
+    CommunitySohHistoryResponse,
     DeviceInfo,
     EfficiencyStats,
     SessionStats,
@@ -224,6 +227,29 @@ def update_share_status_service(
 def delete_share_service(db: Session, shared_report_id: int) -> bool:
     """공유 삭제"""
     return delete_shared_report(db, shared_report_id)
+
+
+def get_soh_history_service(
+    db: Session,
+    shared_report_id: int,
+) -> Optional[CommunitySohHistoryResponse]:
+    """공개 공유 보고서의 SOH 그래프 이력 조회"""
+    rows = get_soh_history_for_shared_report(db, shared_report_id)
+    if rows is None:
+        return None
+
+    points = [
+        CommunitySohHistoryPoint(
+            measured_at=session_end_ts or created_at,
+            soh_percentage=soh_percentage,
+        )
+        for session_end_ts, created_at, soh_percentage in rows
+        if (session_end_ts or created_at) is not None
+    ]
+    return CommunitySohHistoryResponse(
+        shared_report_id=shared_report_id,
+        points=points,
+    )
 
 
 def get_filter_options_service(db: Session) -> dict:
