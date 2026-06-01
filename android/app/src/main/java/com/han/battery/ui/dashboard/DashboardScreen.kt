@@ -327,7 +327,10 @@ fun DashboardScreen(
 
             AiAnalysisSection(
                 predictedTimeText = predictionText,
-                analysisResult = lastAnalysisResult
+                analysisResult = lastAnalysisResult,
+                onShareClick = {
+                    viewModel.shareActiveDeviceToCommunity()
+                }
             )
             Spacer(modifier = Modifier.height(4.dp))
             PredictionSection(

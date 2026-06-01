@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +34,8 @@ import com.han.battery.ui.theme.Blue600
 @Composable
 fun AiAnalysisSection(
     predictedTimeText: String = "계산 중...",
-    analysisResult: SessionResultResponse? = null
+    analysisResult: SessionResultResponse? = null,
+    onShareClick: () -> Unit = {}
 ) {
     val dynamicDesc = when {
         predictedTimeText.contains("분") -> "현재 충전 패턴을 기준으로 $predictedTimeText 뒤 완충이 예상됩니다."
@@ -101,5 +107,36 @@ fun AiAnalysisSection(
             bg = cardBg,
             icon = Icons.Default.AutoAwesome
         )
+
+        if (analysisResult != null) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Button(
+                onClick = onShareClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "공유하기",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "이 진단 결과 커뮤니티에 공유하기",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
