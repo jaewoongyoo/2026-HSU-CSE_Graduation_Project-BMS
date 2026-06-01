@@ -536,6 +536,42 @@ def get_latest_soh_analysis_for_device(
     )
 
 
+def get_soh_history_for_shared_report(
+    db: Session,
+    shared_report_id: int,
+) -> Optional[list[tuple]]:
+    """공개 공유 보고서의 디바이스 기준 SOH 이력 조회"""
+    shared_report = (
+        db.query(SharedReport)
+        .filter(
+            SharedReport.id == shared_report_id,
+            SharedReport.is_public == True,
+        )
+        .first()
+    )
+    if not shared_report:
+        return None
+
+    return (
+        db.query(
+            BatterySession.session_end_ts,
+            BatteryAiResult.created_at,
+            BatteryAiResult.soh_percentage,
+        )
+        .join(BatterySession, BatteryAiResult.session_id == BatterySession.id)
+        .filter(
+            BatterySession.device_id == shared_report.device_id,
+            BatteryAiResult.soh_percentage.isnot(None),
+        )
+        .order_by(
+            BatterySession.session_end_ts.asc().nullslast(),
+            BatteryAiResult.created_at.asc(),
+            BatteryAiResult.id.asc(),
+        )
+        .all()
+    )
+
+
 def create_shared_report(
     db: Session,
     device_id: int,
