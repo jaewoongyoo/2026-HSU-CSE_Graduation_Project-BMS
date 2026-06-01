@@ -494,6 +494,7 @@ private fun BatteryNavGraph(
                 onCategorySelected = boardViewModel::selectCategory,
                 onFilterSelected = boardViewModel::selectFilterValue,
                 onSearchQueryChanged = boardViewModel::setSearchQuery,
+                onPostSelected = boardViewModel::loadSohHistory,
                 onDeletePost = boardViewModel::deletePost,
                 onNavigateToHome = {
                     navController.navigate("home") {
