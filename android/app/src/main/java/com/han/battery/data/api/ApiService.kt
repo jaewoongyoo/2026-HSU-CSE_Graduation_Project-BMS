@@ -313,6 +313,19 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         response.body()
     }
 
+    suspend fun getCommunitySohHistory(
+        sharedReportId: Int
+    ): Result<CommunitySohHistoryResponse> = runCatching {
+        Log.d("ApiService", "커뮤니티 SOH 이력 조회: GET $baseUrl/api/v1/community/$sharedReportId/soh-history")
+        val response = client.get("$baseUrl/api/v1/community/$sharedReportId/soh-history") {}
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "커뮤니티 SOH 이력 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("SOH 변화 추세를 불러오는데 실패했습니다. (${response.status.value})")
+        }
+        response.body()
+    }
+
     suspend fun shareDevice(
         deviceId: Int,
         request: CommunityShareRequest
@@ -411,4 +424,3 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         client.close()
     }
 }
-
