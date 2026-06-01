@@ -36,6 +36,7 @@ class BatteryMonitoringService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private val CHANNEL_ID = "battery_monitoring_channel"
+    private var wakeLock: PowerManager.WakeLock? = null
     private val batteryApplication by lazy { application as BatteryApplication }
     private val repository by lazy { batteryApplication.batteryRepository }
     private val awsIoTManager by lazy { batteryApplication.awsIoTManager }
@@ -60,6 +61,17 @@ class BatteryMonitoringService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundServiceWithNotification()
+
+        if (wakeLock == null) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "BatteryInsight::MonitoringWakeLock"
+            ).apply {
+                acquire()
+            }
+            Log.d("BatteryService", "WakeLock 획득 완료 (Deep Sleep 방지)")
+        }
 
         if (intent?.action == ACTION_STOP_MONITORING) {
             shouldFinishSessionOnDestroy = true
@@ -408,6 +420,14 @@ class BatteryMonitoringService : Service() {
 
         awsIoTManager.disconnect()
         preferenceManager.saveMonitoringDeviceId(0)
+
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+                Log.d("BatteryService", "WakeLock 해제 완료")
+            }
+        }
+        wakeLock = null
 
         serviceScope.cancel()
     }

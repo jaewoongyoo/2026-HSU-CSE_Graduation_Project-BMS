@@ -404,6 +404,7 @@ def get_public_shared_reports_by_filter(
     db: Session,
     phone_models: Optional[list[str]] = None,
     manufacturers: Optional[list[str]] = None,
+    capacities: Optional[list[int]] = None,
     soh_min: Optional[float] = None,
     soh_max: Optional[float] = None,
     limit: int = 50,
@@ -424,6 +425,10 @@ def get_public_shared_reports_by_filter(
     # manufacturer 필터
     if manufacturers:
         query = query.filter(Device.manufacturer.in_(manufacturers))
+
+    # capacity 필터
+    if capacities:
+        query = query.filter(Device.powerbank_capacity_mah.in_(capacities))
 
     # SOH 범위 필터
     if soh_min is not None or soh_max is not None:
@@ -608,3 +613,18 @@ def get_distinct_manufacturers(db: Session) -> list[str]:
         .all()
     )
     return [r[0] for r in results if r[0]]
+
+
+def get_distinct_capacities(db: Session) -> list[int]:
+    """공개 공유된 배터리 용량 목록 조회"""
+    results = (
+        db.query(Device.powerbank_capacity_mah)
+        .join(SharedReport, SharedReport.device_id == Device.id)
+        .filter(
+            SharedReport.is_public == True,
+            Device.powerbank_capacity_mah.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return [r[0] for r in results if r[0] is not None]

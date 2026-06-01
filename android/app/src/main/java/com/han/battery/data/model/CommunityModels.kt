@@ -43,6 +43,7 @@ data class CommunityEfficiencyStats(
 data class CommunityFilterRequest(
     val phone_models: List<String>? = null,
     val manufacturers: List<String>? = null,
+    val capacities: List<Int>? = null,
     val soh_min: Double? = null,
     val soh_max: Double? = null,
     val limit: Int = 50,
@@ -52,7 +53,8 @@ data class CommunityFilterRequest(
 @Serializable
 data class CommunityFilterOptionsResponse(
     val phone_models: List<String> = emptyList(),
-    val manufacturers: List<String> = emptyList()
+    val manufacturers: List<String> = emptyList(),
+    val capacities: List<Int> = emptyList()
 )
 
 @Serializable

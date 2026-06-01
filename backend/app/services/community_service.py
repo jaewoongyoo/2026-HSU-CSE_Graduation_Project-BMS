@@ -7,6 +7,7 @@ from app.repositories.postgres_repo import (
     create_shared_report,
     delete_shared_report,
     get_all_public_shared_reports,
+    get_distinct_capacities,
     get_distinct_manufacturers,
     get_distinct_phone_models,
     get_latest_ai_result_for_device,
@@ -138,6 +139,7 @@ def get_community_feed_by_filter(
         db,
         phone_models=request.phone_models,
         manufacturers=request.manufacturers,
+        capacities=request.capacities,
         soh_min=request.soh_min,
         soh_max=request.soh_max,
         limit=request.limit,
@@ -231,10 +233,12 @@ def delete_share_service(db: Session, shared_report_id: int) -> bool:
 
 
 def get_filter_options_service(db: Session) -> dict:
-    """필터링 옵션 조회 (폰 모델, 제조사)"""
+    """필터링 옵션 조회 (폰 모델, 제조사, 용량)"""
     phone_models = get_distinct_phone_models(db)
     manufacturers = get_distinct_manufacturers(db)
+    capacities = get_distinct_capacities(db)
     return {
         "phone_models": phone_models,
         "manufacturers": manufacturers,
+        "capacities": capacities,
     }

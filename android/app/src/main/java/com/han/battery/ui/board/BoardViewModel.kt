@@ -22,6 +22,7 @@ data class BoardUiState(
     val errorMessage: String? = null,
     val phoneModels: List<String> = emptyList(),
     val manufacturers: List<String> = emptyList(),
+    val capacities: List<String> = emptyList(),
     val currentUserName: String? = null
 ) {
     val filteredPosts: List<BatteryPerformancePost>
@@ -45,13 +46,15 @@ data class BoardUiState(
             BoardFilterCategory.ALL -> emptyList()
             BoardFilterCategory.PHONE -> phoneModels
             BoardFilterCategory.MANUFACTURER -> manufacturers
+            BoardFilterCategory.CAPACITY -> capacities
         }
 }
 
 enum class BoardFilterCategory(val label: String) {
     ALL("전체"),
     PHONE("폰 기종"),
-    MANUFACTURER("제조사")
+    MANUFACTURER("제조사"),
+    CAPACITY("용량")
 }
 
 class BoardViewModel(
@@ -76,7 +79,8 @@ class BoardViewModel(
                     _uiState.update { state ->
                         state.copy(
                             phoneModels = options.phone_models.sorted(),
-                            manufacturers = options.manufacturers.sorted()
+                            manufacturers = options.manufacturers.sorted(),
+                            capacities = options.capacities.sorted().map { "${it}mAh" }
                         )
                     }
                 }
@@ -143,6 +147,12 @@ class BoardViewModel(
             BoardFilterCategory.MANUFACTURER -> CommunityFilterRequest(
                 manufacturers = listOf(value)
             )
+            BoardFilterCategory.CAPACITY -> {
+                val rawValue = value.replace("mAh", "").toIntOrNull()
+                CommunityFilterRequest(
+                    capacities = if (rawValue != null) listOf(rawValue) else null
+                )
+            }
             BoardFilterCategory.ALL -> CommunityFilterRequest()
         }
     }

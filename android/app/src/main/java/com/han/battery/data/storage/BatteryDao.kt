@@ -10,7 +10,7 @@ interface BatteryDao {
     @Insert
     suspend fun insertLog(log: BatteryLog): Long
 
-    @Query("SELECT * FROM battery_logs WHERE isSent = 0 ORDER BY timestamp ASC")
+    @Query("SELECT * FROM battery_logs WHERE isSent = 0 ORDER BY timestamp ASC LIMIT 500")
     suspend fun getUnsentLogs(): List<BatteryLog>
 
     @Query("SELECT * FROM battery_logs WHERE timestamp >= :timestamp ORDER BY timestamp ASC")
