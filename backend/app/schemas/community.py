@@ -44,6 +44,18 @@ class CommunityCardResponse(BaseModel):
         from_attributes = True
 
 
+class CommunitySohHistoryPoint(BaseModel):
+    """커뮤니티 SOH 그래프 단일 지점"""
+    measured_at: datetime
+    soh_percentage: float
+
+
+class CommunitySohHistoryResponse(BaseModel):
+    """커뮤니티 SOH 그래프 응답 DTO"""
+    shared_report_id: int
+    points: list[CommunitySohHistoryPoint]
+
+
 class CommunityFilterRequest(BaseModel):
     """필터링 요청 DTO"""
     phone_models: Optional[list[str]] = Field(default=None, description="폰 모델 필터 (OR 조건)")
