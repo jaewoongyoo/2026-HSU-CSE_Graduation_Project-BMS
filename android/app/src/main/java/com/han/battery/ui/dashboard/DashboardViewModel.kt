@@ -18,6 +18,10 @@ import com.han.battery.data.storage.PreferenceManager
 import com.han.battery.service.BatteryMonitoringService
 import com.han.battery.service.MonitoringRecoveryWorker
 import com.han.battery.service.MonitoringServiceStarter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,9 +63,16 @@ class DashboardViewModel(
 
     val telemetryStats = BatteryMonitoringService.telemetryStats.asStateFlow()
 
+    private val _isSessionShared = MutableStateFlow(false)
+    val isSessionShared: StateFlow<Boolean> = _isSessionShared.asStateFlow()
+
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     init {
         monitorBattery()
         loadLastAnalysisResult()
+        retryPendingPredictions()
+        registerNetworkCallback()
     }
 
     fun setDevice(device: BatteryDevice) {
@@ -93,9 +104,11 @@ class DashboardViewModel(
             val cachedResult = preferenceManager.getLastSessionResult(targetDeviceId)
             if (cachedResult != null) {
                 _lastAnalysisResult.value = cachedResult
+                _isSessionShared.value = preferenceManager.isSessionShared(cachedResult.id)
                 Log.d("DashboardViewModel", "로컬 캐시된 AI 분석 결과 적재 (기기 $targetDeviceId): SOH=${cachedResult.soh_percentage}%")
             } else {
                 _lastAnalysisResult.value = null
+                _isSessionShared.value = false
             }
 
             // 2. 서버 최신화 (최근 세션 ID가 있는 경우)
@@ -104,6 +117,7 @@ class DashboardViewModel(
                 authRepository.getSessionResult(lastSessionId).onSuccess { response ->
                     if (response.status == "COMPLETED") {
                         _lastAnalysisResult.value = response
+                        _isSessionShared.value = preferenceManager.isSessionShared(response.id)
                         preferenceManager.saveLastSessionResult(response, targetDeviceId)
                         Log.d("DashboardViewModel", "서버 실시간 갱신 완료 (기기 $targetDeviceId): SOH=${response.soh_percentage}%")
                     }
@@ -114,6 +128,7 @@ class DashboardViewModel(
                 // 앱 삭제 후 재설치 등으로 로컬 세션 ID가 0인 경우, 기기별 최신 완료 세션 결과를 서버로부터 역조회합니다.
                 authRepository.getLatestDeviceResult(targetDeviceId).onSuccess { response ->
                     _lastAnalysisResult.value = response
+                    _isSessionShared.value = preferenceManager.isSessionShared(response.id)
                     // 로컬 캐시(세션 ID 및 결과) 복구
                     preferenceManager.saveLastSessionId(response.id, targetDeviceId)
                     preferenceManager.saveLastSessionResult(response, targetDeviceId)
@@ -121,6 +136,7 @@ class DashboardViewModel(
                 }.onFailure { error ->
                     Log.d("DashboardViewModel", "서버 최신 기기 결과 없음 (신규 기기 또는 진단 이력 없음): ${error.message}")
                     _lastAnalysisResult.value = null
+                    _isSessionShared.value = false
                 }
             }
         }
@@ -276,11 +292,81 @@ class DashboardViewModel(
         viewModelScope.launch {
             communityRepository.shareDevice(device.id)
                 .onSuccess {
+                    preferenceManager.setSessionShared(analysisResult.id, true)
+                    _isSessionShared.value = true
                     _events.emit(DashboardUiEvent.ShowMessage("커뮤니티에 진단 결과를 성공적으로 공유했습니다."))
                 }
                 .onFailure { error ->
                     _events.emit(DashboardUiEvent.ShowMessage(error.message ?: "커뮤니티 공유에 실패했습니다.", isError = true))
                 }
+        }
+    }
+
+    fun retryPendingPredictions() {
+        val pending = preferenceManager.getPendingPredictions()
+        if (pending.isEmpty()) return
+
+        viewModelScope.launch {
+            Log.d("DashboardViewModel", "미완료 세션 AI 분석 재시도 시작 (대시보드 진입). 대수: ${pending.size}개")
+            pending.forEach { (sessId, devId) ->
+                authRepository.predictSoh(sessId).onSuccess { predictResult ->
+                    val resultResponse = SessionResultResponse(
+                        id = sessId,
+                        status = "COMPLETED",
+                        soh_percentage = predictResult.soh_percentage,
+                        condition = predictResult.condition,
+                        estimated_full_charges = predictResult.estimated_full_charges,
+                        powerbank_usable_mah = predictResult.powerbank_usable_mah,
+                        smartphone_received_mah = predictResult.smartphone_received_mah,
+                        mean_temperature_c = predictResult.mean_temperature_c,
+                        confidence = predictResult.confidence
+                    )
+                    preferenceManager.saveLastSessionResult(resultResponse, devId)
+                    preferenceManager.removePendingPrediction(sessId)
+                    Log.d("DashboardViewModel", "미완료 세션 분석 및 캐시 복구 완료: sessionId=$sessId")
+
+                    if (_currentDevice.value?.id == devId) {
+                        _lastAnalysisResult.value = resultResponse
+                        _isSessionShared.value = preferenceManager.isSessionShared(sessId)
+                    }
+                }.onFailure { error ->
+                    Log.e("DashboardViewModel", "미완료 세션 $sessId 분석 재시도 실패: ${error.message}")
+                    val rawMsg = error.message ?: ""
+                    if (rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions")) {
+                        preferenceManager.removePendingPrediction(sessId)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.d("DashboardViewModel", "네트워크 복구 감지 (대시보드) -> AI 분석 재시도")
+                    retryPendingPredictions()
+                }
+            }
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager.registerNetworkCallback(request, networkCallback!!)
+        } catch (e: Exception) {
+            Log.e("DashboardViewModel", "NetworkCallback 등록 실패", e)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            networkCallback?.let {
+                val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                connectivityManager.unregisterNetworkCallback(it)
+            }
+        } catch (e: Exception) {
+            Log.e("DashboardViewModel", "NetworkCallback 해제 실패", e)
         }
     }
 }

@@ -35,6 +35,7 @@ import com.han.battery.ui.theme.Blue600
 fun AiAnalysisSection(
     predictedTimeText: String = "계산 중...",
     analysisResult: SessionResultResponse? = null,
+    isShared: Boolean = false,
     onShareClick: () -> Unit = {}
 ) {
     val dynamicDesc = when {
@@ -111,13 +112,16 @@ fun AiAnalysisSection(
         Spacer(modifier = Modifier.height(14.dp))
         Button(
             onClick = onShareClick,
+            enabled = !isShared,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor = if (isShared) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer,
+                contentColor = if (isShared) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary,
+                disabledContainerColor = if (isShared) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                disabledContentColor = if (isShared) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
         ) {
             Row(
@@ -130,7 +134,7 @@ fun AiAnalysisSection(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "이 진단 결과 커뮤니티에 공유하기",
+                    text = if (isShared) "이미 커뮤니티에 공유 완료됨" else "이 진단 결과 커뮤니티에 공유하기",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )

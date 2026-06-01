@@ -4,6 +4,10 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -42,6 +46,13 @@ class BatteryMonitoringService : Service() {
     private val awsIoTManager by lazy { batteryApplication.awsIoTManager }
     private val authRepository by lazy { batteryApplication.authRepository }
     private val preferenceManager by lazy { batteryApplication.preferenceManager }
+
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        registerNetworkCallback()
+    }
 
 
 
@@ -409,8 +420,99 @@ class BatteryMonitoringService : Service() {
         }
     }
 
+    private fun registerNetworkCallback() {
+        try {
+            val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.d("BatteryService", "네트워크 복구 감지! (서비스 백그라운드)")
+                    retryMqttConnection()
+                    retryPendingPredictions()
+                }
+            }
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager.registerNetworkCallback(request, networkCallback!!)
+            Log.d("BatteryService", "ConnectivityManager.NetworkCallback 등록 완료")
+        } catch (e: Exception) {
+            Log.e("BatteryService", "NetworkCallback 등록 실패", e)
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let {
+                val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                connectivityManager.unregisterNetworkCallback(it)
+                networkCallback = null
+                Log.d("BatteryService", "ConnectivityManager.NetworkCallback 해제 완료")
+            }
+        } catch (e: Exception) {
+            Log.e("BatteryService", "NetworkCallback 해제 실패", e)
+        }
+    }
+
+    private fun retryMqttConnection() {
+        if (activeDeviceId <= 0) return
+        if (awsIoTManager.isMqttConnected()) {
+            Log.d("BatteryService", "MQTT가 이미 연결되어 있어 재연결을 건너뜁니다.")
+            return
+        }
+        val clientId = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ANDROID_ID
+        )
+        Log.d("BatteryService", "인터넷 복구로 인한 백그라운드 MQTT 재연결 시도 (ClientId: $clientId, DeviceId: $activeDeviceId)")
+        awsIoTManager.initAndConnect(clientId, activeDeviceId) {
+            Log.d("BatteryService", "네트워크 복구 후 AWS IoT 백그라운드 재연결 성공")
+        }
+    }
+
+    private fun retryPendingPredictions() {
+        val pending = preferenceManager.getPendingPredictions()
+        if (pending.isEmpty()) return
+
+        serviceScope.launch {
+            Log.d("BatteryService", "미완료 세션 AI 분석 백그라운드 재시도 시작. 대수: ${pending.size}개")
+            pending.forEach { (sessId, devId) ->
+                runCatching {
+                    Log.d("BatteryService", "미완료 세션 AI 분석 백그라운드 재시도: sessionId=$sessId, deviceId=$devId")
+                    val predictResult = authRepository.predictSoh(sessId).getOrThrow()
+                    val resultResponse = com.han.battery.data.model.SessionResultResponse(
+                        id = sessId,
+                        status = "COMPLETED",
+                        soh_percentage = predictResult.soh_percentage,
+                        condition = predictResult.condition,
+                        estimated_full_charges = predictResult.estimated_full_charges,
+                        powerbank_usable_mah = predictResult.powerbank_usable_mah,
+                        smartphone_received_mah = predictResult.smartphone_received_mah,
+                        mean_temperature_c = predictResult.mean_temperature_c,
+                        confidence = predictResult.confidence
+                    )
+                    
+                    preferenceManager.saveLastSessionResult(resultResponse, devId)
+                    preferenceManager.removePendingPrediction(sessId)
+                    Log.d("BatteryService", "미완료 세션 백그라운드 분석 및 캐시 복구 완료: sessionId=$sessId")
+
+                    showDiagnosisResultNotification(
+                        title = "AI 배터리 진단 복구 완료 🔋",
+                        message = "이전 미완료된 진단이 분석 완료되었습니다. 건강도(SOH): ${String.format("%.1f", predictResult.soh_percentage)}%"
+                    )
+                }.onFailure { error ->
+                    Log.e("BatteryService", "미완료 세션 $sessId 분석 재시도 실패: ${error.message}")
+                    val rawMsg = error.message ?: ""
+                    if (rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions")) {
+                        preferenceManager.removePendingPrediction(sessId)
+                    }
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        unregisterNetworkCallback()
         collectingJob?.cancel()
         flushLoopJob?.cancel()
 
@@ -481,7 +583,8 @@ class BatteryMonitoringService : Service() {
                         estimated_full_charges = predictResult.estimated_full_charges,
                         powerbank_usable_mah = predictResult.powerbank_usable_mah,
                         smartphone_received_mah = predictResult.smartphone_received_mah,
-                        mean_temperature_c = predictResult.mean_temperature_c
+                        mean_temperature_c = predictResult.mean_temperature_c,
+                        confidence = predictResult.confidence
                     )
                     preferenceManager.saveLastSessionResult(resultResponse, activeDeviceId)
                     Log.d("BatteryService", "AI SOH 분석 예측 결과 수신 및 캐시 완료: $resultResponse")
@@ -497,7 +600,10 @@ class BatteryMonitoringService : Service() {
                         rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions") -> {
                             "AI 분석을 위한 충전 데이터가 아직 충분하지 않습니다. 신뢰도 높은 개인화 진단을 위해 보조배터리를 20분 이상 충전하는 과정을 반복해 주세요."
                         }
-                        else -> "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
+                        else -> {
+                            preferenceManager.addPendingPrediction(currentSessionId, activeDeviceId)
+                            "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
+                        }
                     }
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 실패 ⚠️",
@@ -506,6 +612,7 @@ class BatteryMonitoringService : Service() {
                 }
             }.onFailure { error ->
                 Log.e("BatteryService", "세션 종료 처리 실패: ${error.message}", error)
+                preferenceManager.addPendingPrediction(currentSessionId, activeDeviceId)
                 showDiagnosisResultNotification(
                     title = "AI 배터리 진단 실패 ⚠️",
                     message = "충전 세션을 종료하는 도중 서버 통신에 실패했습니다. (사유: ${error.message})"

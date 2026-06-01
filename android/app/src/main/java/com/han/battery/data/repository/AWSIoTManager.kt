@@ -130,6 +130,8 @@ class AWSIoTManager(private val context: Context) {
         }
     }
 
+    fun isMqttConnected(): Boolean = synchronized(this) { isConnected }
+
     fun publishLogs(
         payload: Any,
         onSuccess: () -> Unit,

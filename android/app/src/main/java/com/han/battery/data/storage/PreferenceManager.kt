@@ -405,4 +405,63 @@ class PreferenceManager(context: Context, private val userManager: UserManager? 
     fun getMonitoringDeviceId(): Int {
         return prefs.getInt(getUserMonitoringDeviceIdKey(), 0)
     }
+
+    private fun getUserSessionSharedKey(sessionId: Int): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_session_shared_$sessionId"
+    }
+
+    fun isSessionShared(sessionId: Int): Boolean {
+        if (sessionId <= 0) return false
+        return prefs.getBoolean(getUserSessionSharedKey(sessionId), false)
+    }
+
+    fun setSessionShared(sessionId: Int, shared: Boolean) {
+        if (sessionId <= 0) return
+        prefs.edit().putBoolean(getUserSessionSharedKey(sessionId), shared).apply()
+    }
+
+    private fun getUserPendingPredictionsKey(): String {
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        return "${currentUser}_pending_predictions_map"
+    }
+
+    fun getPendingPredictions(): Map<Int, Int> {
+        val key = getUserPendingPredictionsKey()
+        val stringSet = prefs.getStringSet(key, emptySet()) ?: emptySet()
+        val map = mutableMapOf<Int, Int>()
+        for (item in stringSet) {
+            val parts = item.split(":")
+            if (parts.size == 2) {
+                val sessId = parts[0].toIntOrNull()
+                val devId = parts[1].toIntOrNull()
+                if (sessId != null && devId != null) {
+                    map[sessId] = devId
+                }
+            }
+        }
+        return map
+    }
+
+    fun addPendingPrediction(sessionId: Int, deviceId: Int) {
+        if (sessionId <= 0 || deviceId <= 0) return
+        val key = getUserPendingPredictionsKey()
+        val currentSet = prefs.getStringSet(key, emptySet())?.toMutableSet() ?: mutableSetOf()
+        currentSet.removeAll { it.startsWith("$sessionId:") }
+        currentSet.add("$sessionId:$deviceId")
+        prefs.edit().putStringSet(key, currentSet).apply()
+        val currentUser = userManager?.getCurrentUser() ?: "default"
+        AppLogger.info("미완료 세션 ID 추가 [$currentUser]: sessionId=$sessionId, deviceId=$deviceId, 대기열=$currentSet", TAG)
+    }
+
+    fun removePendingPrediction(sessionId: Int) {
+        val key = getUserPendingPredictionsKey()
+        val currentSet = prefs.getStringSet(key, emptySet())?.toMutableSet() ?: return
+        val removed = currentSet.removeAll { it.startsWith("$sessionId:") }
+        if (removed) {
+            prefs.edit().putStringSet(key, currentSet).apply()
+            val currentUser = userManager?.getCurrentUser() ?: "default"
+            AppLogger.info("미완료 세션 ID 제거 [$currentUser]: sessionId=$sessionId, 대기열=$currentSet", TAG)
+        }
+    }
 }

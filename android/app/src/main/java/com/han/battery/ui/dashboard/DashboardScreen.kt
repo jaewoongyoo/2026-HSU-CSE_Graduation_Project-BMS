@@ -77,6 +77,7 @@ fun DashboardScreen(
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val lastAnalysisResult by viewModel.lastAnalysisResult.collectAsState()
     val stats by viewModel.telemetryStats.collectAsState()
+    val isShared by viewModel.isSessionShared.collectAsState()
 
     val pluggedType = remember(status.isCharging) {
         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -328,6 +329,7 @@ fun DashboardScreen(
             AiAnalysisSection(
                 predictedTimeText = predictionText,
                 analysisResult = lastAnalysisResult,
+                isShared = isShared,
                 onShareClick = {
                     viewModel.shareActiveDeviceToCommunity()
                 }
