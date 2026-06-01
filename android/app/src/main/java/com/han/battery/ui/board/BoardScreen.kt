@@ -24,7 +24,14 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,19 +72,22 @@ import com.han.battery.data.model.BatteryPerformancePost
 import com.han.battery.data.model.SohCondition
 import com.han.battery.ui.theme.Blue600
 import com.han.battery.ui.theme.Slate50
+import androidx.compose.material3.ExperimentalMaterial3Api
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BoardScreen(
     uiState: BoardUiState,
     onCategorySelected: (BoardFilterCategory) -> Unit,
     onFilterSelected: (String) -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
     onDeletePost: (Int) -> Unit,
     onNavigateToHome: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showShareGuide by remember { mutableStateOf(false) }
+    var selectedPost by remember { mutableStateOf<BatteryPerformancePost?>(null) }
     val isDark = isSystemInDarkTheme()
 
     if (showShareGuide) {
@@ -173,6 +183,13 @@ fun BoardScreen(
                 filteredPosts = uiState.filteredPosts.size
             )
 
+            // Toss 스타일의 미니멀 검색 창 추가
+            SearchBar(
+                query = uiState.searchQuery,
+                onQueryChanged = onSearchQueryChanged,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+
             CategoryFilterBar(
                 selectedCategory = uiState.selectedCategory,
                 onCategorySelected = onCategorySelected
@@ -208,10 +225,111 @@ fun BoardScreen(
                             PerformancePostCard(
                                 post = post,
                                 currentUserName = uiState.currentUserName,
-                                onDeletePost = onDeletePost
+                                onDeletePost = onDeletePost,
+                                onClick = { selectedPost = post }
                             )
                         }
                     }
+                }
+
+                // 상세 보기 다이얼로그 추가
+                if (selectedPost != null) {
+                    val post = selectedPost!!
+                    AlertDialog(
+                        onDismissRequest = { selectedPost = null },
+                        title = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "진단 기록 상세",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                IconButton(onClick = { selectedPost = null }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "닫기",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        text = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = post.userName,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 16.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (post.verified) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Verified,
+                                                    contentDescription = "검증됨",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = post.createdAt,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    SohBadge(condition = post.condition, soh = post.estimatedSoh)
+                                }
+
+                                DeviceInfoBlock(post = post)
+                                SohTrendBlock(post = post)
+                                PostMetricsRow(post = post)
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                Column {
+                                    Text(
+                                        text = "사용자 후기",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = post.comment,
+                                        fontSize = 14.sp,
+                                        lineHeight = 22.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { selectedPost = null }) {
+                                Text("확인")
+                            }
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 }
 
                 if (isSubsequentLoading) {
@@ -368,7 +486,8 @@ private fun OptionFilterBar(
 private fun PerformancePostCard(
     post: BatteryPerformancePost,
     currentUserName: String?,
-    onDeletePost: (Int) -> Unit
+    onDeletePost: (Int) -> Unit,
+    onClick: () -> Unit
 ) {
     val isOwnPost = !currentUserName.isNullOrBlank() && post.userName == currentUserName
     val isDark = isSystemInDarkTheme()
@@ -376,7 +495,9 @@ private fun PerformancePostCard(
     val cardBorderColor = if (isDark) Color(0xFF334155).copy(alpha = 0.7f) else Color(0xFFEFF1F3)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         border = BorderStroke(width = 1.dp, color = cardBorderColor)
@@ -851,4 +972,57 @@ private fun BatteryPerformancePost.powerBankLabel(): String {
 
 private fun Double.formatOneDecimal(): String {
     return String.format("%.1f", this)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchBar(
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val containerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        placeholder = {
+            Text(
+                text = "사용자, 기종 또는 코멘트 검색",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "검색",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChanged("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "지우기",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = Color.Transparent,
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            cursorColor = MaterialTheme.colorScheme.primary
+        )
+    )
 }

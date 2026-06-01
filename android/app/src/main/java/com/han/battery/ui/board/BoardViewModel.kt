@@ -17,6 +17,7 @@ data class BoardUiState(
     val posts: List<BatteryPerformancePost> = emptyList(),
     val selectedCategory: BoardFilterCategory = BoardFilterCategory.ALL,
     val selectedValue: String? = null,
+    val searchQuery: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val phoneModels: List<String> = emptyList(),
@@ -24,22 +25,33 @@ data class BoardUiState(
     val currentUserName: String? = null
 ) {
     val filteredPosts: List<BatteryPerformancePost>
-        get() = posts
+        get() {
+            val baseFiltered = posts
+            return if (searchQuery.isBlank()) {
+                baseFiltered
+            } else {
+                baseFiltered.filter { post ->
+                    post.userName.contains(searchQuery, ignoreCase = true) ||
+                    post.comment.contains(searchQuery, ignoreCase = true) ||
+                    post.smartphoneModel.orEmpty().contains(searchQuery, ignoreCase = true) ||
+                    post.powerBankModel.contains(searchQuery, ignoreCase = true) ||
+                    post.powerBankManufacturer.orEmpty().contains(searchQuery, ignoreCase = true)
+                }
+            }
+        }
 
     val filterOptions: List<String>
         get() = when (selectedCategory) {
             BoardFilterCategory.ALL -> emptyList()
             BoardFilterCategory.PHONE -> phoneModels
             BoardFilterCategory.MANUFACTURER -> manufacturers
-            BoardFilterCategory.SOH -> SohCondition.entries.filter { it != SohCondition.UNKNOWN }.map { it.label }
         }
 }
 
 enum class BoardFilterCategory(val label: String) {
     ALL("전체"),
     PHONE("폰 기종"),
-    MANUFACTURER("제조사"),
-    SOH("SOH")
+    MANUFACTURER("제조사")
 }
 
 class BoardViewModel(
@@ -131,19 +143,6 @@ class BoardViewModel(
             BoardFilterCategory.MANUFACTURER -> CommunityFilterRequest(
                 manufacturers = listOf(value)
             )
-            BoardFilterCategory.SOH -> {
-                val condition = SohCondition.entries.firstOrNull { it.label == value }
-                val (min, max) = when (condition) {
-                    SohCondition.GOOD -> 90.0 to 100.0
-                    SohCondition.NORMAL -> 80.0 to 89.0
-                    SohCondition.CAUTION -> 0.0 to 79.0
-                    else -> null to null
-                }
-                CommunityFilterRequest(
-                    soh_min = min,
-                    soh_max = max
-                )
-            }
             BoardFilterCategory.ALL -> CommunityFilterRequest()
         }
     }
@@ -164,5 +163,9 @@ class BoardViewModel(
                     }
                 }
         }
+    }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
     }
 }
