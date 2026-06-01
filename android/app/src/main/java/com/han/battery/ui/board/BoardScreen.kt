@@ -86,50 +86,8 @@ fun BoardScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showShareGuide by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<BatteryPerformancePost?>(null) }
     val isDark = isSystemInDarkTheme()
-
-    if (showShareGuide) {
-        AlertDialog(
-            onDismissRequest = { showShareGuide = false },
-            title = {
-                Text(
-                    text = "내 배터리 공유 안내",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            text = {
-                Text(
-                    text = "내 배터리 성능(SOH)을 공유하려면 상세 대시보드로 이동해야 합니다.\n\n등록된 배터리 기기를 선택해 들어간 뒤, 우측 상단 더보기(⋮) 메뉴에서 '커뮤니티에 공유'를 누르면 간편하게 공유할 수 있습니다.\n\n기기를 선택하러 이동하시겠습니까?",
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showShareGuide = false
-                        onNavigateToHome()
-                    }
-                ) {
-                    Text("이동하기", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showShareGuide = false }
-                ) {
-                    Text("취소", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            shape = RoundedCornerShape(16.dp),
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    }
 
     val bgGradient = if (isDark) {
         listOf(
@@ -147,30 +105,7 @@ fun BoardScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showShareGuide = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
-                shape = RoundedCornerShape(16.dp),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.BatteryChargingFull,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                text = {
-                    Text(
-                        text = "내 배터리 공유하기",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-        }
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -218,7 +153,7 @@ fun BoardScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 80.dp), // 하단 FAB 여백 확보를 위해 bottom padding을 20.dp에서 80.dp로 확대
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(uiState.filteredPosts, key = { it.id }) { post ->
