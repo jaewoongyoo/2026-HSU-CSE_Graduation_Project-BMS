@@ -132,23 +132,9 @@ def _get_session_reject_reason(raw_points, cycle_records: list[dict]) -> str | N
     if start_battery_level_pct is None:
         return "missing_start_battery_level"
 
-    duration_ms = _calculate_duration_ms(raw_points)
-    if duration_ms < MIN_SESSION_DURATION_MS:
-        return "duration_too_short"
-    if duration_ms < MIN_PERSONALIZATION_DURATION_MS:
-        return "duration_too_short_for_personalization"
-
-    delivered_wh = _calculate_delivered_wh(raw_points)
-    # delivered_wh 기준으로 세션을 배제하지 않음 (작은 delivered_wh 도 AI 입력으로 허용)
-    # 이전 동작: delivered_wh < MIN_DELIVERED_WH -> "delivered_wh_too_low"
-
-    if start_battery_level_pct > MAX_START_BATTERY_LEVEL_PCT:
-        return "start_level_too_high"
-
-    fillable_gap_pct = 100.0 - start_battery_level_pct
-    if fillable_gap_pct < MIN_FILLABLE_GAP_PCT:
-        return "fillable_gap_too_small"
-
+    # AI 서버 자체에서 자동 필터링(20분 미만, 2Wh 미만 등)을 수행하므로,
+    # 백엔드 단에서의 조기 필터 차단을 제거하여 0~2개 세션의 Fallback 표준곡선 예측 기능이 올바르게 동작하도록 수정합니다.
+    # 단, cycle_records가 아예 없어 AI 서버 Schema validation(minItems=2) 에러가 나는 것만 방어합니다.
     if len(cycle_records) < 2:
         return "too_few_cycle_records"
 

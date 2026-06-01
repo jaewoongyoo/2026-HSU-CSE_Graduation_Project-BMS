@@ -458,12 +458,12 @@ class BatteryMonitoringService : Service() {
                 // 마지막으로 종료 완료된 세션 ID 저장
                 preferenceManager.saveLastSessionId(currentSessionId)
 
-                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (예: 600개 미만, 약 20분 이하 충전 시)
-                if (sessionLogs.size < 600) {
+                // 🛡️ [방어 로직] 수집된 로그가 너무 적은 경우 (단일 세션 SOH 최소 조건 10개 미만, 약 20초 충전 시)
+                if (sessionLogs.size < 10) {
                     Log.w("BatteryService", "수집 데이터 부족으로 SOH 예측을 생략하고 세션만 종료합니다. (수집 건수: ${sessionLogs.size}건)")
                     showDiagnosisResultNotification(
                         title = "AI 배터리 진단 중단 ⚠️",
-                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 20분 이상 충전을 유지해 주세요."
+                        message = "충전 시간이 너무 짧아 데이터가 부족합니다. 최소 20초 이상 충전을 유지해 주세요."
                     )
                     return@runCatching
                 }
@@ -494,7 +494,7 @@ class BatteryMonitoringService : Service() {
                     val rawMsg = error.message ?: ""
                     val friendlyMessage = when {
                         rawMsg.contains("at least 3 valid charging sessions") || rawMsg.contains("charging sessions") -> {
-                            "AI 진단을 위해 최소 3회 이상의 유효한 충전 데이터 수집이 필요합니다. (현재 수집된 세션: 0개)\n보조배터리를 충전기에 20분 이상 연결해 진단을 3번 완료해 주세요."
+                            "AI 분석을 위한 충전 데이터가 아직 충분하지 않습니다. 신뢰도 높은 개인화 진단을 위해 보조배터리를 20분 이상 충전하는 과정을 반복해 주세요."
                         }
                         else -> "진단 데이터를 분석하는 도중 오류가 발생했습니다. (사유: ${error.message})"
                     }

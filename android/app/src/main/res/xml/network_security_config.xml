@@ -2,7 +2,7 @@
 <network-security-config>
     <!-- 실제 백엔드 서버 주소 -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">3.37.77.102</domain>
+        <domain includeSubdomains="true">43.203.28.250</domain>
     </domain-config>
 
     <!-- 로컬 개발 환경 (에뮬레이터) -->
