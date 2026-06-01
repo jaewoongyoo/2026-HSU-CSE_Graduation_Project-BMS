@@ -110,6 +110,18 @@ class DashboardViewModel(
                 }.onFailure { error ->
                     Log.e("DashboardViewModel", "서버 최신 결과 조회 실패: ${error.message}")
                 }
+            } else if (targetDeviceId > 0) {
+                // 앱 삭제 후 재설치 등으로 로컬 세션 ID가 0인 경우, 기기별 최신 완료 세션 결과를 서버로부터 역조회합니다.
+                authRepository.getLatestDeviceResult(targetDeviceId).onSuccess { response ->
+                    _lastAnalysisResult.value = response
+                    // 로컬 캐시(세션 ID 및 결과) 복구
+                    preferenceManager.saveLastSessionId(response.id, targetDeviceId)
+                    preferenceManager.saveLastSessionResult(response, targetDeviceId)
+                    Log.d("DashboardViewModel", "서버 최신 기기 결과 역조회 완료 및 로컬 캐시 복구 (기기 $targetDeviceId): session=${response.id}, SOH=${response.soh_percentage}%")
+                }.onFailure { error ->
+                    Log.d("DashboardViewModel", "서버 최신 기기 결과 없음 (신규 기기 또는 진단 이력 없음): ${error.message}")
+                    _lastAnalysisResult.value = null
+                }
             }
         }
     }
@@ -244,6 +256,19 @@ class DashboardViewModel(
         if (device.id <= 0) {
             viewModelScope.launch {
                 _events.emit(DashboardUiEvent.ShowMessage("서버에 등록되지 않은 기기는 공유할 수 없습니다.", isError = true))
+            }
+            return
+        }
+
+        val analysisResult = _lastAnalysisResult.value
+        if (analysisResult == null) {
+            viewModelScope.launch {
+                _events.emit(
+                    DashboardUiEvent.ShowMessage(
+                        "아직 배터리 진단 결과가 존재하지 않습니다. 먼저 기기를 충전 전원에 20초 이상 연결하여 첫 AI 진단을 완료해 주세요.",
+                        isError = true
+                    )
+                )
             }
             return
         }

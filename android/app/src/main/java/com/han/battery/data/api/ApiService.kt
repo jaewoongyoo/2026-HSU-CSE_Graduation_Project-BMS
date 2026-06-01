@@ -395,6 +395,17 @@ class ApiService(private val baseUrl: String = DevConfig.API_BASE_URL) {
         response.body()
     }
 
+    suspend fun getLatestDeviceResult(deviceId: Int): Result<SessionResultResponse> = runCatching {
+        Log.d("ApiService", "기기 최신 결과 조회 API 호출: GET $baseUrl/api/v1/devices/$deviceId/latest-result")
+        val response = client.get("$baseUrl/api/v1/devices/$deviceId/latest-result")
+        if (!response.status.isSuccess()) {
+            val errorBody = response.bodyAsText()
+            Log.e("ApiService", "기기 최신 결과 조회 실패: ${response.status.value} - $errorBody")
+            throw Exception("${response.status.value}: $errorBody")
+        }
+        response.body()
+    }
+
     suspend fun getBatteriesForUser(userId: String): Result<List<BatteryResponse>> = runCatching {
         Log.d("ApiService", "사용자 기기 목록 조회 API 호출: GET $baseUrl/api/v1/devices/$userId")
         val response = client.get("$baseUrl/api/v1/devices/$userId")

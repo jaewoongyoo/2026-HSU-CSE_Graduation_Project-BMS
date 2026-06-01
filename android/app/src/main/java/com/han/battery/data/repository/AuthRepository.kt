@@ -583,4 +583,16 @@ class AuthRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun getLatestDeviceResult(deviceId: Int): Result<SessionResultResponse> {
+        return try {
+            AppLogger.info("기기 최신 결과 조회: deviceId=$deviceId", TAG)
+            val response = apiService.getLatestDeviceResult(deviceId).getOrThrow()
+            AppLogger.info("기기 최신 결과 조회 성공: $response", TAG)
+            Result.success(response)
+        } catch (e: Exception) {
+            AppLogger.error("기기 최신 결과 조회 실패: deviceId=$deviceId", e, TAG)
+            Result.failure(e)
+        }
+    }
 }
