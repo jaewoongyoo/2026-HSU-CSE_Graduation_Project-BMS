@@ -277,51 +277,54 @@ class BatteryMonitoringService : Service() {
             Log.d("BatteryService", "수집 시작 시 충전 공급원 plugged type: $startPluggedType")
 
             while (isActive) {
-                val log = BatteryUtils.getCurrentBatteryState(applicationContext)
-                repository.insertLog(log)
-                collectedCount++
-                
-                // 실시간 수집 통계 갱신 (pending 건수 계산)
-                val currentStats = telemetryStats.value
-                val newPending = collectedCount - currentStats.mqttSuccess - currentStats.httpSuccess
-                telemetryStats.value = currentStats.copy(
-                    totalCollected = collectedCount,
-                    pending = newPending.coerceAtLeast(0)
-                )
-                
-                val currentPlugged = getPluggedType(applicationContext)
-                
-                if (!log.isCharging || currentPlugged == 0) {
-                    Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
-                    shouldFinishSessionOnDestroy = true
-                    preferenceManager.setMonitoringManuallyStopped(false)
-                    preferenceManager.setMonitoringActive(false)
+                try {
+                    val log = BatteryUtils.getCurrentBatteryState(applicationContext)
+                    repository.insertLog(log)
+                    collectedCount++
                     
-                    showDiagnosisResultNotification(
-                        title = "충전이 중단되었습니다",
-                        message = "케이블 분리가 감지되어 배터리 진단을 조기 종료하고 분석을 진행합니다."
+                    // 실시간 수집 통계 갱신 (pending 건수 계산)
+                    val currentStats = telemetryStats.value
+                    val newPending = collectedCount - currentStats.mqttSuccess - currentStats.httpSuccess
+                    telemetryStats.value = currentStats.copy(
+                        totalCollected = collectedCount,
+                        pending = newPending.coerceAtLeast(0)
                     )
                     
-                    stopSelf()
-                    break
-                }
-
-
-                val now = System.currentTimeMillis()
-                if (now - lastUpdateTs >= 10000) {
-                    val targetCount = 900 // 권장 수집 목표 (30분, 2초 주기 = 900건)
-                    val minTargetCount = 600 // 최소 수집 목표 (20분, 2초 주기 = 600건)
-                    val progressPercent = ((collectedCount.toFloat() / targetCount.toFloat()) * 100).toInt().coerceAtMost(100)
+                    val currentPlugged = getPluggedType(applicationContext)
                     
-                    val progressText = when {
-                        collectedCount >= targetCount -> "권장 진단 완료! (종료하셔도 좋습니다)"
-                        collectedCount >= minTargetCount -> "최소 진단 가능 ($progressPercent%) | 신뢰도를 높이려면 더 충전하세요."
-                        else -> "진단 분석 중: $progressPercent% (최소 20분 충전 필요)"
+                    if (!log.isCharging || currentPlugged == 0) {
+                        Log.d("BatteryService", "충전 종료 상태 감지 → 모니터링 서비스를 종료합니다.")
+                        shouldFinishSessionOnDestroy = true
+                        preferenceManager.setMonitoringManuallyStopped(false)
+                        preferenceManager.setMonitoringActive(false)
+                        
+                        showDiagnosisResultNotification(
+                            title = "충전이 중단되었습니다",
+                            message = "케이블 분리가 감지되어 배터리 진단을 조기 종료하고 분석을 진행합니다."
+                        )
+                        
+                        stopSelf()
+                        break
                     }
-                    
-                    val statusText = "$progressText\n배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
-                    updateForegroundNotification(statusText)
-                    lastUpdateTs = now
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpdateTs >= 10000) {
+                        val targetCount = 900 // 권장 수집 목표 (30분, 2초 주기 = 900건)
+                        val minTargetCount = 600 // 최소 수집 목표 (20분, 2초 주기 = 600건)
+                        val progressPercent = ((collectedCount.toFloat() / targetCount.toFloat()) * 100).toInt().coerceAtMost(100)
+                        
+                        val progressText = when {
+                            collectedCount >= targetCount -> "권장 진단 완료! (종료하셔도 좋습니다)"
+                            collectedCount >= minTargetCount -> "최소 진단 가능 ($progressPercent%) | 신뢰도를 높이려면 더 충전하세요."
+                            else -> "진단 분석 중: $progressPercent% (최소 20분 충전 필요)"
+                        }
+                        
+                        val statusText = "$progressText\n배터리: ${log.level}%, 전류: ${log.current.toInt()}mA (수집: ${collectedCount}건)"
+                        updateForegroundNotification(statusText)
+                        lastUpdateTs = now
+                    }
+                } catch (e: Exception) {
+                    Log.e("BatteryService", "Telemetry 수집 주기 중 비정상적인 예외 발생! ⚠️ 수집은 유지합니다.", e)
                 }
 
                 delay(2000)
@@ -513,18 +516,26 @@ class BatteryMonitoringService : Service() {
     private fun calculateCapacityAh(logs: List<com.han.battery.data.model.BatteryLog>): Double {
         if (logs.size < 2) return 0.0
 
-        val averageAbsCurrent = logs.map { abs(it.current) }.average()
+        var sum = 0.0
+        for (i in logs.indices) {
+            sum += abs(logs[i].current)
+        }
+        val averageAbsCurrent = sum / logs.size
         val currentValuesAreAmps = averageAbsCurrent < 20.0
 
-        return logs.zipWithNext().sumOf { (previous, next) ->
+        var capacitySum = 0.0
+        for (i in 0 until logs.size - 1) {
+            val previous = logs[i]
+            val next = logs[i + 1]
             val deltaHours = (next.timestamp - previous.timestamp).coerceAtLeast(0L) / 3_600_000.0
             val currentA = if (currentValuesAreAmps) {
                 abs(previous.current)
             } else {
                 abs(previous.current) / 1000.0
             }
-            currentA * deltaHours
+            capacitySum += currentA * deltaHours
         }
+        return capacitySum
     }
 
     private fun getPluggedType(context: Context): Int {
