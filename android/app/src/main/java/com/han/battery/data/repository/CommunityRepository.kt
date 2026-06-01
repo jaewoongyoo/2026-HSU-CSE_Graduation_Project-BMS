@@ -60,6 +60,18 @@ class CommunityRepository(
         return apiService.deleteShare(sharedReportId)
     }
 
+    suspend fun getSohHistory(sharedReportId: Int): Result<List<Int>> {
+        return apiService.getCommunitySohHistory(sharedReportId)
+            .mapCatching { response ->
+                response.points.map { point ->
+                    point.soh_percentage.roundToInt().coerceIn(0, 100)
+                }
+            }
+            .onFailure { error ->
+                AppLogger.error("커뮤니티 SOH 이력 조회 실패", error, TAG)
+            }
+    }
+
     private fun CommunityCardResponse.toPerformancePost(): BatteryPerformancePost {
         val soh = efficiency_stats.soh_percentage?.roundToInt()
         val manufacturer = device.manufacturer?.ifBlank { null }
@@ -79,19 +91,9 @@ class CommunityRepository(
             estimatedSoh = soh,
             efficiencyPct = efficiency_stats.efficiency_pct,
             meanTemperatureC = efficiency_stats.mean_temperature_c,
-            sohHistory = generateMockSohHistory(soh),
+            sohHistory = emptyList(),
             comment = buildComment(),
             createdAt = created_at.toDisplayDate()
-        )
-    }
-
-    private fun generateMockSohHistory(currentSoh: Int?): List<Int> {
-        if (currentSoh == null) return emptyList()
-        return listOf(
-            (currentSoh + 3).coerceAtMost(100),
-            (currentSoh + 2).coerceAtMost(100),
-            (currentSoh + 1).coerceAtMost(100),
-            currentSoh
         )
     }
 
