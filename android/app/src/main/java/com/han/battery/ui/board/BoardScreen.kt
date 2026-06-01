@@ -81,12 +81,14 @@ fun BoardScreen(
     onCategorySelected: (BoardFilterCategory) -> Unit,
     onFilterSelected: (String) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
+    onPostSelected: (BatteryPerformancePost) -> Unit,
     onDeletePost: (Int) -> Unit,
     onNavigateToHome: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedPost by remember { mutableStateOf<BatteryPerformancePost?>(null) }
+    var selectedPostId by remember { mutableStateOf<String?>(null) }
+    val selectedPost = uiState.posts.firstOrNull { it.id == selectedPostId }
     val isDark = isSystemInDarkTheme()
 
     val bgGradient = if (isDark) {
@@ -161,17 +163,19 @@ fun BoardScreen(
                                 post = post,
                                 currentUserName = uiState.currentUserName,
                                 onDeletePost = onDeletePost,
-                                onClick = { selectedPost = post }
+                                onClick = {
+                                    selectedPostId = post.id
+                                    onPostSelected(post)
+                                }
                             )
                         }
                     }
                 }
 
                 // 상세 보기 다이얼로그 추가
-                if (selectedPost != null) {
-                    val post = selectedPost!!
+                selectedPost?.let { post ->
                     AlertDialog(
-                        onDismissRequest = { selectedPost = null },
+                        onDismissRequest = { selectedPostId = null },
                         title = {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -184,7 +188,7 @@ fun BoardScreen(
                                     fontSize = 20.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                IconButton(onClick = { selectedPost = null }) {
+                                IconButton(onClick = { selectedPostId = null }) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = "닫기",
@@ -258,7 +262,7 @@ fun BoardScreen(
                             }
                         },
                         confirmButton = {
-                            TextButton(onClick = { selectedPost = null }) {
+                            TextButton(onClick = { selectedPostId = null }) {
                                 Text("확인")
                             }
                         },
