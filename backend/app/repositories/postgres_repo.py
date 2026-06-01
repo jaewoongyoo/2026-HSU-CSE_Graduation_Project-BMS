@@ -329,6 +329,26 @@ def get_latest_ai_result(db: Session, session_id: int) -> Optional[BatteryAiResu
     )
 
 
+def get_latest_finished_session_for_device(
+    db: Session,
+    device_id: int,
+) -> Optional[BatterySession]:
+    """디바이스의 최신 완료된 세션 조회"""
+    return (
+        db.query(BatterySession)
+        .filter(
+            BatterySession.device_id == device_id,
+            BatterySession.status == "finished",
+        )
+        .order_by(
+            BatterySession.session_end_ts.desc().nullslast(),
+            BatterySession.created_at.desc().nullslast(),
+            BatterySession.id.desc(),
+        )
+        .first()
+    )
+
+
 def delete_user_by_id(db: Session, user_id: int) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
