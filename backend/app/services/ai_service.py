@@ -179,6 +179,10 @@ def _build_valid_ai_session_input(raw_points) -> dict | None:
     return {
         "cycle_records": cycle_records,
         "start_battery_level_pct": _get_start_battery_level_pct(raw_points),
+        # raw 포인트 전체로 적분한 전달 에너지(Wh).
+        # AI 서버가 10분 집계점(cycle_records)으로 재적분하면 해상도 손실로
+        # normalized_wh_per_pct 기울기 노이즈가 커지므로, 고해상도 값을 직접 전달한다.
+        "delivered_wh": _calculate_delivered_wh(raw_points),
     }
 
 

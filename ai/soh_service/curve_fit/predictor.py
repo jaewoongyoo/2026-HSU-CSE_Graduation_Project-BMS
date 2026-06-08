@@ -48,6 +48,10 @@ class UserSessionInput:
 
     samples: list[TelemetrySample]
     start_battery_level_pct: float
+    # backend가 raw 포인트 전체로 적분해 전달한 고해상도 Wh.
+    # None이면 10분 집계점(samples)으로 적분(하위호환). 값이 있으면 이 값을 우선 사용해
+    # 집계 해상도 손실로 인한 기울기 노이즈를 줄인다.
+    delivered_wh_override: float | None = None
 
 
 @dataclass(frozen=True)
@@ -252,7 +256,11 @@ class CurveFitPredictor:
             )
 
         duration_s = samples[-1].time_s - samples[0].time_s
-        delivered_wh = _integrate_delivered_wh(samples)
+        delivered_wh = (
+            session.delivered_wh_override
+            if session.delivered_wh_override is not None
+            else _integrate_delivered_wh(samples)
+        )
 
         is_fast = _is_fast_charging_samples(samples)
         min_duration_s = MIN_FAST_CHARGE_DURATION_S if is_fast else MIN_SESSION_DURATION_S

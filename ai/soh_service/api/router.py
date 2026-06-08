@@ -62,6 +62,15 @@ class SessionInput(BaseModel):
         le=100.0,
         description="세션 시작 시 스마트폰 배터리 잔량 (%). 85% 초과 세션은 자동 제외됨.",
     )
+    delivered_wh: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "raw 텔레메트리 전체로 적분한 전달 에너지 (Wh). "
+            "제공 시 10분 집계점(cycle_records) 재적분 대신 이 고해상도 값을 사용해 "
+            "기울기 노이즈를 줄인다. 미제공 시 cycle_records로 적분(하위호환)."
+        ),
+    )
 
 
 class MultiSessionPredictRequest(BaseModel):
@@ -183,6 +192,7 @@ def predict_soh_multi(
                     for record in session.cycle_records
                 ],
                 start_battery_level_pct=session.start_battery_level_pct,
+                delivered_wh_override=session.delivered_wh,
             )
             for session in request.sessions
         ]
