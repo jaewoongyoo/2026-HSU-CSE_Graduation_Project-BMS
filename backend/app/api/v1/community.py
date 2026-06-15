@@ -94,6 +94,9 @@ def share_device(
     - **device_id**: 공유할 디바이스 ID
     - **is_public**: 공개 여부 (기본값: true)
     """
+    if request.device_id != device_id:
+        raise HTTPException(status_code=400, detail="Path device_id and body device_id must match")
+
     try:
         return share_device_service(db, request)
     except ValueError as exc:
